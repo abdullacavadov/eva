@@ -221,7 +221,7 @@ class JarvisLive:
             return
         self.ui.write_log(f"Siz: {text}")
         if not self._loop or not self.session:
-            self.ui.write_log("ERR: JARVIS bağlantısı henüz hazır değil.")
+            self.ui.write_log("ERR: E.V.A bağlantısı hələki hazır deyil.")
             return
         asyncio.run_coroutine_threadsafe(
             self.session.send_client_content(

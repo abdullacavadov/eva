@@ -860,7 +860,7 @@ class JarvisUI:
             highlightbackground=C_DIM,
         )
         self._debug_text.tag_config("info", foreground=C_TEXT)
-        self._debug_text.tag_config("warn", foreground=C_GOLD)
+        self._debug_text.tag_config("warn", foreground=C_ORG)
         self._debug_text.tag_config("err", foreground=C_RED)
         self._debug_text.configure(state="disabled")
         self._draw_settings_tabs()
@@ -1690,11 +1690,11 @@ class JarvisUI:
         self.is_typing = True
         text = self.typing_queue.popleft()
         tl = text.lower()
-        if tl.startswith("siz:") or tl.startswith("you:"):
+        if tl.startswith("Siz:") or tl.startswith("you:"):
             tag = "you"
         elif tl.startswith("E.V.A:") or tl.startswith("ai:"):
             tag = "ai"
-        elif tl.startswith("err:") or "error" in tl:
+        elif tl.startswith("Err:") or "error" in tl:
             tag = "err"
         else:
             tag = "sys"
