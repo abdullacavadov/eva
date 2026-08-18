@@ -1,5 +1,5 @@
 """
-JARVIS Windows — UI v3
+EVA Windows — UI v3
 Concentric teal rings · Segmented arcs
 """
 
