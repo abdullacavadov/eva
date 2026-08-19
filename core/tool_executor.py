@@ -19,6 +19,7 @@ from actions.calendar import (
     delete_calendar_event,
 )
 from actions.reminders import get_reminders, add_reminder
+from actions.email import search_emails, read_email
 from actions.browser import browser_control
 from actions.shell import shell_run
 from actions.whatsapp import send_whatsapp_message, save_whatsapp_contact
@@ -26,6 +27,15 @@ from actions.media import play_media
 from actions.weather import get_weather_summary
 from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
+
+# main.py imports ToolExecutor before TOOL_DECLARATIONS. Registering here keeps
+# the existing tool registry intact while adding the Gmail read-only tools.
+import tool_defs as _tool_defs
+from core.email_tool_defs import EMAIL_TOOL_DECLARATIONS
+
+for _declaration in EMAIL_TOOL_DECLARATIONS:
+    if not any(item.get("name") == _declaration["name"] for item in _tool_defs.TOOL_DECLARATIONS):
+        _tool_defs.TOOL_DECLARATIONS.append(_declaration)
 
 
 class ToolExecutor:
@@ -203,6 +213,23 @@ class ToolExecutor:
                     ),
                 )
                 result = r or "Xatırladıcı əlavə edildi."
+
+            elif name == "get_emails":
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: search_emails(
+                        args.get("query", ""),
+                        int(args.get("limit", 10) or 10),
+                    ),
+                )
+                result = r or "Email məlumatı alındı."
+
+            elif name == "read_email":
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: read_email(args.get("message_id", "")),
+                )
+                result = r or "Email oxundu."
 
             elif name == "browser_control":
                 r = await loop.run_in_executor(
