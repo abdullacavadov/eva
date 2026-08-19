@@ -5,7 +5,8 @@ from integrations.google import contacts
 
 def test_get_google_contacts_reads_all_pages():
     service = MagicMock()
-    service.people().connections().list().execute.side_effect = [
+    list_method = service.people().connections().list
+    list_method().execute.side_effect = [
         {
             "connections": [
                 {
@@ -44,4 +45,4 @@ def test_get_google_contacts_reads_all_pages():
             "phones": ["+994559041494"],
         },
     ]
-    assert service.people().connections().list.call_count == 2
+    assert list_method.call_count == 2
