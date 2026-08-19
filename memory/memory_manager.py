@@ -114,23 +114,35 @@ def delete_memory(category: str = "", key: str = "", match_text: str = "") -> st
     if not needle:
         return "Silmek icin category/key veya match_text gerekli."
 
+    matches = []
     for cat, bucket in list(mem.items()):
         if not isinstance(bucket, dict):
             if _entry_matches(needle, cat, cat, bucket):
-                del mem[cat]
-                _write_memory(mem)
-                return f"{cat} hafizadan kaldirildi."
+                matches.append((cat, None))
             continue
 
         for item_key, item_value in list(bucket.items()):
             if _entry_matches(needle, cat, item_key, item_value):
-                del bucket[item_key]
-                if not bucket:
-                    mem.pop(cat, None)
-                _write_memory(mem)
-                return f"{cat}/{item_key} hafizadan kaldirildi."
+                matches.append((cat, item_key))
 
-    return "Eslestigim bir hafiza kaydi bulamadim."
+    if not matches:
+        return "Eslestigim bir hafiza kaydi bulamadim."
+
+    if len(matches) > 1:
+        return "Birden fazla hafiza kaydi eslesti; silme islemi yapilmadi."
+
+    cat, item_key = matches[0]
+    if item_key is None:
+        del mem[cat]
+        _write_memory(mem)
+        return f"{cat} hafizadan kaldirildi."
+
+    bucket = mem[cat]
+    del bucket[item_key]
+    if not bucket:
+        mem.pop(cat, None)
+    _write_memory(mem)
+    return f"{cat}/{item_key} hafizadan kaldirildi."
 
 
 def format_memory_for_prompt(memory: dict) -> str:
