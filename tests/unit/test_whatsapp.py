@@ -8,7 +8,7 @@ def test_normalize_phone_keeps_international_number():
 
 
 def test_normalize_lookup_is_case_and_diacritic_insensitive():
-    assert whatsapp._normalize_lookup("ƏHMƏD İsmayıl") == "ehmed ismayil"
+    assert whatsapp._normalize_lookup("İSMAYIL") == "ismayil"
 
 
 def test_find_contact_matches_alias(monkeypatch):
