@@ -92,3 +92,26 @@ def test_add_reminder_creates_task(mock_create, mock_resolve):
         task_list_id="default",
     )
     assert "əlavə edildi" in result
+
+
+@patch("actions.reminders.resolve_task_list_id", return_value="default")
+@patch("actions.reminders.create_task")
+def test_add_reminder_all_day_normalizes_due_to_local_midnight(
+    mock_create, mock_resolve
+):
+    mock_create.return_value = {"title": "Test"}
+
+    result = add_reminder(
+        "Test",
+        due_iso="2026-08-20T15:30:00+04:00",
+        all_day=True,
+    )
+
+    mock_resolve.assert_called_once_with("")
+    mock_create.assert_called_once_with(
+        title="Test",
+        due_iso="2026-08-20T00:00:00+04:00",
+        notes="",
+        task_list_id="default",
+    )
+    assert "əlavə edildi" in result
