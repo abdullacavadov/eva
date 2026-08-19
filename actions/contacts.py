@@ -30,6 +30,8 @@ def _normalize_phone(phone_number: str) -> str:
     digits = re.sub(r"\D+", "", phone_number or "")
     if len(digits) == 11 and digits.startswith("0"):
         digits = "994" + digits[1:]
+    elif len(digits) == 10 and digits.startswith("0"):
+        digits = "994" + digits[1:]
     elif len(digits) == 10:
         digits = "994" + digits
     if len(digits) < 8 or len(digits) > 15:
