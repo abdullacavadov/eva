@@ -54,6 +54,42 @@ def test_list_tasks(mock_get_service):
 
 
 @patch("integrations.google.tasks.get_tasks_service")
+def test_list_tasks_follows_pagination_until_limit(mock_get_service):
+    service = mock_service()
+    service.tasks.return_value.list.return_value.execute.side_effect = [
+        {
+            "items": [{"id": "task-1", "title": "First"}],
+            "nextPageToken": "page-2",
+        },
+        {
+            "items": [{"id": "task-2", "title": "Second"}],
+        },
+    ]
+    mock_get_service.return_value = service
+
+    result = list_tasks("default", max_results=2)
+
+    assert result == [
+        {"id": "task-1", "title": "First"},
+        {"id": "task-2", "title": "Second"},
+    ]
+    calls = service.tasks.return_value.list.call_args_list
+    assert calls[0].kwargs == {
+        "tasklist": "default",
+        "maxResults": 2,
+        "showCompleted": False,
+        "showHidden": False,
+    }
+    assert calls[1].kwargs == {
+        "tasklist": "default",
+        "maxResults": 1,
+        "showCompleted": False,
+        "showHidden": False,
+        "pageToken": "page-2",
+    }
+
+
+@patch("integrations.google.tasks.get_tasks_service")
 def test_create_task(mock_get_service):
     service = mock_service()
     service.tasks.return_value.insert.return_value.execute.return_value = {
