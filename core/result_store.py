@@ -16,6 +16,7 @@ class ResultStore:
         self.max_results = max_results
         self._results: dict[str, ResultContext] = {}
         self._order: list[str] = []
+        self._selected: dict[str, str] = {}
 
     def save(self, result: dict) -> str:
         self._cleanup()
@@ -24,7 +25,9 @@ class ResultStore:
         self._results[result_id] = context
         self._order.append(result_id)
         while len(self._order) > self.max_results:
-            self._results.pop(self._order.pop(0), None)
+            removed_id = self._order.pop(0)
+            self._results.pop(removed_id, None)
+            self._selected.pop(removed_id, None)
         return result_id
 
     def get(self, result_id: str) -> ResultContext | None:
@@ -37,9 +40,29 @@ class ResultStore:
             return None
         return self._results.get(self._order[-1])
 
+    def select(self, result_id: str, item_id: str) -> dict:
+        context = self.get(result_id)
+        if context is None:
+            raise KeyError(result_id)
+        item = next((item for item in context.data if item.get("id") == item_id), None)
+        if item is None:
+            raise KeyError(item_id)
+        self._selected[result_id] = item_id
+        return item
+
+    def selected(self, result_id: str | None = None) -> dict | None:
+        context = self.get(result_id) if result_id else self.current()
+        if context is None:
+            return None
+        item_id = self._selected.get(context.result_id)
+        if item_id is None:
+            return None
+        return next((item for item in context.data if item.get("id") == item_id), None)
+
     def clear(self) -> None:
         self._results.clear()
         self._order.clear()
+        self._selected.clear()
 
     def _cleanup(self) -> None:
         now = datetime.now(timezone.utc)
@@ -49,3 +72,8 @@ class ResultStore:
             if result_id in self._results and not self._results[result_id].is_expired(now)
         ]
         self._results = {result_id: self._results[result_id] for result_id in self._order}
+        self._selected = {
+            result_id: item_id
+            for result_id, item_id in self._selected.items()
+            if result_id in self._results
+        }
