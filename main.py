@@ -10,15 +10,24 @@ import datetime
 import threading
 import traceback
 import os
-import time
 import re
-from pathlib import Path
 
 import pyaudio  # type: ignore[reportMissingModuleSource]
 from google import genai  # type: ignore[reportMissingImports]
 from google.genai import types  # type: ignore[reportMissingImports]
 
 from app_config import get_app_config_value
+from core.config import (
+    CHUNK_SIZE,
+    CHANNELS,
+    FORMAT,
+    LIVE_MODEL,
+    RECV_SAMPLE_RATE,
+    SEND_SAMPLE_RATE,
+    get_api_key,
+    load_system_prompt,
+)
+from core.webcam import WebcamStreamer
 from ui import JarvisUI
 from memory.memory_manager import load_memory, update_memory, delete_memory, format_memory_for_prompt
 from actions.open_app import open_app
@@ -38,137 +47,12 @@ try:
 except Exception:  # pyaudio yoksa veya mikrofon erisimi yoksa uygulama yine acilsin
     WakeGestureListener = None
 
-# ── Paths ───────────────────────────────────────────────────────────────────
-BASE_DIR        = Path(__file__).resolve().parent
-PROMPT_PATH     = BASE_DIR / "core" / "prompt.txt"
-
-
-# ── WebcamStreamer ──────────────────────────────────────────────────────────
-class WebcamStreamer:
-    """
-    Webcam'dan sürekli kare çeker ve en güncel JPEG'i bellekte tutar.
-    Queue yerine tek bir 'latest frame' yaklaşımı — eski kare birikimi olmaz.
-    """
-
-    JPEG_QUALITY = 72
-    MAX_DIM      = 640
-    WARMUP       = 6
-
-    def __init__(self):
-        self._latest: bytes | None = None
-        self._lock   = threading.Lock()
-        self._active = False
-        self._thread: threading.Thread | None = None
-
-    @property
-    def is_active(self) -> bool:
-        return self._active
-
-    def get_latest_frame(self) -> bytes | None:
-        """Thread-safe, her zaman en güncel kareyi döner."""
-        with self._lock:
-            return self._latest
-
-    def start(self) -> str:
-        with self._lock:
-            if self._active:
-                return "already_active"
-            self._active = True
-            self._latest = None
-        t = threading.Thread(target=self._run, daemon=True)
-        self._thread = t
-        t.start()
-        return "ok"
-
-    def stop(self):
-        with self._lock:
-            self._active = False
-            self._latest = None
-
-    def _run(self):
-        try:
-            import cv2
-        except ImportError:
-            print("[Webcam] opencv-python yüklü değil.")
-            with self._lock:
-                self._active = False
-            return
-
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            print("[Webcam] Kamera açılmadı.")
-            with self._lock:
-                self._active = False
-            return
-
-        # Isınma — sensörün otomatik pozlaması oturuncaya kadar bekle
-        for _ in range(self.WARMUP):
-            cap.read()
-
-        enc_params = [cv2.IMWRITE_JPEG_QUALITY, self.JPEG_QUALITY]
-
-        try:
-            while True:
-                with self._lock:
-                    if not self._active:
-                        break
-
-                ret, frame = cap.read()
-                if not ret:
-                    break
-
-                h, w = frame.shape[:2]
-                if max(h, w) > self.MAX_DIM:
-                    s = self.MAX_DIM / max(h, w)
-                    frame = cv2.resize(frame, (int(w * s), int(h * s)))
-
-                frame = cv2.flip(frame, 1)  # yatay ayna — hem UI hem AI tutarlı
-                ok, buf = cv2.imencode(".jpg", frame, enc_params)
-                if ok:
-                    with self._lock:
-                        self._latest = buf.tobytes()
-
-                # ~33 FPS yakala → 24 FPS UI her zaman taze kare bulur
-                time.sleep(0.03)
-        finally:
-            cap.release()
-            with self._lock:
-                self._active = False
-                self._latest = None
-            print("[Webcam] Kamera serbest bırakıldı.")
-
 
 CONTROL_TOKEN_RE = re.compile(r"<ctrl\d+>", re.IGNORECASE)
 
-# ── Model ───────────────────────────────────────────────────────────────────
-LIVE_MODEL = "models/gemini-2.5-flash-native-audio-latest"
+pya = pyaudio.PyAudio()
 
-# ── Audio ───────────────────────────────────────────────────────────────────
-FORMAT           = pyaudio.paInt16
-CHANNELS         = 1
-SEND_SAMPLE_RATE = 16000
-RECV_SAMPLE_RATE = 24000
-CHUNK_SIZE       = 1024
-pya              = pyaudio.PyAudio()
-
-# ── Tool tanımları — paylaşılan modülden ────────────────────────────────────
 from tool_defs import TOOL_DECLARATIONS
-
-
-def get_api_key() -> str:
-    return str(get_app_config_value("gemini_api_key", "") or "")
-
-
-def load_system_prompt() -> str:
-    try:
-        return PROMPT_PATH.read_text(encoding="utf-8")
-    except Exception:
-        return (
-            "Sən EVA-san — Windows-da çalışan şəxsi AI assistentsən. "
-            "Azərbaycan dilində danış. Qısa və aydın cavablar ver. "
-            "Tapşırıqları tamamlamaq üçün alətlərdən istifadə et, heç vaxt təqlid etmə."
-
-        )
 
 
 class JarvisLive:
@@ -331,7 +215,6 @@ class JarvisLive:
         return normalized.strip(), had_noise
 
     def _build_config(self) -> types.LiveConnectConfig:
-        import datetime
         memory  = load_memory()
         mem_str = format_memory_for_prompt(memory)
         sys_p   = load_system_prompt()
@@ -607,12 +490,11 @@ class JarvisLive:
             except Exception as e:
                 print(f"[Webcam] Frame gönderilemedi: {e}")
 
-            # 1.5 saniye bekle — model her zaman taze kare alır
             await asyncio.sleep(1.5)
 
     async def _update_ui_webcam_preview(self):
         """UI önizlemesini ~24 FPS günceller. AI akışından bağımsız."""
-        frame_interval = 1.0 / 24.0   # ~0.0417 sn → 24 FPS
+        frame_interval = 1.0 / 24.0
         while True:
             if self._webcam_streamer.is_active:
                 jpeg = self._webcam_streamer.get_latest_frame()
@@ -675,8 +557,6 @@ class JarvisLive:
                                 self.ui.mark_user_activity(True)
 
                         if sc.turn_complete:
-                            # Sentinel: ses kuyrugundaki tum chunk'lar calindiktan
-                            # sonra SPEAKING -> LISTENING gecisi yapilsin (yanki onlenir).
                             self.audio_in_queue.put_nowait(None)
 
                             full_in = " ".join(in_buf).strip()
@@ -729,7 +609,6 @@ class JarvisLive:
             while True:
                 chunk = await self.audio_in_queue.get()
                 if chunk is None:
-                    # turn_complete sentinel — tum ses calindi, dinlemeye gec
                     self.set_speaking(False)
                     continue
                 self.set_speaking(True)
@@ -744,15 +623,11 @@ class JarvisLive:
     async def run(self):
         connect_attempts = 0
         while True:
-            # Duraklatılmışsa bağlanma, bekle
             if self._paused:
                 await asyncio.sleep(1)
                 continue
 
             try:
-                # Client'ı her bağlanışta yeniden oluştur ve anahtarı tazeden oku.
-                # Böylece yeni girilen API anahtarı anında geçerli olur; ilk
-                # deneme başarısız olsa bile otomatik tekrar (3sn) kendini onarır.
                 client = genai.Client(
                     api_key=get_api_key(),
                     http_options={"api_version": "v1alpha"}
@@ -771,7 +646,7 @@ class JarvisLive:
                     self.out_queue      = asyncio.Queue(maxsize=10)
 
                     print("[E.V.A] ✅ Bağlandı.")
-                    connect_attempts = 0          # başarılı bağlantı → sayaç sıfırla
+                    connect_attempts = 0
                     self.ui.set_state("LISTENING")
                     self.ui.write_log("SYS: E.V.A hazırdır. Eşidirəm...")
 
@@ -786,15 +661,11 @@ class JarvisLive:
                 print(f"[E.V.A] ⚠️ {e}")
                 traceback.print_exc()
                 self.set_speaking(False)
-                # Webcam akışını durdur — yeni session'da yeniden başlayacak
                 if self._webcam_streamer.is_active:
                     self._webcam_streamer.stop()
                     self.ui.set_webcam_active(False)
 
                 connect_attempts += 1
-                # İlk birkaç deneme sessiz: yeni girilen API anahtarı Google
-                # tarafında saniyeler içinde aktifleşebilir. Kullanıcıya hemen
-                # "hatalı anahtar" göstermeyip kısa aralıkla otomatik tekrar dene.
                 if connect_attempts <= 3:
                     self.ui.set_state("INITIALISING")
                     print(f"[E.V.A] 🔄 Qoşulmağa təkrar cəhd edir ({connect_attempts}/3)...")
@@ -825,9 +696,6 @@ def main():
 
     threading.Thread(target=runner, daemon=True).start()
 
-    # Çift alkış ile uyandırma (Windows bonus): pencereyi öne getirir. Çevresel
-    # ses veya JARVIS'in kendi sesi mikrofona girince yanlış tetiklenip pencereyi
-    # sürekli öne çıkarabildiği için varsayılan KAPALI. İstersen True yap.
     ENABLE_CLAP_WAKE = False
     if ENABLE_CLAP_WAKE and WakeGestureListener is not None:
         try:
