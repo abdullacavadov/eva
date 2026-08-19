@@ -33,5 +33,18 @@ EMAIL_TOOL_DECLARATIONS = [
             },
             "required": ["message_id"]
         }
+    },
+    {
+        "name": "sync_google_contacts",
+        "description": (
+            "Google Contacts-dakı kontaktları local phone_book.json ilə sinxronizasiya edir. "
+            "Yalnız istifadəçi açıq şəkildə 'kontaktları sinxronizasiya et' və ya ekvivalent əmr verdikdə istifadə et. "
+            "WhatsApp mesajı göndərərkən bu aləti avtomatik çağırma. "
+            "Google Contacts-dan yalnız oxuyur; Google kontakt yaratmır, dəyişmir və silmir."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {}
+        }
     }
 ]

@@ -23,6 +23,7 @@ from actions.email import search_emails, read_email
 from actions.browser import browser_control
 from actions.shell import shell_run
 from actions.whatsapp import send_whatsapp_message, save_whatsapp_contact
+from actions.contacts import sync_google_contacts
 from actions.media import play_media
 from actions.weather import get_weather_summary
 from actions.screen_vision import analyze_screen
@@ -230,6 +231,10 @@ class ToolExecutor:
                     lambda: read_email(args.get("message_id", "")),
                 )
                 result = r or "Email oxundu."
+
+            elif name == "sync_google_contacts":
+                r = await loop.run_in_executor(None, sync_google_contacts)
+                result = r or "Google Contacts sinxronizasiyası tamamlandı."
 
             elif name == "browser_control":
                 r = await loop.run_in_executor(
