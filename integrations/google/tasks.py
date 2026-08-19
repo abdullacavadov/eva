@@ -22,11 +22,10 @@ def list_task_lists() -> list[dict[str, Any]]:
     page_token = None
 
     while True:
-        response = (
-            service.tasklists()
-            .list(pageToken=page_token)
-            .execute()
-        )
+        request = service.tasklists().list()
+        if page_token:
+            request = service.tasklists().list(pageToken=page_token)
+        response = request.execute()
         result.extend(response.get("items", []))
         page_token = response.get("nextPageToken")
         if not page_token:
@@ -57,17 +56,27 @@ def list_tasks(
     show_completed: bool = False,
 ) -> list[dict[str, Any]]:
     service = get_tasks_service()
-    response = (
-        service.tasks()
-        .list(
-            tasklist=task_list_id,
-            maxResults=max_results,
-            showCompleted=show_completed,
-            showHidden=False,
-        )
-        .execute()
-    )
-    return response.get("items", [])
+    target = max(1, min(int(max_results or 20), 100))
+    result: list[dict[str, Any]] = []
+    page_token = None
+
+    while len(result) < target:
+        kwargs = {
+            "tasklist": task_list_id,
+            "maxResults": min(100, target - len(result)),
+            "showCompleted": show_completed,
+            "showHidden": False,
+        }
+        if page_token:
+            kwargs["pageToken"] = page_token
+
+        response = service.tasks().list(**kwargs).execute()
+        result.extend(response.get("items", []))
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+
+    return result[:target]
 
 
 def create_task(
