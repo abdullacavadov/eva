@@ -35,7 +35,7 @@ TOOL_DECLARATIONS = [
     {
         "name": "get_weather",
         "description": (
-            "Cari hava vəziyyətini ümumiləşdirir. Defolt məkan İstanbul-dur. "
+            "Cari hava vəziyyətini ümumiləşdirir. Defolt məkan Bakı-dur. "
             "İstifadəçi hava vəziyyəti, temperatur və ya yağış barədə soruşduqda istifadə et."
         ),
         "parameters": {
@@ -43,7 +43,7 @@ TOOL_DECLARATIONS = [
             "properties": {
                 "location": {
                     "type": "STRING",
-                    "description": "Şəhər və ya məkan. Boş saxlanılarsa İstanbul istifadə olunur."
+                    "description": "Şəhər və ya məkan. Boş saxlanılarsa Bakı istifadə olunur."
                 }
             }
         }
