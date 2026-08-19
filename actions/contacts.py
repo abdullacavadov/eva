@@ -76,10 +76,14 @@ def _build_entry(contact: dict, phones: list[str], previous: dict | None = None)
     display_name = contact["display_name"]
     entry = dict(previous or {})
     entry["display_name"] = display_name
-    entry["value"] = f"+{phones[0]}"
-    entry["phones"] = [{"number": f"+{phone}"} for phone in phones]
+
+    previous_phones = set(_entry_phones(previous or {}))
+    if previous is None or previous_phones != set(phones):
+        entry["value"] = f"+{phones[0]}"
+        entry["phones"] = [{"number": f"+{phone}"} for phone in phones]
+
     resource_name = contact.get("resource_name")
-    if resource_name:
+    if resource_name and (previous is None or "google_resource_name" in previous):
         entry["google_resource_name"] = resource_name
     return entry
 
@@ -181,21 +185,18 @@ def sync_google_contacts() -> str:
                 continue
             seen_google_phones.update(unique_phone_set)
 
-            key, previous = _find_match(merged, {"display_name": display_name, "resource_name": resource_name}, phones)
+            normalized_contact = {
+                "display_name": display_name,
+                "resource_name": resource_name,
+            }
+            key, previous = _find_match(merged, normalized_contact, phones)
             if key is None:
                 key = _contact_key(display_name, phones[0], merged)
-                merged[key] = _build_entry(
-                    {"display_name": display_name, "resource_name": resource_name},
-                    phones,
-                )
+                merged[key] = _build_entry(normalized_contact, phones)
                 added += 1
                 continue
 
-            desired = _build_entry(
-                {"display_name": display_name, "resource_name": resource_name},
-                phones,
-                previous,
-            )
+            desired = _build_entry(normalized_contact, phones, previous)
             if desired == previous:
                 unchanged += 1
             else:
