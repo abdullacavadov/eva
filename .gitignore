@@ -11,10 +11,9 @@ __pycache__/
 memory/memory.json
 memory/phone_book.json
 
-# Google Calendar credentials
+# Google credentials
 config/google_credentials.json
-config/google_token.json
 
 #apis
-config/api_keys.example.json
+config/api_keys.json
 config/api_keys.json
