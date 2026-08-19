@@ -301,6 +301,7 @@ class ToolExecutor:
             had_exception = True
             traceback.print_exc()
             self.speak_error(name, e)
+            self.ui.set_state("ERROR")
 
         tool_failed = self.result_looks_like_error(result)
         if tool_failed:
