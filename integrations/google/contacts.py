@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 from integrations.google.auth import get_google_credentials
 
@@ -152,9 +153,25 @@ def update_google_contact(resource_name: str, display_name: str, phones: list[st
 
 
 def delete_google_contact(resource_name: str) -> None:
-    """Delete a Google Contact by its resource name only."""
+    """Delete a Google Contact and verify it is no longer readable."""
     if not resource_name.strip():
         raise ValueError("Google contact resource_name tələb olunur.")
 
+    resource_name = resource_name.strip()
     service = _get_people_service()
-    service.people().deleteContact(resourceName=resource_name.strip()).execute()
+    service.people().deleteContact(resourceName=resource_name).execute()
+
+    try:
+        service.people().get(
+            resourceName=resource_name,
+            personFields=PERSON_FIELDS,
+        ).execute()
+    except HttpError as exc:
+        status = getattr(exc.resp, "status", None)
+        if status == 404:
+            return
+        raise
+
+    raise RuntimeError(
+        f"Google kontaktı silinmədi: GET resource_name={resource_name} hələ uğurludur."
+    )
