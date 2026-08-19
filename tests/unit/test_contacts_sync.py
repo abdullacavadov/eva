@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from actions import contacts
@@ -118,6 +117,90 @@ def test_sync_preserves_local_only_contacts(monkeypatch, tmp_path):
     assert json.loads(path.read_text(encoding="utf-8")) == original
 
 
+def test_sync_removes_stale_google_managed_contact(monkeypatch, tmp_path):
+    original = {
+        "google_contact": {
+            "display_name": "Google Contact",
+            "value": "+994501111111",
+            "google_resource_name": "people/deleted",
+        },
+        "local": {"display_name": "Local", "value": "+994502222222"},
+    }
+    path = _write_phone_book(monkeypatch, tmp_path, original)
+    monkeypatch.setattr(contacts, "get_google_contacts", lambda: [])
+
+    result = contacts.sync_google_contacts()
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert "google_contact" not in data
+    assert "local" in data
+    assert "1 silinmiş" in result
+
+
+def test_reconcile_local_create_persists_google_identity(monkeypatch, tmp_path):
+    path = _write_phone_book(monkeypatch, tmp_path, {})
+
+    contacts._reconcile_local_create(
+        {
+            "display_name": "Test",
+            "resource_name": "people/c1",
+            "phones": ["+994501234567"],
+        }
+    )
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    entry = next(iter(data.values()))
+    assert entry["display_name"] == "Test"
+    assert entry["value"] == "+994501234567"
+    assert entry["google_resource_name"] == "people/c1"
+
+
+def test_reconcile_local_update_matches_existing_google_identity(monkeypatch, tmp_path):
+    original = {
+        "test": {
+            "display_name": "Old",
+            "value": "+994501234567",
+            "google_resource_name": "people/c1",
+            "aliases": ["T"],
+        }
+    }
+    path = _write_phone_book(monkeypatch, tmp_path, original)
+
+    contacts._reconcile_local_update(
+        {
+            "display_name": "Updated",
+            "resource_name": "people/c1",
+            "phones": ["+994559041494"],
+        }
+    )
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert list(data) == ["test"]
+    assert data["test"]["display_name"] == "Updated"
+    assert data["test"]["value"] == "+994559041494"
+    assert data["test"]["google_resource_name"] == "people/c1"
+    assert data["test"]["aliases"] == ["T"]
+
+
+def test_reconcile_local_delete_removes_only_matching_google_contact(monkeypatch, tmp_path):
+    original = {
+        "google": {
+            "display_name": "Google",
+            "value": "+994501111111",
+            "google_resource_name": "people/c1",
+        },
+        "local": {"display_name": "Local", "value": "+994502222222"},
+    }
+    path = _write_phone_book(monkeypatch, tmp_path, original)
+
+    removed = contacts._reconcile_local_delete("people/c1")
+
+    assert removed is True
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert "google" not in data
+    assert "local" in data
+
+
 def test_sync_does_not_corrupt_phone_book_on_google_error(monkeypatch, tmp_path):
     original = {"local": {"display_name": "Local", "value": "+994501111111"}}
     path = _write_phone_book(monkeypatch, tmp_path, original)
@@ -162,7 +245,7 @@ def test_tool_executor_dispatches_contact_sync():
 
     with patch(
         "core.tool_executor.sync_google_contacts",
-        return_value="Google Contacts sinxronizasiya edildi: 1 yeni, 0 yenilənmiş, 0 dəyişməyən kontakt. Local-only kontaktlar saxlanıldı.",
+        return_value="Google Contacts sinxronizasiya edildi: 1 yeni, 0 yenilənmiş, 0 silinmiş, 0 dəyişməyən kontakt. Local-only kontaktlar saxlanıldı.",
     ) as sync:
         response = asyncio.run(
             executor.execute(
