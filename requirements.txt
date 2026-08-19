@@ -1,4 +1,4 @@
-# JARVIS Windows — Gerekli paketler
+# EVA Windows — Gerekli paketler
 # Kurulum:  pip install -r requirements.txt
 
 google-genai                              # Gemini Live API (ses + araç çağrıları)
