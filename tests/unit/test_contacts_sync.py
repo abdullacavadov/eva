@@ -118,6 +118,26 @@ def test_sync_preserves_local_only_contacts(monkeypatch, tmp_path):
     assert json.loads(path.read_text(encoding="utf-8")) == original
 
 
+def test_sync_removes_stale_google_managed_contact(monkeypatch, tmp_path):
+    original = {
+        "google_contact": {
+            "display_name": "Google Contact",
+            "value": "+994501111111",
+            "google_resource_name": "people/deleted",
+        },
+        "local": {"display_name": "Local", "value": "+994502222222"},
+    }
+    path = _write_phone_book(monkeypatch, tmp_path, original)
+    monkeypatch.setattr(contacts, "get_google_contacts", lambda: [])
+
+    result = contacts.sync_google_contacts()
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert "google_contact" not in data
+    assert "local" in data
+    assert "1 silinmiş" in result
+
+
 def test_sync_does_not_corrupt_phone_book_on_google_error(monkeypatch, tmp_path):
     original = {"local": {"display_name": "Local", "value": "+994501111111"}}
     path = _write_phone_book(monkeypatch, tmp_path, original)
@@ -162,7 +182,7 @@ def test_tool_executor_dispatches_contact_sync():
 
     with patch(
         "core.tool_executor.sync_google_contacts",
-        return_value="Google Contacts sinxronizasiya edildi: 1 yeni, 0 yenilənmiş, 0 dəyişməyən kontakt. Local-only kontaktlar saxlanıldı.",
+        return_value="Google Contacts sinxronizasiya edildi: 1 yeni, 0 yenilənmiş, 0 silinmiş, 0 dəyişməyən kontakt. Local-only kontaktlar saxlanıldı.",
     ) as sync:
         response = asyncio.run(
             executor.execute(
