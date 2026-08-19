@@ -20,6 +20,10 @@ SCOPES = [
 ]
 
 
+def _has_required_scopes(credentials: Credentials) -> bool:
+    return all(credentials.has_scopes([scope]) for scope in SCOPES)
+
+
 def get_google_credentials() -> Credentials:
     credentials = None
 
@@ -29,6 +33,8 @@ def get_google_credentials() -> Credentials:
                 str(TOKEN_FILE),
                 SCOPES,
             )
+            if not _has_required_scopes(credentials):
+                credentials = None
         except (json.JSONDecodeError, ValueError, OSError):
             credentials = None
 
@@ -53,6 +59,11 @@ def get_google_credentials() -> Credentials:
             port=0,
             access_type="offline",
             prompt="consent",
+        )
+
+    if not _has_required_scopes(credentials):
+        raise RuntimeError(
+            "Google OAuth üçün Calendar və Tasks scope-ları tələb olunur."
         )
 
     TOKEN_FILE.write_text(
