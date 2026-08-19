@@ -203,5 +203,8 @@ def update_contact(resource_name: str, display_name: str, phone_number: str) -> 
 
 def delete_contact(resource_name: str) -> str:
     """Delete a Google Contact using its known resource identity."""
-    delete_google_contact(resource_name)
-    return f"Google kontaktı silindi: {resource_name}."
+    result = delete_google_contact(resource_name)
+    return (
+        f"Google kontaktı silindi və GET verification ilə HTTP "
+        f"{result['verification_status']} təsdiqləndi: {result['resource_name']}."
+    )

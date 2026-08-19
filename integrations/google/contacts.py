@@ -152,7 +152,7 @@ def update_google_contact(resource_name: str, display_name: str, phones: list[st
     }
 
 
-def delete_google_contact(resource_name: str) -> None:
+def delete_google_contact(resource_name: str) -> dict:
     """Delete a Google Contact and verify it is no longer readable."""
     if not resource_name.strip():
         raise ValueError("Google contact resource_name tələb olunur.")
@@ -169,7 +169,11 @@ def delete_google_contact(resource_name: str) -> None:
     except HttpError as exc:
         status = getattr(exc.resp, "status", None)
         if status == 404:
-            return
+            return {
+                "resource_name": resource_name,
+                "deleted": True,
+                "verification_status": 404,
+            }
         raise
 
     raise RuntimeError(
