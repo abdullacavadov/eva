@@ -5,11 +5,24 @@ from googleapiclient.discovery import build
 from integrations.google.auth import get_google_credentials
 
 
+PERSON_FIELDS = "names,phoneNumbers"
+
+
+def _build_person(display_name: str, phones: list[str]) -> dict:
+    person = {"names": [{"displayName": display_name}]}
+    if phones:
+        person["phoneNumbers"] = [{"value": phone} for phone in phones]
+    return person
+
+
+def _get_people_service():
+    credentials = get_google_credentials()
+    return build("people", "v1", credentials=credentials, cache_discovery=False)
+
+
 def get_google_contacts() -> list[dict]:
     """Return Google Contacts as normalized name/phone/resource records."""
-    credentials = get_google_credentials()
-    service = build("people", "v1", credentials=credentials, cache_discovery=False)
-
+    service = _get_people_service()
     contacts: list[dict] = []
     page_token = None
 
@@ -21,7 +34,7 @@ def get_google_contacts() -> list[dict]:
                 resourceName="people/me",
                 pageSize=100,
                 pageToken=page_token,
-                personFields="names,phoneNumbers",
+                personFields=PERSON_FIELDS,
             )
             .execute()
         )
@@ -58,3 +71,73 @@ def get_google_contacts() -> list[dict]:
             break
 
     return contacts
+
+
+def create_google_contact(display_name: str, phones: list[str]) -> dict:
+    """Create a Google Contact and return its resource identity and fields."""
+    if not display_name.strip():
+        raise ValueError("Kontakt adı tələb olunur.")
+    if not phones:
+        raise ValueError("Ən azı bir telefon nömrəsi tələb olunur.")
+
+    service = _get_people_service()
+    response = (
+        service.people()
+        .createContact(
+            body=_build_person(display_name.strip(), phones),
+            personFields=PERSON_FIELDS,
+        )
+        .execute()
+    )
+    return {
+        "resource_name": str(response.get("resourceName") or ""),
+        "display_name": str((response.get("names") or [{}])[0].get("displayName") or display_name).strip(),
+        "phones": [
+            str(phone.get("value") or "").strip()
+            for phone in response.get("phoneNumbers") or []
+            if str(phone.get("value") or "").strip()
+        ],
+    }
+
+
+def update_google_contact(resource_name: str, display_name: str, phones: list[str]) -> dict:
+    """Update a Google Contact by its resource name only."""
+    if not resource_name.strip():
+        raise ValueError("Google contact resource_name tələb olunur.")
+    if not display_name.strip():
+        raise ValueError("Kontakt adı tələb olunur.")
+    if not phones:
+        raise ValueError("Ən azı bir telefon nömrəsi tələb olunur.")
+
+    service = _get_people_service()
+    response = (
+        service.people()
+        .updateContact(
+            resourceName=resource_name.strip(),
+            updatePersonFields=PERSON_FIELDS,
+            body={
+                "resourceName": resource_name.strip(),
+                **_build_person(display_name.strip(), phones),
+            },
+            personFields=PERSON_FIELDS,
+        )
+        .execute()
+    )
+    return {
+        "resource_name": str(response.get("resourceName") or resource_name).strip(),
+        "display_name": str((response.get("names") or [{}])[0].get("displayName") or display_name).strip(),
+        "phones": [
+            str(phone.get("value") or "").strip()
+            for phone in response.get("phoneNumbers") or []
+            if str(phone.get("value") or "").strip()
+        ],
+    }
+
+
+def delete_google_contact(resource_name: str) -> None:
+    """Delete a Google Contact by its resource name only."""
+    if not resource_name.strip():
+        raise ValueError("Google contact resource_name tələb olunur.")
+
+    service = _get_people_service()
+    service.people().deleteContact(resourceName=resource_name.strip()).execute()
