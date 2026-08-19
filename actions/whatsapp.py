@@ -10,7 +10,7 @@ import re
 import subprocess
 import time
 import unicodedata
-import urllib.parse 
+import urllib.parse
 import webbrowser
 from pathlib import Path
 
@@ -145,6 +145,42 @@ def _find_contact(recipient_name: str) -> dict | None:
     return best_match
 
 
+def _contact_phone_candidates(contact: dict) -> list[str]:
+    values = []
+    for key in ("value", "phone_number", "phone", "number", "mobile", "tel"):
+        value = contact.get(key)
+        if isinstance(value, (str, int)) and str(value).strip():
+            values.append(str(value).strip())
+
+    for key in ("numbers", "phones", "phone_numbers"):
+        value = contact.get(key)
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                if isinstance(item, (str, int)) and str(item).strip():
+                    values.append(str(item).strip())
+                elif isinstance(item, dict):
+                    for nested_key in ("value", "number", "phone", "phone_number", "mobile", "tel"):
+                        nested = item.get(nested_key)
+                        if isinstance(nested, (str, int)) and str(nested).strip():
+                            values.append(str(nested).strip())
+        elif isinstance(value, dict):
+            for nested_key in ("value", "number", "phone", "phone_number", "mobile", "tel"):
+                nested = value.get(nested_key)
+                if isinstance(nested, (str, int)) and str(nested).strip():
+                    values.append(str(nested).strip())
+
+    return values
+
+
+def _resolve_contact_phone(contact: dict) -> str:
+    for candidate in _contact_phone_candidates(contact):
+        try:
+            return _normalize_phone(candidate)
+        except ValueError:
+            continue
+    return ""
+
+
 def save_whatsapp_contact(display_name: str, phone_number: str, aliases: str = "") -> str:
     if not display_name or not display_name.strip():
         return "Kişi adı boş olamaz."
@@ -198,7 +234,6 @@ def _open_whatsapp_desktop_via_scheme(phone_number: str, message: str, include_t
     else:
         url = f"whatsapp://send?phone={phone_number}"
     try:
-        # os.startfile protokol şemasını cmd penceresi açmadan güvenilir başlatır
         os.startfile(url)  # type: ignore[attr-defined]
     except Exception:
         try:
@@ -223,7 +258,7 @@ def _open_whatsapp_web(phone_number: str, message: str, include_text: bool = Tru
 def _focus_whatsapp_window() -> None:
     """WhatsApp Desktop pəncərəsini önə gətirməyə çalışır (best-effort, pygetwindow)."""
     try:
-        import pygetwindow as gw  # pyautogui ile birlikte gelir
+        import pygetwindow as gw
     except Exception:
         return
     try:
@@ -243,12 +278,8 @@ def _focus_whatsapp_window() -> None:
         pass
 
 
-def _type_and_send(message: str, load_delay: float) -> tuple[bool, str]:
-    """
-    Söhbət açıldıqdan sonra mesajı mesaj qutusuna yazıb göndərir.
-
-    Mövcud draftın üstünə əlavə etməmək üçün əvvəlcə Ctrl+A edilir.
-    """
+def _send_prefilled_message(load_delay: float) -> tuple[bool, str]:
+    """Göndərmə üçün URI ilə əvvəlcədən doldurulmuş mesajı Enter ilə göndərir."""
     if not HAS_PYAUTOGUI:
         return False, "pyautogui quraşdırılmayıb — avtomatik göndəriş alınmadı."
 
@@ -256,18 +287,7 @@ def _type_and_send(message: str, load_delay: float) -> tuple[bool, str]:
         time.sleep(load_delay)
         _focus_whatsapp_window()
         time.sleep(0.6)
-
-        _copy_to_clipboard(message.strip())
-        time.sleep(0.3)
-
-        # Mövcud draftı seç və əvəz et.
-        pyautogui.hotkey("ctrl", "a")
-        time.sleep(0.2)
-        pyautogui.hotkey("ctrl", "v")
-        time.sleep(0.5)
-
         pyautogui.press("enter")
-
         return True, "ok"
     except Exception as exc:
         return False, str(exc)
@@ -298,19 +318,7 @@ def send_whatsapp_message(
     contact = _find_contact(resolved_name) if resolved_name else None
 
     if contact and not normalized_phone:
-        stored_phone = (
-            contact.get("value")
-            or contact.get("phone_number")
-            or contact.get("phone")
-            or contact.get("number")
-            or ""
-        )
-
-        try:
-            normalized_phone = _normalize_phone(str(stored_phone).strip())
-        except ValueError:
-            normalized_phone = ""
-
+        normalized_phone = _resolve_contact_phone(contact)
         resolved_name = (
             str(contact.get("display_name", resolved_name)).strip()
             or resolved_name
@@ -323,16 +331,16 @@ def send_whatsapp_message(
         if normalized_phone:
             source_note = " (kontaktdan tapııldı)" if contact_source == "phone_book" else ""
             label = resolved_name or f"+{normalized_phone}"
-            # send_now + pyautogui varsa: metni biz panodan yazıp göndereceğiz,
-            # bu yüzden URL'ye 'text' koyma (çift metin olmasın). Aksi halde URL ile ön-doldur.
-            include_text = not (send_now and HAS_PYAUTOGUI)
+            # URI text sahəsini istifadə edirik: draft da, birbaşa göndəriş də eyni
+            # mesaj məzmunundan başlayır. send_now üçün ayrıca typing etmədiyimizə
+            # görə mövcud draftın üstünə ikinci dəfə mətn yazılmır.
             ok, detail = _open_whatsapp_desktop_via_scheme(
-                normalized_phone, message, include_text=include_text
+                normalized_phone, message, include_text=True
             )
             if ok:
                 if not send_now:
                     return f"WhatsApp Desktop içində {label}{source_note} üçün qaralama mesaj açıldı."
-                ok_send, send_detail = _type_and_send(message, DESKTOP_LOAD_DELAY)
+                ok_send, send_detail = _send_prefilled_message(DESKTOP_LOAD_DELAY)
                 if ok_send:
                     return f"WhatsApp Desktop üzərindən {label}{source_note} nəfərə mesaj göndərildi."
                 return (
@@ -340,7 +348,7 @@ def send_whatsapp_message(
                     "Mesaj qutusuna gəlib Enter'a basmaq kifayətdir."
                 )
             if app_target == "desktop":
-                return f"WhatsApp Desktop açılarxən xəta baş verdi: {detail}"
+                return f"WhatsApp Desktop açılarkən xəta baş verdi: {detail}"
 
     if not normalized_phone:
         if resolved_name:
@@ -353,7 +361,6 @@ def send_whatsapp_message(
     source_note = " (kontaklardan tapıldı)" if contact_source == "phone_book" else ""
     label = resolved_name or f"+{normalized_phone}"
 
-    # Web'de metni URL ön-doldurması güvenilir taşır; gönderim için sadece Enter gerekir.
     ok, detail = _open_whatsapp_web(normalized_phone, message, include_text=True)
     if not ok:
         return detail
@@ -371,7 +378,7 @@ def send_whatsapp_message(
         )
 
     try:
-        time.sleep(WEB_LOAD_DELAY)   # sayfa + sohbet yüklensin (giriş yapılmış olmalı)
+        time.sleep(WEB_LOAD_DELAY)
         pyautogui.press("enter")
         return f"WhatsApp Web üzərindən {label}{source_note} şəxsə mesaj göndərildi."
     except Exception as exc:
