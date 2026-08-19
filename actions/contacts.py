@@ -16,9 +16,10 @@ PHONEBOOK_FILE = BASE_DIR / "memory" / "phone_book.json"
 
 def _normalize_lookup(text: str) -> str:
     text = (text or "").strip().casefold()
+    replacements = str.maketrans({"ə": "e", "ı": "i", "ö": "o", "ü": "u", "ş": "s", "ç": "c", "ğ": "g"})
+    text = text.translate(replacements)
     text = unicodedata.normalize("NFKD", text)
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
-    text = text.replace("ı", "i")
     return re.sub(r"\s+", " ", text)
 
 
