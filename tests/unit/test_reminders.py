@@ -34,7 +34,7 @@ def test_add_reminder_rejects_empty_title():
         result = add_reminder("")
     mock_create.assert_not_called()
     assert result["status"] == "error"
-    assert "boş" in result["meta"]["error"]
+    assert "boş" in result["meta"]["message"]
 
 
 def test_add_reminder_rejects_invalid_due():
@@ -42,7 +42,7 @@ def test_add_reminder_rejects_invalid_due():
         result = add_reminder("Test", "not-a-date")
     mock_create.assert_not_called()
     assert result["status"] == "error"
-    assert "Invalid isoformat" in result["meta"]["error"]
+    assert "Invalid isoformat" in result["meta"]["message"]
 
 
 def test_add_reminder_rejects_priority():
@@ -50,7 +50,7 @@ def test_add_reminder_rejects_priority():
         result = add_reminder("Test", priority="high")
     mock_create.assert_not_called()
     assert result["status"] == "error"
-    assert "priority" in result["meta"]["error"]
+    assert "priority" in result["meta"]["message"]
 
 
 @patch("actions.reminders.resolve_task_list_id", return_value="default")
