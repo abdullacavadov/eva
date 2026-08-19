@@ -111,10 +111,12 @@ class ToolExecutor:
                 cat = args.get("category", "notes")
                 key = args.get("key", "")
                 val = args.get("value", "")
-                if key and val:
+                if not key or not val:
+                    result = "Yaddaşı saxlamaq üçün key və value tələb olunur."
+                else:
                     update_memory({cat: {key: {"value": val}}})
                     print(f"[Memory] 💾 {cat}/{key} = {val}")
-                result = "ok"
+                    result = "ok"
 
             elif name == "delete_memory":
                 result = delete_memory(
@@ -316,6 +318,6 @@ class ToolExecutor:
         print(f"[E.V.A] 📤 {name} → {str(result)[:80]}")
         return types.FunctionResponse(
             id=fc.id,
-            name=name,
+            name=fc.name,
             response={"result": result},
         )
