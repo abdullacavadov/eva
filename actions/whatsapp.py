@@ -334,7 +334,7 @@ def send_whatsapp_message(
                     return f"WhatsApp Desktop içində {label}{source_note} üçün qaralama mesaj açıldı."
                 ok_send, send_detail = _type_and_send(message, DESKTOP_LOAD_DELAY)
                 if ok_send:
-                    return f"WhatsApp Desktop üzərindən {label}{source_note} nəfərə mesaj göndərildi."
+                    return f"WhatsApp Desktop üzərindən {label}{source_note} şəxsinə mesaj göndərildi."
                 return (
                     f"WhatsApp Desktop söhbəti açıldı, amma avtomatik göndərim alınmadı: {send_detail}. "
                     "Mesaj qutusuna gəlib Enter'a basmaq kifayətdir."
