@@ -16,10 +16,11 @@ TOKEN_FILE = CONFIG_DIR / "google_token.json"
 
 SCOPES = [
     "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/tasks",
 ]
 
 
-def get_calendar_credentials() -> Credentials:
+def get_google_credentials() -> Credentials:
     credentials = None
 
     if TOKEN_FILE.exists():
@@ -60,3 +61,8 @@ def get_calendar_credentials() -> Credentials:
     )
 
     return credentials
+
+
+def get_calendar_credentials() -> Credentials:
+    """Backward-compatible alias for existing Calendar callers."""
+    return get_google_credentials()
