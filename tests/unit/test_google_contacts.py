@@ -6,7 +6,7 @@ from integrations.google import contacts
 def test_get_google_contacts_reads_all_pages():
     service = MagicMock()
     list_call = service.people().connections().list
-    list_call.execute.side_effect = [
+    list_call.return_value.execute.side_effect = [
         {
             "connections": [
                 {
