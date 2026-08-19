@@ -39,14 +39,15 @@ def test_update_google_contact_requires_resource_name():
         contacts.update_google_contact("", "Test One", ["+994501234567"])
 
 
-def test_update_google_contact_reads_current_contact_etag_before_update():
+def test_update_google_contact_reads_current_person_etag_before_update():
     service = _service()
     service.people().get.return_value.execute.return_value = {
         "resourceName": "people/c123",
+        "etag": "current-person-etag",
         "metadata": {
             "sources": [
                 {"type": "PROFILE", "etag": "profile-etag"},
-                {"type": "CONTACT", "etag": "contact-etag"},
+                {"type": "CONTACT", "etag": "stale-source-etag"},
             ]
         },
     }
@@ -71,18 +72,18 @@ def test_update_google_contact_reads_current_contact_etag_before_update():
         updatePersonFields="names,phoneNumbers",
         body={
             "resourceName": "people/c123",
-            "etag": "contact-etag",
+            "etag": "current-person-etag",
             "names": [{"unstructuredName": "Updated"}],
             "phoneNumbers": [{"value": "+994559041494"}],
         },
     )
 
 
-def test_update_google_contact_requires_contact_etag():
+def test_update_google_contact_requires_current_person_etag():
     service = _service()
     service.people().get.return_value.execute.return_value = {
         "resourceName": "people/c123",
-        "metadata": {"sources": [{"type": "PROFILE", "etag": "profile-etag"}]},
+        "metadata": {"sources": [{"type": "CONTACT", "etag": "source-etag"}]},
     }
 
     with patch.object(contacts, "_get_people_service", return_value=service):
