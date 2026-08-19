@@ -145,7 +145,11 @@ def _reconcile_local_create(contact: dict) -> None:
     key, previous = _find_match(local, contact, phones)
     if key is None:
         key = _contact_key(contact["display_name"], phones[0], local)
-    local[key] = _build_entry(contact, phones, previous)
+    entry = _build_entry(contact, phones, previous)
+    resource_name = str(contact.get("resource_name") or "").strip()
+    if resource_name:
+        entry["google_resource_name"] = resource_name
+    local[key] = entry
     _write_atomic(local)
 
 
