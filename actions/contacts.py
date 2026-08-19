@@ -184,7 +184,12 @@ def sync_google_contacts() -> dict:
     try:
         google_contacts = get_google_contacts()
     except Exception as exc:
-        return make_result("contact", "error", data=[], meta={"error": str(exc)})
+        return make_result(
+            "contact",
+            "error",
+            data=[],
+            meta={"error": f"Google kontaktları alınmadı: {exc}"},
+        )
 
     merged = dict(local)
     added = updated = unchanged = removed = 0
@@ -236,8 +241,16 @@ def sync_google_contacts() -> dict:
             _write_atomic(merged)
     except Exception as exc:
         return make_result("contact", "error", data=[], meta={"error": str(exc)})
-    status = "empty" if not google_contacts else "success"
-    return make_result("contact", status, data=[], count=0, meta={"added": added, "updated": updated, "removed": removed, "unchanged": unchanged})
+
+    stats = {
+        "id": "contact:sync",
+        "new": added,
+        "updated": updated,
+        "removed": removed,
+        "unchanged": unchanged,
+    }
+    status = "success" if added or updated or removed else "empty"
+    return make_result("contact", status, data=[stats], meta={"sync": True})
 
 
 def create_contact(display_name: str, phone_number: str) -> dict:
