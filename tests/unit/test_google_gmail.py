@@ -15,7 +15,8 @@ def test_get_gmail_service_uses_gmail_v1():
 
 def test_search_messages_parses_metadata_and_query():
     service = MagicMock()
-    list_call = service.users.return_value.messages.return_value.list.return_value
+    list_method = service.users.return_value.messages.return_value.list
+    list_call = list_method.return_value
     list_call.execute.side_effect = [
         {"messages": [{"id": "m1", "threadId": "t1"}]}
     ]
@@ -38,7 +39,7 @@ def test_search_messages_parses_metadata_and_query():
     assert result[0]["from"] == "billing@example.com"
     assert result[0]["subject"] == "Invoice"
     list_call.execute.assert_called_once()
-    assert list_call.execute.call_args is not None
+    assert list_method.call_args.kwargs["q"] == "subject:invoice"
 
 
 def test_search_messages_paginates_until_limit():
@@ -63,14 +64,15 @@ def test_search_messages_paginates_until_limit():
 
 def test_search_messages_caps_limit_at_100():
     service = MagicMock()
-    list_call = service.users.return_value.messages.return_value.list.return_value
+    list_method = service.users.return_value.messages.return_value.list
+    list_call = list_method.return_value
     list_call.execute.return_value = {"messages": []}
 
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         search_messages("", 1000)
 
     assert list_call.execute.call_count == 1
-    assert list_call.call_args.kwargs["maxResults"] == 100
+    assert list_method.call_args.kwargs["maxResults"] == 100
 
 
 def test_get_message_requires_id():
@@ -87,7 +89,7 @@ def test_get_message_extracts_plain_text_body():
         "payload": {
             "mimeType": "text/plain",
             "headers": [{"name": "Subject", "value": "Hello"}],
-            "body": {"data": "SGVsbG8gQWJ1bGxh"},
+            "body": {"data": "SGVsbG8gQWJkdWxsYQ=="},
         },
     }
 
@@ -105,7 +107,7 @@ def test_get_message_strips_html():
         "id": "m1",
         "payload": {
             "mimeType": "text/html",
-            "body": {"data": "PGh0bWw+PGJvZHk+SGVsbG8gPGI+QWJ1bGxhPC9iPjwvYm9keT48L2h0bWw+"},
+            "body": {"data": "PGh0bWw+PGJvZHk+SGVsbG8gPGI+QWJkdWxsYTwvYj48L2JvZHk+PC9odG1sPg=="},
         },
     }
 
