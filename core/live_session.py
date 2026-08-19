@@ -1,4 +1,4 @@
-"""Gemini Live session helpers for EVA."""
+"""EVA üçün Gemini Live sessiyasının köməkçi idarəedicisi."""
 
 from contextlib import asynccontextmanager
 
@@ -6,14 +6,14 @@ from google import genai
 
 
 class LiveSessionManager:
-    """Own Gemini client creation and Live session connection details."""
+    """Gemini client yaradılmasını və Live API bağlantısını idarə edir."""
 
     def __init__(self, model: str, api_key: str):
         self.model = model
         self.api_key = api_key
 
     def create_client(self) -> genai.Client:
-        """Create a Gemini client with EVA's Live API version."""
+        """EVA-nın Live API versiyası ilə Gemini client yaradır."""
         return genai.Client(
             api_key=self.api_key,
             http_options={"api_version": "v1alpha"},
@@ -21,7 +21,7 @@ class LiveSessionManager:
 
     @asynccontextmanager
     async def connect(self, config):
-        """Yield a connected Gemini Live session and close it afterwards."""
+        """Gemini Live sessiyasına qoşulur və çıxışda sessiyanı bağlayır."""
         client = self.create_client()
         async with client.aio.live.connect(
             model=self.model,
