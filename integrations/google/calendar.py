@@ -5,14 +5,14 @@ from typing import Any
 
 from googleapiclient.discovery import build
 
-from integrations.google.auth import get_calendar_credentials
+from integrations.google.auth import get_google_credentials
 
 
 def get_calendar_service():
     return build(
         "calendar",
         "v3",
-        credentials=get_calendar_credentials(),
+        credentials=get_google_credentials(),
     )
 
 
