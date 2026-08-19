@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-JARVIS Windows — Gercek zamanli sesli yardimci cekirdegi
-Windows ortamina uyarlanmis calisma akisi
-macOS surumunden tam ozellik paritesiyle portlanmistir.
+EVA — Real vaxtda işləyən səsli köməkçinin əsas iş axını.
+Windows mühitinə uyğunlaşdırılmış iş prosesi.
 """
 
 import asyncio
@@ -12,11 +11,16 @@ import traceback
 import os
 import re
 
-import pyaudio  # type: ignore[reportMissingModuleSource]
-from google import genai  # type: ignore[reportMissingImports]
 from google.genai import types  # type: ignore[reportMissingImports]
 
 from app_config import get_app_config_value
+from core.audio import (
+    create_audio,
+    open_input_stream,
+    open_output_stream,
+    read_chunk,
+    write_chunk,
+)
 from core.config import (
     CHUNK_SIZE,
     CHANNELS,
@@ -27,51 +31,52 @@ from core.config import (
     get_api_key,
     load_system_prompt,
 )
+from core.live_session import LiveSessionManager
 from core.webcam import WebcamStreamer
 from ui import JarvisUI
 from memory.memory_manager import load_memory, update_memory, delete_memory, format_memory_for_prompt
 from actions.open_app import open_app
-from actions.sys_info  import sys_info
+from actions.sys_info import sys_info
 from actions.calendar import get_calendar_events, add_calendar_event, delete_calendar_event
 from actions.reminders import get_reminders, add_reminder
-from actions.browser   import browser_control
-from actions.shell     import shell_run
-from actions.whatsapp  import send_whatsapp_message, save_whatsapp_contact
-from actions.media     import play_media
-from actions.weather   import get_weather_summary
+from actions.browser import browser_control
+from actions.shell import shell_run
+from actions.whatsapp import send_whatsapp_message, save_whatsapp_contact
+from actions.media import play_media
+from actions.weather import get_weather_summary
 from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
 
 try:
     from wakeup_listener import WakeGestureListener
-except Exception:  # pyaudio yoksa veya mikrofon erisimi yoksa uygulama yine acilsin
+except Exception:
+    # Mikrofon əlçatan olmasa belə tətbiqin açılmasına imkan ver.
     WakeGestureListener = None
 
 
 CONTROL_TOKEN_RE = re.compile(r"<ctrl\d+>", re.IGNORECASE)
-
-pya = pyaudio.PyAudio()
 
 from tool_defs import TOOL_DECLARATIONS
 
 
 class JarvisLive:
     def __init__(self, ui: JarvisUI):
-        self.ui             = ui
-        self.session        = None
+        self.ui = ui
+        self.session = None
         self.audio_in_queue = None
-        self.out_queue      = None
-        self._loop          = None
-        self._is_speaking   = False
+        self.out_queue = None
+        self._loop = None
+        self._is_speaking = False
         self._speaking_lock = threading.Lock()
-        self._music_proc    = None
+        self._music_proc = None
         self._webcam_streamer = WebcamStreamer()
+        self._audio = create_audio()
 
-        self.ui.on_text_command  = self._on_text_command
-        self.ui.on_pause_toggle  = self._on_pause_toggle
+        self.ui.on_text_command = self._on_text_command
+        self.ui.on_pause_toggle = self._on_pause_toggle
         self.ui.on_effects_state_change = self._on_effects_state_change
         self.ui.on_webcam_toggle = self._on_webcam_toggle_ui
-        self._paused             = False
+        self._paused = False
 
     def _on_pause_toggle(self, paused: bool):
         self._paused = paused
@@ -110,9 +115,9 @@ class JarvisLive:
         asyncio.run_coroutine_threadsafe(
             self.session.send_client_content(
                 turns={"parts": [{"text": text}]},
-                turn_complete=True
+                turn_complete=True,
             ),
-            self._loop
+            self._loop,
         )
 
     async def _interrupt_audio(self):
@@ -215,10 +220,10 @@ class JarvisLive:
         return normalized.strip(), had_noise
 
     def _build_config(self) -> types.LiveConnectConfig:
-        memory  = load_memory()
+        memory = load_memory()
         mem_str = format_memory_for_prompt(memory)
-        sys_p   = load_system_prompt()
-        now     = datetime.datetime.now()
+        sys_p = load_system_prompt()
+        now = datetime.datetime.now()
         time_ctx = f"[ŞU ANKİ ZAMAN]\n{now.strftime('%A, %d %B %Y — %H:%M')}\n\n"
 
         parts = [time_ctx]
@@ -247,7 +252,7 @@ class JarvisLive:
         print(f"[E.V.A] 🔧 {name} {args}")
         self.ui.set_state("THINKING")
 
-        loop   = asyncio.get_event_loop()
+        loop = asyncio.get_event_loop()
         result = "Tamam."
         had_exception = False
 
@@ -283,7 +288,7 @@ class JarvisLive:
                 self._focus_ui_section_for_tool(name, args)
                 r = await loop.run_in_executor(
                     None, lambda: get_weather_summary(args.get("location") or None))
-                result = r or "Hava durumu bilgisi alindi."
+                result = r or "Hava durumu məlumatı alındı."
 
             elif name == "get_calendar_events":
                 r = await loop.run_in_executor(
@@ -293,7 +298,7 @@ class JarvisLive:
                         int(args.get("limit", 6) or 6),
                     ),
                 )
-                result = r or "Takvim bilgisi alindi."
+                result = r or "Təqvim məlumatı alındı."
 
             elif name == "add_calendar_event":
                 r = await loop.run_in_executor(
@@ -308,7 +313,7 @@ class JarvisLive:
                         bool(args.get("all_day", False)),
                     ),
                 )
-                result = r or "Takvim etkinligi eklendi."
+                result = r or "Təqvim tədbiri əlavə edildi."
 
             elif name == "delete_calendar_event":
                 r = await loop.run_in_executor(
@@ -320,7 +325,7 @@ class JarvisLive:
                         bool(args.get("delete_all_matches", False)),
                     ),
                 )
-                result = r or "Takvim etkinligi silindi."
+                result = r or "Təqvim tədbiri silindi."
 
             elif name == "get_reminders":
                 r = await loop.run_in_executor(
@@ -331,7 +336,7 @@ class JarvisLive:
                         args.get("list_name", ""),
                     ),
                 )
-                result = r or "Animsatici bilgisi alindi."
+                result = r or "Xatırladıcı məlumatı alındı."
 
             elif name == "add_reminder":
                 r = await loop.run_in_executor(
@@ -345,7 +350,7 @@ class JarvisLive:
                         bool(args.get("all_day", False)),
                     ),
                 )
-                result = r or "Animsatici eklendi."
+                result = r or "Xatırladıcı əlavə edildi."
 
             elif name == "browser_control":
                 r = await loop.run_in_executor(
@@ -368,17 +373,17 @@ class JarvisLive:
                     if status == "ok":
                         self.ui.set_webcam_active(True)
                         result = (
-                            "Webcam akışı başlatıldı. "
-                            "Artık kameranı görüyorum — dilediğin zaman soru sorabilirsin."
+                            "Webcam axını başladıldı. "
+                            "Artıq kameranı görürəm — istədiyin vaxt sual verə bilərsən."
                         )
                     elif status == "already_active":
-                        result = "Webcam zaten açık, görüntü alıyorum."
+                        result = "Webcam artıq açıqdır, görüntünü alıram."
                     else:
-                        result = "Webcam başlatılamadı: opencv-python yüklü değil."
+                        result = "Webcam başlatmaq mümkün olmadı: opencv-python quraşdırılmayıb."
                 else:
                     self._webcam_streamer.stop()
                     self.ui.set_webcam_active(False)
-                    result = "Webcam akışı durduruldu."
+                    result = "Webcam axını dayandırıldı."
 
             elif name == "play_media":
                 r = await loop.run_in_executor(
@@ -389,7 +394,7 @@ class JarvisLive:
                         bool(args.get("autoplay", True)),
                     ),
                 )
-                result = r or "Medya oynatma başlatıldı."
+                result = r or "Media oxudulmağa başladı."
 
             elif name == "get_youtube_channel_report":
                 r = await loop.run_in_executor(
@@ -400,17 +405,17 @@ class JarvisLive:
                         int(args.get("video_limit", 6) or 6),
                     ),
                 )
-                result = r or "YouTube kanal raporu alindi."
+                result = r or "YouTube kanal hesabatı alındı."
 
             elif name == "analyze_screen":
                 r = await loop.run_in_executor(
                     None,
                     lambda: analyze_screen(
-                        args.get("query", "Ekranda ne var?"),
+                        args.get("query", "Ekranda nə var?"),
                         args.get("target", "active_window"),
                     ),
                 )
-                result = r or "Ekran analizi tamamlandi."
+                result = r or "Ekran analizi tamamlandı."
 
             elif name == "send_whatsapp_message":
                 r = await loop.run_in_executor(
@@ -423,7 +428,7 @@ class JarvisLive:
                         args.get("app_target", "auto"),
                     ),
                 )
-                result = r or "WhatsApp işlemi tamamlandı."
+                result = r or "WhatsApp əməliyyatı tamamlandı."
 
             elif name == "save_whatsapp_contact":
                 r = await loop.run_in_executor(
@@ -434,13 +439,13 @@ class JarvisLive:
                         args.get("aliases", ""),
                     ),
                 )
-                result = r or "WhatsApp kişisi kaydedildi."
+                result = r or "WhatsApp kontaktı yadda saxlanıldı."
 
             else:
-                result = f"Bilinmeyen araç: {name}"
+                result = f"Naməlum alət: {name}"
 
         except Exception as e:
-            result = f"Hata: {e}"
+            result = f"Xəta: {e}"
             had_exception = True
             traceback.print_exc()
             self.speak_error(name, e)
@@ -457,8 +462,9 @@ class JarvisLive:
 
         print(f"[E.V.A] 📤 {name} → {str(result)[:80]}")
         return types.FunctionResponse(
-            id=fc.id, name=name,
-            response={"result": result}
+            id=fc.id,
+            name=name,
+            response={"result": result},
         )
 
     async def _send_realtime(self):
@@ -467,10 +473,7 @@ class JarvisLive:
             await self.session.send_realtime_input(media=msg)
 
     async def _stream_webcam_frames(self):
-        """
-        Webcam aktifken her 1.5s'de EN GÜNCEL kareyi session'a gönderir.
-        Queue'suz 'latest frame' yaklaşımı: model hep şimdiki görüntüyü görür.
-        """
+        """Webcam aktivdirsə ən son kadrı təxminən hər 1,5 saniyədə sessiyaya göndərir."""
         _last_sent: bytes | None = None
         while True:
             if not self._webcam_streamer.is_active:
@@ -488,12 +491,12 @@ class JarvisLive:
                     media={"data": jpeg, "mime_type": "image/jpeg"}
                 )
             except Exception as e:
-                print(f"[Webcam] Frame gönderilemedi: {e}")
+                print(f"[Webcam] Kadr göndərilə bilmədi: {e}")
 
             await asyncio.sleep(1.5)
 
     async def _update_ui_webcam_preview(self):
-        """UI önizlemesini ~24 FPS günceller. AI akışından bağımsız."""
+        """UI önizləməsini təxminən 24 FPS sürətlə yeniləyir."""
         frame_interval = 1.0 / 24.0
         while True:
             if self._webcam_streamer.is_active:
@@ -504,16 +507,10 @@ class JarvisLive:
 
     async def _listen_audio(self):
         print("[E.V.A] 🎤 Mikrofon başladı")
-        stream = await asyncio.to_thread(
-            pya.open,
-            format=FORMAT, channels=CHANNELS,
-            rate=SEND_SAMPLE_RATE, input=True,
-            frames_per_buffer=CHUNK_SIZE,
-        )
+        stream = await open_input_stream(self._audio)
         try:
             while True:
-                data = await asyncio.to_thread(
-                    stream.read, CHUNK_SIZE, exception_on_overflow=False)
+                data = await read_chunk(stream, CHUNK_SIZE)
                 with self._speaking_lock:
                     jarvis_speaking = self._is_speaking
                 if not jarvis_speaking and not self.ui.muted and not self._paused:
@@ -525,7 +522,7 @@ class JarvisLive:
             stream.close()
 
     async def _receive_audio(self):
-        print("[E.V.A] 👂 Alım başladı")
+        print("[E.V.A] 👂 Səs qəbulu başladı")
         out_buf, in_buf = [], []
         output_noise = False
         output_noise_samples = []
@@ -569,14 +566,14 @@ class JarvisLive:
                                 self.ui.write_log(f"E.V.A: {full_out}")
                                 if output_noise_samples:
                                     self.ui.write_debug(
-                                        "Kısmen filtrelenen ses transcripti: " + " | ".join(output_noise_samples),
+                                        "Qismən süzülmüş səs transkripti: " + " | ".join(output_noise_samples),
                                         level="WARN",
                                     )
                             elif output_noise:
-                                self.ui.write_log("ERR: E.V.A sesli yanıtını çözümlerken bir hata oluştu.")
+                                self.ui.write_log("ERR: E.V.A səsli cavabını emal edərkən xəta baş verdi.")
                                 if output_noise_samples:
                                     self.ui.write_debug(
-                                        "Filtrelenen ham transcript: " + " | ".join(output_noise_samples),
+                                        "Süzülmüş xam transkript: " + " | ".join(output_noise_samples),
                                         level="WARN",
                                     )
                                 self.ui.set_state("ERROR")
@@ -591,20 +588,17 @@ class JarvisLive:
                             fr = await self._execute_tool(fc)
                             fn_responses.append(fr)
                         await self.session.send_tool_response(
-                            function_responses=fn_responses)
+                            function_responses=fn_responses
+                        )
 
         except Exception as e:
-            print(f"[E.V.A] ❌ Alım: {e}")
+            print(f"[E.V.A] ❌ Səs qəbulu: {e}")
             traceback.print_exc()
             raise
 
     async def _play_audio(self):
-        print("[E.V.A] 🔊 Ses çalma başladı")
-        stream = await asyncio.to_thread(
-            pya.open,
-            format=FORMAT, channels=CHANNELS,
-            rate=RECV_SAMPLE_RATE, output=True,
-        )
+        print("[E.V.A] 🔊 Səs səsləndirməsi başladı")
+        stream = await open_output_stream(self._audio)
         try:
             while True:
                 chunk = await self.audio_in_queue.get()
@@ -612,7 +606,7 @@ class JarvisLive:
                     self.set_speaking(False)
                     continue
                 self.set_speaking(True)
-                await asyncio.to_thread(stream.write, chunk)
+                await write_chunk(stream, chunk)
         except Exception as e:
             print(f"[E.V.A] ❌ Səs: {e}")
             raise
@@ -628,22 +622,19 @@ class JarvisLive:
                 continue
 
             try:
-                client = genai.Client(
-                    api_key=get_api_key(),
-                    http_options={"api_version": "v1alpha"}
-                )
+                session_manager = LiveSessionManager(LIVE_MODEL, get_api_key())
                 print("[E.V.A] 🔌 Qoşulur...")
                 self.ui.set_state("THINKING")
                 config = self._build_config()
 
                 async with (
-                    client.aio.live.connect(model=LIVE_MODEL, config=config) as session,
+                    session_manager.connect(config) as session,
                     asyncio.TaskGroup() as tg,
                 ):
-                    self.session        = session
-                    self._loop          = asyncio.get_event_loop()
+                    self.session = session
+                    self._loop = asyncio.get_event_loop()
                     self.audio_in_queue = asyncio.Queue()
-                    self.out_queue      = asyncio.Queue(maxsize=10)
+                    self.out_queue = asyncio.Queue(maxsize=10)
 
                     print("[E.V.A] ✅ Bağlandı.")
                     connect_attempts = 0
@@ -668,7 +659,7 @@ class JarvisLive:
                 connect_attempts += 1
                 if connect_attempts <= 3:
                     self.ui.set_state("INITIALISING")
-                    print(f"[E.V.A] 🔄 Qoşulmağa təkrar cəhd edir ({connect_attempts}/3)...")
+                    print(f"[E.V.A] 🔄 Yenidən qoşulmağa cəhd edir ({connect_attempts}/3)...")
                     await asyncio.sleep(2)
                 else:
                     self.ui.write_log(
@@ -676,13 +667,13 @@ class JarvisLive:
                         f"bağlantısını yoxla. ({e})"
                     )
                     self.ui.set_state("ERROR")
-                    print("[E.V.A] 🔄 5 saniyə içində yenidən bağlanır...")
+                    print("[E.V.A] 🔄 5 saniyə ərzində yenidən qoşulacaq...")
                     await asyncio.sleep(5)
 
 
 def main():
     if os.environ.get("TERM_PROGRAM") == "vscode":
-        print("[E.V.A] VS Code içində başladıldı.")
+        print("[E.V.A] VS Code daxilində başladıldı.")
 
     ui = JarvisUI()
 
@@ -702,7 +693,7 @@ def main():
             wake_listener = WakeGestureListener(on_wake=ui.wake_up)
             wake_listener.start()
         except Exception as exc:
-            print(f"[Wake] Alqış dinləyici başlamadı: {exc}")
+            print(f"[Wake] Alqış dinləyicisi başlamadı: {exc}")
 
     ui.root.mainloop()
 
