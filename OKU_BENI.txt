@@ -1,76 +1,121 @@
 ╔══════════════════════════════════════════════════════════╗
-║              E.V.A — Windows Sürümü                 ║
-║      Gerçek zamanlı sesli kişisel AI asistanı (Gemini)    ║
+║                    E.V.A — Windows                       ║
+║          Real vaxtlı səsli şəxsi AI köməkçisi            ║
 ╚══════════════════════════════════════════════════════════╝
 
-macOS sürümünden tam özellik paritesiyle Windows'a uyarlanmıştır.
+E.V.A Windows mühitində işləyən, Gemini Live API əsaslı səsli AI köməkçisidir.
 
 
-─────────────────────────  KURULUM  ─────────────────────────
+─────────────────────────  QURAŞDIRMA  ─────────────────────
 
-1) Python 3.10+ kur (python.org).
-   Kurulumda "Add Python to PATH" kutusunu MUTLAKA işaretle.
+1) Python 3.10+ quraşdır.
+   Quraşdırma zamanı "Add Python to PATH" seçimini aktiv et.
 
-2) Bu klasördeki  setup.bat  dosyasına çift tıkla.
-   - Sanal ortam oluşturur
-   - Tüm paketleri kurar (opencv ilk seferde biraz sürebilir)
-   - Grift fontlarını kurar
-   - config\api_keys.json dosyasını hazırlar
+2) Repository-ni lokal kompüterə köçür.
 
-3) Gemini API anahtarını gir:
-   - https://aistudio.google.com/apikey adresinden ücretsiz anahtar al
-   - Programı açıp ekrandaki AYARLAR (⚙) panelinden girebilirsin
-   - veya config\api_keys.json içine elle yazabilirsin
+3) Virtual mühit yarat və aktivləşdir:
 
+   python -m venv venv
+   venv\Scripts\activate
 
-─────────────────────────  BAŞLATMA  ────────────────────────
+4) Paketləri quraşdır:
 
-   BASLAT.bat  dosyasına çift tıkla.
-
-   İstersen program içindeki "MASAÜSTÜNE KISAYOL EKLE" ve
-   "AÇILIŞTA BAŞLAT" düğmelerini kullanabilirsin.
+   pip install -r requirements.txt
+   pip install -r requirements-dev.txt
 
 
-─────────────────────────  KISAYOLLAR  ──────────────────────
+─────────────────────────  BAŞLATMA  ───────────────────────
 
-   F4    → Mikrofonu sustur / aç        (Ctrl+M de çalışır)
-   F5    → Duraklat / devam et
-   F6    → Webcam'i aç / kapat
-   F11   → Tam ekran                     (Ctrl+F de çalışır)
-   ESC   → Tam ekrandan çık / pencere
-   👏👏  → İki kez alkışla = pencereyi öne getir
+   Əsas variant:
 
+   python main.py
 
-─────────────────────────  ÖZELLİKLER  ──────────────────────
-
-   • Sesli sohbet (gerçek zamanlı, kesintisiz)
-   • Yazılı komut kutusu
-   • Uygulama açma, sistem bilgisi, cmd komutu çalıştırma
-   • Hava durumu
-   • Ekran analizi (aktif pencereyi okur)
-   • Webcam canlı akışı (JARVIS kamerayı görür)
-   • YouTube/Spotify'da müzik/video açma
-   • YouTube kanal istatistik raporu
-   • WhatsApp mesaj gönderme + kişi/rehber (.vcf) içe aktarma
-   • Kalıcı hafıza (seni hatırlar)
-   • Takvim ve Hatırlatıcılar (aşağıdaki nota bak)
+   Windows üçün BASLAT.bat faylından da istifadə edə bilərsən.
 
 
-─────────────────────────  ÖNEMLİ NOT  ──────────────────────
+─────────────────────────  API AÇARI  ──────────────────────
 
-   Takvim ve Anımsatıcılar:
-   Apple Calendar / Apple Reminders YALNIZCA macOS'ta çalışır;
-   Windows'tan bu verilere erişmek mümkün değildir. Bu yüzden:
-     - Takvim  → Google Calendar (tarayıcıda açılır, etkinlik ekleme
-                 hazır doldurulmuş olarak gelir)
-     - Hatırlatıcı → Microsoft To-Do (tarayıcıda açılır)
+E.V.A Gemini API açarından istifadə edir.
 
-   Webcam ve Ekran için Windows kamera/ekran izinleri gerekebilir
-   (Ayarlar > Gizlilik ve Güvenlik > Kamera).
+API açarını tətbiqin konfiqurasiya mexanizmi vasitəsilə əlavə et.
+
+Google Calendar üçün ayrıca Google OAuth prosesi tələb olunur.
+İlk qoşulmadan sonra real Google Calendar tokeni config qovluğunda saxlanılır.
+Token faylını Git repository-yə əlavə etmə.
+
+
+─────────────────────────  XÜSUSİYYƏTLƏR  ──────────────────
+
+   • Real vaxtlı səsli söhbət
+   • Yazılı komanda daxil etmə
+   • Tətbiq açma
+   • Sistem məlumatlarını alma
+   • Təhlükəsiz shell əmrlərinin icrası
+   • Hava məlumatı
+   • Ekran analizi
+   • Webcam görüntüsünün canlı ötürülməsi
+   • Media və YouTube idarəsi
+   • YouTube kanal hesabatı
+   • WhatsApp mesajı göndərmə və kontakt yadda saxlama
+   • Davamlı yaddaş
+   • Google Calendar tədbirlərini oxuma
+   • Google Calendar-da tədbir yaratma
+   • Google Calendar-da tədbir silmə
+   • Xatırladıcılarla işləmə
+
+
+─────────────────────────  GOOGLE CALENDAR  ─────────────────
+
+Google Calendar artıq real Google Calendar API ilə inteqrasiya olunub.
+
+Dəstəklənir:
+   • Tədbirləri oxuma
+   • Yeni tədbir yaratma
+   • Tədbir silmə
+
+İnteqrasiya əsasən bu fayllarda yerləşir:
+
+   integrations/google/auth.py
+   integrations/google/calendar.py
+
+OAuth tokeni:
+
+   config/google_token.json
+
+Bu fayl məxfi məlumat ehtiva edir və repository-yə commit edilməməlidir.
+
+
+─────────────────────────  QISA YOLLAR  ─────────────────────
+
+   F4    → Mikrofonu susdur / aktiv et
+   F5    → Dayandır / davam et
+   F6    → Webcam-i aç / bağla
+   F11   → Tam ekran
+   ESC   → Tam ekrandan çıx
+
+
+─────────────────────────  WINDOWS QEYDİ  ──────────────────
+
+Webcam və ekran funksiyaları üçün Windows məxfilik icazələri tələb oluna bilər.
+
+Məsələn:
+   Settings → Privacy & security → Camera
+
+
+─────────────────────────  TESTLƏR  ─────────────────────────
+
+Testləri işə salmaq üçün:
+
+   python -m pytest -q
+
+Hazırkı test dəsti 46 testdən ibarətdir.
+
+Kodun sintaksisini yoxlamaq üçün:
+
+   python -m compileall main.py core integrations actions tests
 
 
 ─────────────────────────────────────────────────────────────
-   Sorun olursa: BASLAT.bat yerine bir komut isteminde
-   "venv\Scripts\activate.bat" sonra "python main.py" çalıştır;
-   hata mesajlarını orada görebilirsin.
+Problem yaranarsa, terminaldan `python main.py` ilə başladaraq xəta mesajlarını
+birbaşa yoxla.
 ─────────────────────────────────────────────────────────────
