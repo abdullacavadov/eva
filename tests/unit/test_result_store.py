@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from dataclasses import replace
+from datetime import timedelta
 
 import pytest
 
@@ -62,7 +63,8 @@ def test_store_expires_results():
     result_id = store.save(_result())
     context = store.get(result_id)
     assert context is not None
-    context.expires_at = datetime.now(timezone.utc)
+    expired = replace(context, expires_at=context.created_at)
+    store._results[result_id] = expired
     assert store.get(result_id) is None
 
 
