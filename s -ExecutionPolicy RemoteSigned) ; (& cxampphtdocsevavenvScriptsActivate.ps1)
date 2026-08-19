@@ -1,0 +1,76 @@
+[1mdiff --git a/actions/whatsapp.py b/actions/whatsapp.py[m
+[1mindex 9f7a5e6..2ef597f 100644[m
+[1m--- a/actions/whatsapp.py[m
+[1m+++ b/actions/whatsapp.py[m
+[36m@@ -10,7 +10,7 @@[m [mimport re[m
+ import subprocess[m
+ import time[m
+ import unicodedata[m
+[31m-import urllib.parse [m
+[32m+[m[32mimport urllib.parse[m
+ import webbrowser[m
+ from pathlib import Path[m
+ [m
+[36m@@ -245,29 +245,21 @@[m [mdef _focus_whatsapp_window() -> None:[m
+ [m
+ def _type_and_send(message: str, load_delay: float) -> tuple[bool, str]:[m
+     """[m
+[31m-    Söhbət açıldıqdan sonra mesajı mesaj qutusuna yazıb göndərir.[m
+[31m-[m
+[31m-    Mövcud draftın üstünə əlavə etməmək üçün əvvəlcə Ctrl+A edilir.[m
+[32m+[m[32m    Söhbət açıldıqdan sonra mesajı mübadilə buferindən yapışdırıb göndərir.[m
+[32m+[m[32m    URL-in əvvəlcədən doldurulmasına etibar etmir: pəncərəni ön plana gətirir, mətni `Ctrl+V` ilə yazır,[m[41m [m
+[32m+[m[32m    sonra `Enter` düyməsinə basır. Buna görə çağırmazdan əvvəl söhbət `text` olmadan açılmalıdır.[m
+     """[m
+     if not HAS_PYAUTOGUI:[m
+         return False, "pyautogui quraşdırılmayıb — avtomatik göndəriş alınmadı."[m
+[31m-[m
+     try:[m
+[31m-        time.sleep(load_delay)[m
+[32m+[m[32m        time.sleep(load_delay)          # pencere + sohbet yüklensin[m
+         _focus_whatsapp_window()[m
+         time.sleep(0.6)[m
+[31m-[m
+         _copy_to_clipboard(message.strip())[m
+         time.sleep(0.3)[m
+[31m-[m
+[31m-        # Mövcud draftı seç və əvəz et.[m
+[31m-        pyautogui.hotkey("ctrl", "a")[m
+[31m-        time.sleep(0.2)[m
+[31m-        pyautogui.hotkey("ctrl", "v")[m
+[32m+[m[32m        pyautogui.hotkey("ctrl", "v")   # mesajı mesaj kutusuna yapıştır[m
+         time.sleep(0.5)[m
+[31m-[m
+[31m-        pyautogui.press("enter")[m
+[31m-[m
+[32m+[m[32m        pyautogui.press("enter")        # gönder[m
+         return True, "ok"[m
+     except Exception as exc:[m
+         return False, str(exc)[m
+[36m@@ -298,23 +290,12 @@[m [mdef send_whatsapp_message([m
+     contact = _find_contact(resolved_name) if resolved_name else None[m
+ [m
+     if contact and not normalized_phone:[m
+[31m-        stored_phone = ([m
+[31m-            contact.get("value")[m
+[31m-            or contact.get("phone_number")[m
+[31m-            or contact.get("phone")[m
+[31m-            or contact.get("number")[m
+[31m-            or ""[m
+[31m-        )[m
+[31m-[m
+[32m+[m[32m        stored_phone = str(contact.get("value", "")).strip()[m
+         try:[m
+[31m-            normalized_phone = _normalize_phone(str(stored_phone).strip())[m
+[32m+[m[32m            normalized_phone = _normalize_phone(stored_phone)[m
+         except ValueError:[m
+             normalized_phone = ""[m
+[31m-[m
+[31m-        resolved_name = ([m
+[31m-            str(contact.get("display_name", resolved_name)).strip()[m
+[31m-            or resolved_name[m
+[31m-        )[m
+[32m+[m[32m        resolved_name = str(contact.get("display_name", resolved_name)).strip() or resolved_name[m
+         contact_source = contact.get("_source", "")[m
+     else:[m
+         contact_source = ""[m
