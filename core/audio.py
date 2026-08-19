@@ -1,4 +1,4 @@
-"""Audio stream helpers for EVA's realtime voice runtime."""
+"""EVA-nın real vaxt səs axını üçün köməkçi funksiyalar."""
 
 import asyncio
 
@@ -14,12 +14,12 @@ from core.config import (
 
 
 def create_audio() -> pyaudio.PyAudio:
-    """Create the process-level PyAudio manager."""
+    """Proses üçün PyAudio idarəedicisi yaradır."""
     return pyaudio.PyAudio()
 
 
 async def open_input_stream(audio: pyaudio.PyAudio):
-    """Open EVA's microphone stream without blocking the event loop."""
+    """EVA-nın mikrofon axınını event loop-u bloklamadan açır."""
     return await asyncio.to_thread(
         audio.open,
         format=FORMAT,
@@ -31,7 +31,7 @@ async def open_input_stream(audio: pyaudio.PyAudio):
 
 
 async def open_output_stream(audio: pyaudio.PyAudio):
-    """Open EVA's speaker stream without blocking the event loop."""
+    """EVA-nın dinamik axınını event loop-u bloklamadan açır."""
     return await asyncio.to_thread(
         audio.open,
         format=FORMAT,
@@ -42,7 +42,7 @@ async def open_output_stream(audio: pyaudio.PyAudio):
 
 
 async def read_chunk(stream, size: int = CHUNK_SIZE) -> bytes:
-    """Read one microphone chunk in a worker thread."""
+    """Mikrofon axınından bir hissəni ayrıca worker thread-də oxuyur."""
     return await asyncio.to_thread(
         stream.read,
         size,
@@ -51,5 +51,5 @@ async def read_chunk(stream, size: int = CHUNK_SIZE) -> bytes:
 
 
 async def write_chunk(stream, data: bytes) -> None:
-    """Write one speaker chunk in a worker thread."""
+    """Səs hissəsini ayrıca worker thread-də dinamik axınına yazır."""
     await asyncio.to_thread(stream.write, data)
