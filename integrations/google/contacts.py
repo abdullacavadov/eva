@@ -6,6 +6,8 @@ from integrations.google.auth import get_google_credentials
 
 
 PERSON_FIELDS = "names,phoneNumbers"
+UPDATE_PERSON_FIELDS = PERSON_FIELDS
+UPDATE_PERSON_GET_FIELDS = "metadata,names,phoneNumbers"
 
 
 def _build_person(display_name: str, phones: list[str]) -> dict:
@@ -100,8 +102,27 @@ def create_google_contact(display_name: str, phones: list[str]) -> dict:
     }
 
 
+def _get_contact_etag(service, resource_name: str) -> str:
+    """Read the current contact etag required by Google updateContact."""
+    response = (
+        service.people()
+        .get(resourceName=resource_name, personFields=UPDATE_PERSON_GET_FIELDS)
+        .execute()
+    )
+    sources = ((response.get("metadata") or {}).get("sources") or [])
+    for source in sources:
+        if source.get("type") == "CONTACT" and source.get("etag"):
+            return str(source["etag"]).strip()
+
+    for source in sources:
+        if source.get("etag"):
+            return str(source["etag"]).strip()
+
+    raise ValueError("Google kontaktının aktual etag məlumatı tapılmadı.")
+
+
 def update_google_contact(resource_name: str, display_name: str, phones: list[str]) -> dict:
-    """Update a Google Contact by its resource name only."""
+    """Update a Google Contact by resource name using its current etag."""
     if not resource_name.strip():
         raise ValueError("Google contact resource_name tələb olunur.")
     if not display_name.strip():
@@ -109,14 +130,17 @@ def update_google_contact(resource_name: str, display_name: str, phones: list[st
     if not phones:
         raise ValueError("Ən azı bir telefon nömrəsi tələb olunur.")
 
+    resource_name = resource_name.strip()
     service = _get_people_service()
+    etag = _get_contact_etag(service, resource_name)
     response = (
         service.people()
         .updateContact(
-            resourceName=resource_name.strip(),
-            updatePersonFields=PERSON_FIELDS,
+            resourceName=resource_name,
+            updatePersonFields=UPDATE_PERSON_FIELDS,
             body={
-                "resourceName": resource_name.strip(),
+                "resourceName": resource_name,
+                "etag": etag,
                 **_build_person(display_name.strip(), phones),
             },
         )
