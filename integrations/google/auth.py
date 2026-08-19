@@ -23,13 +23,19 @@ def get_calendar_credentials() -> Credentials:
     credentials = None
 
     if TOKEN_FILE.exists():
-        credentials = Credentials.from_authorized_user_file(
-            str(TOKEN_FILE),
-            SCOPES,
-        )
+        try:
+            credentials = Credentials.from_authorized_user_file(
+                str(TOKEN_FILE),
+                SCOPES,
+            )
+        except (json.JSONDecodeError, ValueError, OSError):
+            credentials = None
 
     if credentials and credentials.expired and credentials.refresh_token:
-        credentials.refresh(Request())
+        try:
+            credentials.refresh(Request())
+        except Exception:
+            credentials = None
 
     if not credentials or not credentials.valid:
         if not CREDENTIALS_FILE.exists():
