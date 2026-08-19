@@ -1,6 +1,8 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+from googleapiclient.errors import HttpError
 
 from integrations.google import contacts
 
@@ -95,13 +97,47 @@ def test_update_google_contact_requires_current_person_etag():
     service.people().updateContact.assert_not_called()
 
 
-def test_delete_google_contact_uses_resource_name_only():
+def test_delete_google_contact_verifies_follow_up_get_returns_404():
     service = _service()
+    not_found = HttpError(
+        SimpleNamespace(status=404, reason="Not Found"),
+        b'{"error":{"code":404,"status":"NOT_FOUND"}}',
+    )
+    service.people().get.return_value.execute.side_effect = not_found
 
     with patch.object(contacts, "_get_people_service", return_value=service):
-        contacts.delete_google_contact("people/c123")
+        result = contacts.delete_google_contact("people/c123")
 
+    assert result is None
     service.people().deleteContact.assert_called_once_with(resourceName="people/c123")
+    service.people().get.assert_called_once_with(
+        resourceName="people/c123",
+        personFields="names,phoneNumbers",
+    )
+
+
+def test_delete_google_contact_raises_if_follow_up_get_still_succeeds():
+    service = _service()
+    service.people().get.return_value.execute.return_value = {
+        "resourceName": "people/c123",
+    }
+
+    with patch.object(contacts, "_get_people_service", return_value=service):
+        with pytest.raises(RuntimeError, match="silinmədi"):
+            contacts.delete_google_contact("people/c123")
+
+
+def test_delete_google_contact_propagates_non_404_get_error():
+    service = _service()
+    server_error = HttpError(
+        SimpleNamespace(status=500, reason="Internal Server Error"),
+        b'{"error":{"code":500,"status":"INTERNAL"}}',
+    )
+    service.people().get.return_value.execute.side_effect = server_error
+
+    with patch.object(contacts, "_get_people_service", return_value=service):
+        with pytest.raises(HttpError):
+            contacts.delete_google_contact("people/c123")
 
 
 def test_delete_google_contact_requires_resource_name():
