@@ -19,13 +19,13 @@ def test_find_contact_matches_alias(monkeypatch):
             "ehmed": {
                 "display_name": "Əhməd",
                 "value": "+994501234567",
-                "aliases": ["Əmi"],
+                "aliases": ["Ami"],
             }
         },
     )
     monkeypatch.setattr(whatsapp, "_load_phone_book", lambda: {})
 
-    contact = whatsapp._find_contact("Əmi")
+    contact = whatsapp._find_contact("Ami")
 
     assert contact is not None
     assert contact["display_name"] == "Əhməd"
