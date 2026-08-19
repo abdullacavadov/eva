@@ -1,18 +1,18 @@
 """
-JARVIS — Gemini Live araç (tool) tanımları
-Windows masaüstü çekirdeği (main.py) kullanır.
+EVA — Gemini Live alət tərifləri.
+Windows masaüstü nüvəsi (main.py) tərəfindən istifadə olunur.
 """
 
 TOOL_DECLARATIONS = [
     {
         "name": "open_app",
-        "description": "Windows'ta herhangi bir uygulamayı açar. Spotify, Chrome, Terminal, Dosya Gezgini, VS Code vb.",
+        "description": "Windows-da istənilən tətbiqi açır. Spotify, Chrome, Terminal, Fayl Explorer, VS Code və s.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "app_name": {
                     "type": "STRING",
-                    "description": "Uygulama adı (örn. 'Spotify', 'Chrome', 'Terminal')"
+                    "description": "Tətbiqin adı (məsələn, 'Spotify', 'Chrome', 'Terminal')"
                 }
             },
             "required": ["app_name"]
@@ -20,7 +20,7 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "sys_info",
-        "description": "Sistem bilgisi alır: pil durumu, CPU, RAM, disk, saat, tarih, ağ bağlantısı.",
+        "description": "Sistem məlumatlarını alır: batareya vəziyyəti, CPU, RAM, disk, saat, tarix və şəbəkə bağlantısı.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
@@ -35,15 +35,15 @@ TOOL_DECLARATIONS = [
     {
         "name": "get_weather",
         "description": (
-            "Anlik hava durumunu ozetler. Varsayilan konum Istanbul'dur. "
-            "Kullanici hava durumunu, sicakligi veya yagmur durumunu sordugunda kullan."
+            "Cari hava vəziyyətini ümumiləşdirir. Defolt məkan İstanbul-dur. "
+            "İstifadəçi hava vəziyyəti, temperatur və ya yağış barədə soruşduqda istifadə et."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "location": {
                     "type": "STRING",
-                    "description": "Sehir veya konum. Bos birakilirsa Istanbul kullanilir."
+                    "description": "Şəhər və ya məkan. Boş saxlanılarsa İstanbul istifadə olunur."
                 }
             }
         }
@@ -51,9 +51,9 @@ TOOL_DECLARATIONS = [
     {
         "name": "get_calendar_events",
         "description": (
-            "Takvim (Google Calendar) etkinliklerini okur. "
-            "Bugun, yarin, siradaki etkinlik veya yaklasan ajandayi ozetler. "
-            "Kullanici toplanti, takvim, ajanda, etkinlik veya gunluk programini sordugunda kullan."
+            "Google Calendar tədbirlərini oxuyur. "
+            "Bu gün, sabah, növbəti tədbir və ya yaxın gündəliyi ümumiləşdirir. "
+            "İstifadəçi görüş, təqvim, gündəlik, tədbir və ya günün proqramı barədə soruşduqda istifadə et."
         ),
         "parameters": {
             "type": "OBJECT",
@@ -61,13 +61,13 @@ TOOL_DECLARATIONS = [
                 "query": {
                     "type": "STRING",
                     "description": (
-                        "today | tomorrow | next | agenda | week veya dogal dilde "
-                        "'onumuzdeki 30 gun', '2 hafta', 'bu ay', 'gelecek ay'"
+                        "today | tomorrow | next | agenda | week və ya təbii dildə "
+                        "'növbəti 30 gün', '2 həftə', 'bu ay', 'gələn ay'"
                     )
                 },
                 "limit": {
                     "type": "NUMBER",
-                    "description": "Maksimum etkinlik sayisi"
+                    "description": "Maksimum tədbir sayı"
                 }
             },
             "required": ["query"]
@@ -76,40 +76,40 @@ TOOL_DECLARATIONS = [
     {
         "name": "add_calendar_event",
         "description": (
-            "Takvim (Google Calendar) servisine yeni etkinlik ekler. "
-            "Kullanici toplanti, randevu, takvime ekleme veya etkinlik olusturma isterse kullan. "
-            "Baslangic tarihini gercek tarih/saat olarak ver; bitis verilmezse varsayilan sure kullanilir."
+            "Google Calendar-a yeni tədbir əlavə edir. "
+            "İstifadəçi görüş, randevu, təqvimə əlavə etmə və ya tədbir yaratmağı istədikdə istifadə et. "
+            "Başlanğıc tarixini real tarix və saat kimi ver; bitiş verilməzsə defolt müddətdən istifadə olunur."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "title": {
                     "type": "STRING",
-                    "description": "Etkinlik basligi. Ornek: 'Disci Randevusu'"
+                    "description": "Tədbirin başlığı. Məsələn: 'Diş həkimi randevusu'"
                 },
                 "start_iso": {
                     "type": "STRING",
-                    "description": "Baslangic tarih/saat. ISO veya yyyy-MM-dd HH:mm formatinda."
+                    "description": "Başlanğıc tarix/saatı. ISO və ya yyyy-MM-dd HH:mm formatında."
                 },
                 "end_iso": {
                     "type": "STRING",
-                    "description": "Bitis tarih/saat. Opsiyonel."
+                    "description": "Bitiş tarix/saatı. İxtiyaridir."
                 },
                 "location": {
                     "type": "STRING",
-                    "description": "Etkinlik konumu. Opsiyonel."
+                    "description": "Tədbirin məkanı. İxtiyaridir."
                 },
                 "notes": {
                     "type": "STRING",
-                    "description": "Etkinlik notlari. Opsiyonel."
+                    "description": "Tədbir qeydləri. İxtiyaridir."
                 },
                 "calendar_name": {
                     "type": "STRING",
-                    "description": "Eklenecek takvim adi. Opsiyonel."
+                    "description": "Əlavə ediləcək təqvimin adı. İxtiyaridir."
                 },
                 "all_day": {
                     "type": "BOOLEAN",
-                    "description": "true ise tum gun etkinligi olusturur."
+                    "description": "true olarsa bütün gün davam edən tədbir yaradır."
                 }
             },
             "required": ["title", "start_iso"]
@@ -118,28 +118,28 @@ TOOL_DECLARATIONS = [
     {
         "name": "delete_calendar_event",
         "description": (
-            "Takvim (Google Calendar) servisinden etkinlik siler. "
-            "Kullanici bir toplantiyi, randevuyu veya takvim kaydini silmek istediginde kullan. "
-            "Ayni ada birden fazla etkinlik varsa dogru kaydi bulmak icin baslangic tarihini gercek tarih/saat olarak ver."
+            "Google Calendar-dan tədbir silir. "
+            "İstifadəçi görüşü, randevunu və ya təqvim qeydini silmək istədikdə istifadə et. "
+            "Eyni adlı bir neçə tədbir varsa düzgün qeydi tapmaq üçün başlanğıc tarixini real tarix və saat kimi ver."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "title": {
                     "type": "STRING",
-                    "description": "Silinecek etkinlik basligi. Ornek: 'Disci Randevusu'"
+                    "description": "Silinəcək tədbirin başlığı. Məsələn: 'Diş həkimi randevusu'"
                 },
                 "start_iso": {
                     "type": "STRING",
-                    "description": "Opsiyonel tarih/saat. Ayni isimli birden fazla etkinligi ayirt etmek icin kullan."
+                    "description": "İxtiyari tarix/saat. Eyni adlı bir neçə tədbiri ayırmaq üçün istifadə olunur."
                 },
                 "calendar_name": {
                     "type": "STRING",
-                    "description": "Opsiyonel takvim adi"
+                    "description": "İxtiyari təqvim adı"
                 },
                 "delete_all_matches": {
                     "type": "BOOLEAN",
-                    "description": "true ise eslesen tum etkinlikleri siler"
+                    "description": "true olarsa uyğun gələn bütün tədbirləri silir"
                 }
             },
             "required": ["title"]
@@ -148,9 +148,9 @@ TOOL_DECLARATIONS = [
     {
         "name": "get_reminders",
         "description": (
-            "Hatırlatıcılar (Microsoft To-Do) listesini okur. "
-            "Bugunku, yaklasan, geciken veya tum acik animsaticilari ozetler. "
-            "Kullanici hatirlatma, animsatici, reminder veya yapilacaklar listesini sordugunda kullan."
+            "Microsoft To-Do xatırlatmalar siyahısını oxuyur. "
+            "Bu günkü, yaxınlaşan, gecikmiş və ya bütün açıq xatırlatmaları ümumiləşdirir. "
+            "İstifadəçi xatırlatma, görüləcək işlər və ya tapşırıqlar siyahısı barədə soruşduqda istifadə et."
         ),
         "parameters": {
             "type": "OBJECT",
@@ -161,11 +161,11 @@ TOOL_DECLARATIONS = [
                 },
                 "limit": {
                     "type": "NUMBER",
-                    "description": "Maksimum animsatici sayisi"
+                    "description": "Maksimum xatırlatma sayı"
                 },
                 "list_name": {
                     "type": "STRING",
-                    "description": "Istenirse belirli bir animsatici listesi adi"
+                    "description": "İstənilərsə konkret xatırlatma siyahısının adı"
                 }
             },
             "required": ["query"]
@@ -174,28 +174,28 @@ TOOL_DECLARATIONS = [
     {
         "name": "add_reminder",
         "description": (
-            "Hatırlatıcılar (Microsoft To-Do) uygulamasina yeni bir animsatici ekler. "
-            "Kullanici 'hatirlat', 'animsatici ekle', 'reminder kur' dediginde kullan. "
-            "Goreli zaman ifadelerini bugunku tarih baglamina gore due_iso alanina ISO formatinda cevir."
+            "Microsoft To-Do tətbiqinə yeni xatırlatma əlavə edir. "
+            "İstifadəçi 'xatırlat', 'xatırlatma əlavə et', 'xatırlatma qur' dedikdə istifadə et. "
+            "Nisbi vaxt ifadələrini cari tarix kontekstinə əsasən due_iso sahəsində ISO formatına çevir."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "title": {
                     "type": "STRING",
-                    "description": "Animsatici basligi"
+                    "description": "Xatırlatmanın başlığı"
                 },
                 "due_iso": {
                     "type": "STRING",
-                    "description": "Opsiyonel tarih/saat. Ornek: 2026-04-13T09:00 veya tum gun icin 2026-04-13"
+                    "description": "İxtiyari tarix/saat. Məsələn: 2026-04-13T09:00 və ya bütün gün üçün 2026-04-13"
                 },
                 "notes": {
                     "type": "STRING",
-                    "description": "Opsiyonel not"
+                    "description": "İxtiyari qeyd"
                 },
                 "list_name": {
                     "type": "STRING",
-                    "description": "Opsiyonel animsatici listesi"
+                    "description": "İxtiyari xatırlatma siyahısı"
                 },
                 "priority": {
                     "type": "STRING",
@@ -203,7 +203,7 @@ TOOL_DECLARATIONS = [
                 },
                 "all_day": {
                     "type": "BOOLEAN",
-                    "description": "Tum gun animsatici ise true"
+                    "description": "Bütün gün xatırlatmasıdırsa true"
                 }
             },
             "required": ["title"]
@@ -211,26 +211,26 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "browser_control",
-        "description": "Tarayıcıda URL açar, Google'da arama yapar veya YouTube'da ilk sonucu doğrudan oynatır.",
+        "description": "Brauzerdə URL açır, Google-da axtarış edir və ya YouTube-da ilk nəticəni birbaşa oynadır.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {"type": "STRING", "description": "open_url | search | play_youtube"},
-                "url":    {"type": "STRING", "description": "Açılacak URL (open_url için)"},
-                "query":  {"type": "STRING", "description": "Arama sorgusu (search veya play_youtube için)"}
+                "url":    {"type": "STRING", "description": "Açılacaq URL (open_url üçün)"},
+                "query":  {"type": "STRING", "description": "Axtarış sorğusu (search və ya play_youtube üçün)"}
             },
             "required": ["action"]
         }
     },
     {
         "name": "shell_run",
-        "description": "Windows komut satırı (cmd.exe) komutu çalıştırır. Dosya işlemleri, sistem yönetimi.",
+        "description": "Windows əmr sətrində (cmd.exe) komanda icra edir. Fayl əməliyyatları və sistem idarəetməsi üçün istifadə olunur.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "command": {
                     "type": "STRING",
-                    "description": "Çalıştırılacak komut"
+                    "description": "İcra ediləcək komanda"
                 }
             },
             "required": ["command"]
@@ -239,17 +239,17 @@ TOOL_DECLARATIONS = [
     {
         "name": "toggle_webcam",
         "description": (
-            "Gerçek zamanlı webcam akışını başlatır veya durdurur. "
-            "Akış aktifken model sürekli kamera görüntüsü alır — 'bak', 'gör', 'göster', "
-            "'kameraya bak', 'önümdekileri anlat', 'ne görüyorsun' gibi komutlarda 'start' kullan. "
-            "'kamerayı kapat', 'artık bakma' gibi durumlarda 'stop' kullan."
+            "Real vaxtda veb-kamera axınını başladır və ya dayandırır. "
+            "Axın aktiv olduqda model davamlı kamera görüntüsü alır — 'bax', 'gör', 'göstər', "
+            "'kameraya bax', 'qarşımdakını izah et', 'nə görürsən' kimi əmrlərdə 'start' istifadə et. "
+            "'kameranı söndür', 'artıq baxma' kimi hallarda 'stop' istifadə et."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {
                     "type": "STRING",
-                    "description": "start — akışı başlat  |  stop — akışı durdur"
+                    "description": "start — axını başlat  |  stop — axını dayandır"
                 }
             },
             "required": ["action"]
@@ -258,17 +258,17 @@ TOOL_DECLARATIONS = [
     {
         "name": "play_media",
         "description": (
-            "YouTube veya Spotify'da şarkı, müzik veya video açar. "
-            "Kullanıcı belirli bir platform söylerse onu kullan. "
-            "Belirtmezse uygun olanı dene. "
-            "Kullanıcı 'çal', 'oynat', 'aç' diyorsa autoplay=true kullan."
+            "YouTube və ya Spotify-da mahnı, musiqi və ya video açır. "
+            "İstifadəçi konkret platforma deyərsə ondan istifadə et. "
+            "Platforma bildirilməzsə uyğun olanı sına. "
+            "İstifadəçi 'çal', 'oynat', 'aç' deyirsə autoplay=true istifadə et."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "query": {
                     "type": "STRING",
-                    "description": "Şarkı, sanatçı, albüm veya video arama ifadesi"
+                    "description": "Mahnı, ifaçı, albom və ya video axtarış ifadəsi"
                 },
                 "provider": {
                     "type": "STRING",
@@ -276,7 +276,7 @@ TOOL_DECLARATIONS = [
                 },
                 "autoplay": {
                     "type": "BOOLEAN",
-                    "description": "true ise mümkünse doğrudan oynatır"
+                    "description": "true olarsa mümkün olduqda birbaşa oynadır"
                 }
             },
             "required": ["query"]
@@ -285,9 +285,9 @@ TOOL_DECLARATIONS = [
     {
         "name": "get_youtube_channel_report",
         "description": (
-            "YouTube kanalinin public istatistiklerini ve son videolarin performansini raporlar. "
-            "Kullanici kanal istatistiklerini, abone sayisini, son videolarini, buyume hizini "
-            "veya YouTube analizini sordugunda kullan. Bu arac Studio yerine public YouTube Data API verisini kullanir."
+            "YouTube kanalının açıq statistikasını və son videoların performansını hesabat şəklində təqdim edir. "
+            "İstifadəçi kanal statistikası, abunəçi sayı, son videolar, böyümə sürəti və ya YouTube analitikası barədə soruşduqda istifadə et. "
+            "Bu alət Studio əvəzinə açıq YouTube Data API məlumatlarından istifadə edir."
         ),
         "parameters": {
             "type": "OBJECT",
@@ -295,21 +295,21 @@ TOOL_DECLARATIONS = [
                 "query": {
                     "type": "STRING",
                     "description": (
-                        "Dogal dilde analiz istegi. Ornek: "
-                        "'YouTube istatistiklerim nasil', 'son videolarimi analiz et', "
-                        "'kanal buyumemi ozetle'"
+                        "Təbii dildə analiz sorğusu. Məsələn: "
+                        "'YouTube statistikalarım necədir', 'son videolarımı analiz et', "
+                        "'kanal böyüməmi ümumiləşdir'"
                     )
                 },
                 "handle": {
                     "type": "STRING",
                     "description": (
-                        "Opsiyonel kanal handle'i, kanal linki veya kanal ID'si. "
-                        "Bos birakilirsa ayarlardaki youtube_channel_handle kullanilir."
+                        "İxtiyari kanal handle-ı, kanal linki və ya kanal ID-si. "
+                        "Boş saxlanılarsa ayarlardakı youtube_channel_handle istifadə olunur."
                     )
                 },
                 "video_limit": {
                     "type": "NUMBER",
-                    "description": "Analize dahil edilecek son video sayisi. Varsayilan 6."
+                    "description": "Analizə daxil ediləcək son video sayı. Defolt 6."
                 }
             },
             "required": ["query"]
@@ -318,20 +318,20 @@ TOOL_DECLARATIONS = [
     {
         "name": "analyze_screen",
         "description": (
-            "Aktif pencerenin ekran goruntusunu alip Gemini vision ile analiz eder. "
-            "Kullanici ekranda ne oldugunu, bir hatayi, gorunen metni, butonlari veya pencere icerigini sordugunda kullan. "
-            "Bu surum yalnizca aktif pencereyi destekler."
+            "Aktiv pəncərənin ekran görüntüsünü alır və Gemini vision ilə analiz edir. "
+            "İstifadəçi ekranda nə olduğunu, xətanı, görünən mətni, düymələri və ya pəncərə məzmununu soruşduqda istifadə et. "
+            "Bu versiya yalnız aktiv pəncərəni dəstəkləyir."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "query": {
                     "type": "STRING",
-                    "description": "Kullanicinin ekranla ilgili sorusu. Ornek: 'Bu hatayi oku', 'Ekranda ne var?'"
+                    "description": "İstifadəçinin ekranla bağlı sualı. Məsələn: 'Bu xətanı oxu', 'Ekranda nə var?'"
                 },
                 "target": {
                     "type": "STRING",
-                    "description": "Su an sadece active_window desteklenir."
+                    "description": "Hazırda yalnız active_window dəstəklənir."
                 }
             },
             "required": ["query"]
@@ -339,7 +339,7 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "save_memory",
-        "description": "Kullanıcı hakkında önemli bilgiyi kalıcı belleğe kaydeder. İsim, tercihler, projeler vb. duyunca sessizce çağır.",
+        "description": "İstifadəçi haqqında vacib məlumatı daimi yaddaşa yazır. Ad, seçimlər, layihələr və s. eşidildikdə səssizcə çağır.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
@@ -347,8 +347,8 @@ TOOL_DECLARATIONS = [
                     "type": "STRING",
                     "description": "identity | preferences | projects | notes"
                 },
-                "key":   {"type": "STRING", "description": "Kısa anahtar (örn. 'name')"},
-                "value": {"type": "STRING", "description": "Değer (İngilizce)"}
+                "key":   {"type": "STRING", "description": "Qısa açar (məsələn, 'name')"},
+                "value": {"type": "STRING", "description": "Dəyər (İngilis dilində)"}
             },
             "required": ["category", "key", "value"]
         }
@@ -356,24 +356,24 @@ TOOL_DECLARATIONS = [
     {
         "name": "delete_memory",
         "description": (
-            "Kalici hafizadaki bir kaydi siler. "
-            "Kullanici 'bunu hafizandan kaldir', 'unut', 'sil' gibi bir sey derse kullan. "
-            "Mumkunse category ve key ile sil; emin degilsen match_text ile ilgili kaydi bulup kaldir."
+            "Daimi yaddaşdakı qeydi silir. "
+            "İstifadəçi 'bunu yaddaşından sil', 'unut', 'sil' kimi əmr verdikdə istifadə et. "
+            "Mümkündürsə category və key ilə sil; əmin deyilsənsə match_text ilə əlaqəli qeydi tapıb sil."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "category": {
                     "type": "STRING",
-                    "description": "Kaydin kategorisi. Ornek: notes | identity | preferences | projects"
+                    "description": "Qeydin kateqoriyası. Məsələn: notes | identity | preferences | projects"
                 },
                 "key": {
                     "type": "STRING",
-                    "description": "Silinecek anahtar. Ornek: claude_limit_refresh"
+                    "description": "Silinəcək açar. Məsələn: claude_limit_refresh"
                 },
                 "match_text": {
                     "type": "STRING",
-                    "description": "Kaydi bulmak icin kullanilacak dogal dil parcasi. Ornek: 'claude ai limit yenilenmesi'"
+                    "description": "Qeydi tapmaq üçün istifadə ediləcək təbii dil hissəsi. Məsələn: 'claude ai limit yenilənməsi'"
                 }
             }
         }
@@ -381,35 +381,34 @@ TOOL_DECLARATIONS = [
     {
         "name": "send_whatsapp_message",
         "description": (
-            "WhatsApp Desktop veya WhatsApp Web üzerinden mesaj taslağı açar veya mesajı gönderir. "
-            "Kişi adı veya telefon numarasıyla çalışabilir. "
-            "Telefon numarası verilmemişse kişi adını önce kayıtlı WhatsApp kişileri ve içe aktarılan telefon rehberinde ara. "
-            "Kullanıcı 'gönder', 'yolla', 'ile', 'hemen gönder' gibi açık bir gönderme niyeti söylüyorsa "
-            "ekstra onay istemeden send_now=true kullan. "
-            "Yalnızca 'hazırla', 'taslak aç', 'yaz ama gönderme' diyorsa send_now=false kullan."
+            "WhatsApp Desktop və ya WhatsApp Web üzərindən mesaj qaralamasını açır və ya mesajı göndərir. "
+            "Kontakt adı və ya telefon nömrəsi ilə işləyə bilər. "
+            "Telefon nömrəsi verilməyibsə əvvəlcə adı yadda saxlanılmış WhatsApp kontaktlarında və idxal edilmiş telefon kitabçasında axtar. "
+            "İstifadəçi 'göndər', 'yolla', 'ilə', 'indi göndər' kimi açıq göndərmə niyyəti bildirirsə əlavə təsdiq istəmədən send_now=true istifadə et. "
+            "Yalnız 'hazırla', 'qaralama aç', 'yaz, amma göndərmə' deyirsə send_now=false istifadə et."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "recipient_name": {
                     "type": "STRING",
-                    "description": "Kişi adı. Örn: 'Anne', 'Ahmet', 'Ece'"
+                    "description": "Kontaktın adı. Məsələn: 'Ana', 'Əhməd', 'Ece'"
                 },
                 "phone_number": {
                     "type": "STRING",
-                    "description": "Uluslararası telefon numarası. Örn: +905551112233"
+                    "description": "Beynəlxalq telefon nömrəsi. Məsələn: +905551112233"
                 },
                 "message": {
                     "type": "STRING",
-                    "description": "Gönderilecek mesaj içeriği"
+                    "description": "Göndəriləcək mesajın məzmunu"
                 },
                 "app_target": {
                     "type": "STRING",
-                    "description": "desktop | web | auto. Varsayılan auto, tercihen desktop."
+                    "description": "desktop | web | auto. Defolt auto, üstünlük desktop."
                 },
                 "send_now": {
                     "type": "BOOLEAN",
-                    "description": "true ise sohbet açıldıktan sonra mesajı otomatik gönderir"
+                    "description": "true olarsa söhbət açıldıqdan sonra mesajı avtomatik göndərir"
                 }
             },
             "required": ["message"]
@@ -418,23 +417,23 @@ TOOL_DECLARATIONS = [
     {
         "name": "save_whatsapp_contact",
         "description": (
-            "Sık kullanılan bir WhatsApp kişisini adı ve telefon numarasıyla kalıcı belleğe kaydeder. "
-            "Kullanıcı bir kişiyi 'annem', 'Ahmet', 'iş ortağım' gibi tekrar kullanılacak şekilde tanımladığında kullan."
+            "Tez-tez istifadə olunan WhatsApp kontaktını adı və telefon nömrəsi ilə daimi yaddaşa yazır. "
+            "İstifadəçi bir şəxsi 'anam', 'Əhməd', 'iş ortağım' kimi gələcəkdə istifadə ediləcək formada təyin etdikdə istifadə et."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "display_name": {
                     "type": "STRING",
-                    "description": "Kaydedilecek kişi adı. Örn: 'Annem', 'Ahmet'"
+                    "description": "Yadda saxlanılacaq kontakt adı. Məsələn: 'Anam', 'Əhməd'"
                 },
                 "phone_number": {
                     "type": "STRING",
-                    "description": "Uluslararası telefon numarası. Örn: +905551112233"
+                    "description": "Beynəlxalq telefon nömrəsi. Məsələn: +905551112233"
                 },
                 "aliases": {
                     "type": "STRING",
-                    "description": "Virgülle ayrılmış alternatif hitaplar. Örn: 'anne, annem, mom'"
+                    "description": "Vergüllə ayrılmış alternativ müraciətlər. Məsələn: 'ana, anam, mom'"
                 }
             },
             "required": ["display_name", "phone_number"]
