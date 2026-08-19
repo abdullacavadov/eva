@@ -7,7 +7,12 @@ import tempfile
 import unicodedata
 from pathlib import Path
 
-from integrations.google.contacts import get_google_contacts
+from integrations.google.contacts import (
+    create_google_contact,
+    delete_google_contact,
+    get_google_contacts,
+    update_google_contact,
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PHONEBOOK_FILE = BASE_DIR / "memory" / "phone_book.json"
@@ -176,3 +181,23 @@ def sync_google_contacts() -> str:
     except Exception as exc:
         return f"Kontakt sinxronizasiyası zamanı local telefon kitabçası dəyişdirilmədi: {exc}"
     return f"Google Contacts sinxronizasiya edildi: {added} yeni, {updated} yenilənmiş, {unchanged} dəyişməyən kontakt. Local-only kontaktlar saxlanıldı."
+
+
+def create_contact(display_name: str, phone_number: str) -> str:
+    """Create a Google Contact without modifying the local phone book."""
+    phone = _normalize_phone(phone_number)
+    contact = create_google_contact(display_name, [f"+{phone}"])
+    return f"Google kontaktı yaradıldı: {contact['display_name']} ({contact['resource_name']})."
+
+
+def update_contact(resource_name: str, display_name: str, phone_number: str) -> str:
+    """Update a Google Contact using its known resource identity."""
+    phone = _normalize_phone(phone_number)
+    contact = update_google_contact(resource_name, display_name, [f"+{phone}"])
+    return f"Google kontaktı yeniləndi: {contact['display_name']} ({contact['resource_name']})."
+
+
+def delete_contact(resource_name: str) -> str:
+    """Delete a Google Contact using its known resource identity."""
+    delete_google_contact(resource_name)
+    return f"Google kontaktı silindi: {resource_name}."
