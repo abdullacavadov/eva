@@ -33,6 +33,8 @@ from actions.media import play_media
 from actions.weather import get_weather_summary
 from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
+from core.result_store import ResultStore
+from core.result_resolver import ResultResolutionError, resolve_item
 
 # main.py imports ToolExecutor before TOOL_DECLARATIONS. Registering here keeps
 # the existing tool registry intact while adding Gmail and Contacts tools.
@@ -56,11 +58,22 @@ class ToolExecutor:
         webcam_streamer,
         focus_ui_section: Callable[[str, dict], None],
         speak_error: Callable[[str, str], None],
+        result_store: ResultStore | None = None,
     ):
         self.ui = ui
         self.webcam_streamer = webcam_streamer
         self.focus_ui_section = focus_ui_section
         self.speak_error = speak_error
+        self.result_store = result_store or ResultStore()
+
+    def resolve_follow_up(self, query: str) -> dict:
+        """Cari structured nəticədən follow-up sorğusunu konkret obyektə çevirir."""
+        context = self.result_store.current()
+        if context is None:
+            raise ResultResolutionError("Əvvəlki nəticə tapılmadı")
+        item = resolve_item(context, query)
+        self.result_store.select(context.result_id, item["id"])
+        return item
 
     @staticmethod
     def result_looks_like_error(result) -> bool:
@@ -69,25 +82,11 @@ class ToolExecutor:
         if not text:
             return False
         error_markers = (
-            "hata",
-            "error",
-            "xəta",
-            "alinamadi",
-            "alınamadı",
-            "bulunamadi",
-            "bulunamadı",
-            "acilamadi",
-            "açılamadı",
-            "tamamlanamadi",
-            "tamamlanamadı",
-            "gecersiz",
-            "geçersiz",
-            "izin gerekiyor",
-            "izin gerekli",
-            "baglanti",
-            "bağlantı",
-            "gerekli.",
-            "mümkün olmadı",
+            "hata", "error", "xəta", "alinamadi", "alınamadı",
+            "bulunamadi", "bulunamadı", "acilamadi", "açılamadı",
+            "tamamlanamadi", "tamamlanamadı", "gecersiz", "geçersiz",
+            "izin gerekiyor", "izin gerekli", "baglanti", "bağlantı",
+            "gerekli.", "mümkün olmadı",
         )
         return any(marker in text for marker in error_markers)
 
@@ -95,24 +94,17 @@ class ToolExecutor:
     def should_play_success_sfx(tool_name: str, args: dict, result) -> bool:
         """Uğurlu əməliyyatdan sonra səs effektinin çalınıb-çalınmayacağını müəyyən edir."""
         action_tools = {
-            "open_app",
-            "add_calendar_event",
-            "add_reminder",
-            "delete_calendar_event",
-            "remove_calendar_event",
-            "create_contact",
-            "update_contact",
-            "delete_contact",
+            "open_app", "add_calendar_event", "add_reminder",
+            "delete_calendar_event", "remove_calendar_event",
+            "create_contact", "update_contact", "delete_contact",
         }
         if tool_name in action_tools:
             return True
-
         if tool_name == "send_whatsapp_message":
             text = str(result or "").lower()
             if bool(args.get("send_now", False)):
                 return "göndərildi" in text or "gonderildi" in text
             return False
-
         return False
 
     async def execute(self, fc) -> types.FunctionResponse:
@@ -139,166 +131,64 @@ class ToolExecutor:
                     result = "ok"
 
             elif name == "delete_memory":
-                result = delete_memory(
-                    args.get("category", ""),
-                    args.get("key", ""),
-                    args.get("match_text", ""),
-                )
-
+                result = delete_memory(args.get("category", ""), args.get("key", ""), args.get("match_text", ""))
             elif name == "open_app":
-                r = await loop.run_in_executor(
-                    None, lambda: open_app(args.get("app_name", "")))
+                r = await loop.run_in_executor(None, lambda: open_app(args.get("app_name", "")))
                 result = r or f"{args.get('app_name')} açıldı."
-
             elif name == "sys_info":
                 self.focus_ui_section(name, args)
-                r = await loop.run_in_executor(
-                    None, lambda: sys_info(args.get("query", "all")))
+                r = await loop.run_in_executor(None, lambda: sys_info(args.get("query", "all")))
                 result = r or "Məlumat alındı."
-
             elif name == "get_weather":
                 self.focus_ui_section(name, args)
-                r = await loop.run_in_executor(
-                    None, lambda: get_weather_summary(args.get("location") or None))
+                r = await loop.run_in_executor(None, lambda: get_weather_summary(args.get("location") or None))
                 result = r or "Hava durumu məlumatı alındı."
-
             elif name == "get_calendar_events":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: get_calendar_events(
-                        args.get("query", "today"),
-                        int(args.get("limit", 6) or 6),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: get_calendar_events(args.get("query", "today"), int(args.get("limit", 6) or 6)))
                 result = r or "Təqvim məlumatı alındı."
-
             elif name == "add_calendar_event":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: add_calendar_event(
-                        args.get("title", ""),
-                        args.get("start_iso", ""),
-                        args.get("end_iso", ""),
-                        args.get("notes", ""),
-                        args.get("location", ""),
-                        args.get("calendar_name", ""),
-                        bool(args.get("all_day", False)),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: add_calendar_event(args.get("title", ""), args.get("start_iso", ""), args.get("end_iso", ""), args.get("notes", ""), args.get("location", ""), args.get("calendar_name", ""), bool(args.get("all_day", False))))
                 result = r or "Təqvim tədbiri əlavə edildi."
-
             elif name == "delete_calendar_event":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: delete_calendar_event(
-                        args.get("title", ""),
-                        args.get("start_iso", ""),
-                        args.get("calendar_name", ""),
-                        bool(args.get("delete_all_matches", False)),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: delete_calendar_event(args.get("title", ""), args.get("start_iso", ""), args.get("calendar_name", ""), bool(args.get("delete_all_matches", False))))
                 result = r or "Təqvim tədbiri silindi."
-
             elif name == "get_reminders":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: get_reminders(
-                        args.get("query", "upcoming"),
-                        int(args.get("limit", 8) or 8),
-                        args.get("list_name", ""),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: get_reminders(args.get("query", "upcoming"), int(args.get("limit", 8) or 8), args.get("list_name", "")))
                 result = r or "Xatırladıcı məlumatı alındı."
-
             elif name == "add_reminder":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: add_reminder(
-                        args.get("title", ""),
-                        args.get("due_iso", ""),
-                        args.get("notes", ""),
-                        args.get("list_name", ""),
-                        args.get("priority", ""),
-                        bool(args.get("all_day", False)),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: add_reminder(args.get("title", ""), args.get("due_iso", ""), args.get("notes", ""), args.get("list_name", ""), args.get("priority", ""), bool(args.get("all_day", False))))
                 result = r or "Xatırladıcı əlavə edildi."
-
             elif name == "get_emails":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: search_emails(
-                        args.get("query", ""),
-                        int(args.get("limit", 10) or 10),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: search_emails(args.get("query", ""), int(args.get("limit", 10) or 10)))
                 result = r or "Email məlumatı alındı."
-
             elif name == "read_email":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: read_email(args.get("message_id", "")),
-                )
+                r = await loop.run_in_executor(None, lambda: read_email(args.get("message_id", "")))
                 result = r or "Email oxundu."
-
             elif name == "sync_google_contacts":
                 r = await loop.run_in_executor(None, sync_google_contacts)
                 result = r or "Google Contacts sinxronizasiyası tamamlandı."
-
             elif name == "create_contact":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: create_contact(
-                        args.get("display_name", ""),
-                        args.get("phone_number", ""),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: create_contact(args.get("display_name", ""), args.get("phone_number", "")))
                 result = r or "Google kontaktı yaradıldı."
-
             elif name == "update_contact":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: update_contact(
-                        args.get("resource_name", ""),
-                        args.get("display_name", ""),
-                        args.get("phone_number", ""),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: update_contact(args.get("resource_name", ""), args.get("display_name", ""), args.get("phone_number", "")))
                 result = r or "Google kontaktı yeniləndi."
-
             elif name == "delete_contact":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: delete_contact(args.get("resource_name", "")),
-                )
+                r = await loop.run_in_executor(None, lambda: delete_contact(args.get("resource_name", "")))
                 result = r or "Google kontaktı silindi."
-
             elif name == "browser_control":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: browser_control(
-                        args.get("action"),
-                        args.get("url"),
-                        args.get("query"),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: browser_control(args.get("action"), args.get("url"), args.get("query")))
                 result = r or "Tamam."
-
             elif name == "shell_run":
-                r = await loop.run_in_executor(
-                    None, lambda: shell_run(args.get("command", "")))
+                r = await loop.run_in_executor(None, lambda: shell_run(args.get("command", "")))
                 result = r or "Əmr icra edildi."
-
             elif name == "toggle_webcam":
                 action = str(args.get("action", "start")).strip().lower()
                 if action == "start":
                     status = self.webcam_streamer.start()
                     if status == "ok":
                         self.ui.set_webcam_active(True)
-                        result = (
-                            "Webcam axını başladıldı. "
-                            "Artıq kameranı görürəm — istədiyin vaxt sual verə bilərsən."
-                        )
+                        result = "Webcam axını başladıldı. Artıq kameranı görürəm — istədiyin vaxt sual verə bilərsən."
                     elif status == "already_active":
                         result = "Webcam artıq açıqdır, görüntünü alıram."
                     else:
@@ -307,66 +197,23 @@ class ToolExecutor:
                     self.webcam_streamer.stop()
                     self.ui.set_webcam_active(False)
                     result = "Webcam axını dayandırıldı."
-
             elif name == "play_media":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: play_media(
-                        args.get("query", ""),
-                        args.get("provider", "auto"),
-                        bool(args.get("autoplay", True)),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: play_media(args.get("query", ""), args.get("provider", "auto"), bool(args.get("autoplay", True))))
                 result = r or "Media oxudulmağa başladı."
-
             elif name == "get_youtube_channel_report":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: get_youtube_channel_report(
-                        args.get("query", "overview"),
-                        args.get("handle", ""),
-                        int(args.get("video_limit", 6) or 6),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: get_youtube_channel_report(args.get("query", "overview"), args.get("handle", ""), int(args.get("video_limit", 6) or 6)))
                 result = r or "YouTube kanal hesabatı alındı."
-
             elif name == "analyze_screen":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: analyze_screen(
-                        args.get("query", "Ekranda nə var?"),
-                        args.get("target", "active_window"),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: analyze_screen(args.get("query", "Ekranda nə var?"), args.get("target", "active_window")))
                 result = r or "Ekran analizi tamamlandı."
-
             elif name == "send_whatsapp_message":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: send_whatsapp_message(
-                        args.get("message", ""),
-                        args.get("phone_number", ""),
-                        args.get("recipient_name", ""),
-                        bool(args.get("send_now", False)),
-                        args.get("app_target", "auto"),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: send_whatsapp_message(args.get("message", ""), args.get("phone_number", ""), args.get("recipient_name", ""), bool(args.get("send_now", False)), args.get("app_target", "auto")))
                 result = r or "WhatsApp əməliyyatı tamamlandı."
-
             elif name == "save_whatsapp_contact":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: save_whatsapp_contact(
-                        args.get("display_name", ""),
-                        args.get("phone_number", ""),
-                        args.get("aliases", ""),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: save_whatsapp_contact(args.get("display_name", ""), args.get("phone_number", ""), args.get("aliases", "")))
                 result = r or "WhatsApp kontaktı yadda saxlanıldı."
-
             else:
                 result = f"Naməlum alət: {name}"
-
         except Exception as e:
             result = f"Xəta: {e}"
             had_exception = True
@@ -381,12 +228,11 @@ class ToolExecutor:
         elif self.should_play_success_sfx(name, args, result):
             self.ui.play_success_sfx()
 
+        if isinstance(result, dict) and "type" in result and "status" in result and "data" in result:
+            self.result_store.save(result)
+
         if not tool_failed and not self.ui.muted:
             self.ui.set_state("LISTENING")
 
         print(f"[E.V.A] 📤 {name} → {str(result)[:80]}")
-        return types.FunctionResponse(
-            id=fc.id,
-            name=fc.name,
-            response={"result": result},
-        )
+        return types.FunctionResponse(id=fc.id, name=fc.name, response={"result": result})
