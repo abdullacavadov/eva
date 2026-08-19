@@ -9,15 +9,13 @@ from pathlib import Path
 
 from integrations.google.contacts import get_google_contacts
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 PHONEBOOK_FILE = BASE_DIR / "memory" / "phone_book.json"
 
 
 def _normalize_lookup(text: str) -> str:
     text = (text or "").strip().casefold()
-    replacements = str.maketrans({"ə": "e", "ı": "i", "ö": "o", "ü": "u", "ş": "s", "ç": "c", "ğ": "g"})
-    text = text.translate(replacements)
+    text = text.translate(str.maketrans({"ə": "e", "ı": "i", "ö": "o", "ü": "u", "ş": "s", "ç": "c", "ğ": "g"}))
     text = unicodedata.normalize("NFKD", text)
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
     return re.sub(r"\s+", " ", text)
@@ -38,8 +36,7 @@ def _contact_key(name: str, phone: str, existing: dict) -> str:
     base = re.sub(r"[^a-z0-9]+", "_", _normalize_lookup(name)).strip("_") or "contact"
     if base not in existing:
         return base
-    normalized_phone = _normalize_phone(phone)
-    candidate = f"{base}_{normalized_phone[-6:]}"
+    candidate = f"{base}_{_normalize_phone(phone)[-6:]}"
     if candidate not in existing:
         return candidate
     index = 2
@@ -77,12 +74,10 @@ def _build_entry(contact: dict, phones: list[str], previous: dict | None = None)
     display_name = contact["display_name"]
     entry = dict(previous or {})
     entry["display_name"] = display_name
-
     previous_phones = set(_entry_phones(previous or {}))
     if previous is None or previous_phones != set(phones):
         entry["value"] = f"+{phones[0]}"
         entry["phones"] = [{"number": f"+{phone}"} for phone in phones]
-
     resource_name = contact.get("resource_name")
     if resource_name and (previous is None or "google_resource_name" in previous):
         entry["google_resource_name"] = resource_name
@@ -95,34 +90,22 @@ def _find_match(local: dict, contact: dict, phones: list[str]) -> tuple[str | No
         for key, entry in local.items():
             if isinstance(entry, dict) and entry.get("google_resource_name") == resource_name:
                 return key, entry
-
     phone_set = set(phones)
     if phone_set:
         for key, entry in local.items():
-            if not isinstance(entry, dict):
-                continue
-            if phone_set.intersection(_entry_phones(entry)):
+            if isinstance(entry, dict) and phone_set.intersection(_entry_phones(entry)):
                 return key, entry
-
     normalized_name = _normalize_lookup(contact["display_name"])
     if normalized_name:
         for key, entry in local.items():
-            if not isinstance(entry, dict):
-                continue
-            entry_name = _normalize_lookup(str(entry.get("display_name") or key))
-            if entry_name == normalized_name:
+            if isinstance(entry, dict) and _normalize_lookup(str(entry.get("display_name") or key)) == normalized_name:
                 return key, entry
-
     return None, None
 
 
 def _write_atomic(phone_book: dict) -> None:
     PHONEBOOK_FILE.parent.mkdir(parents=True, exist_ok=True)
-    fd, temp_path = tempfile.mkstemp(
-        prefix="phone_book_",
-        suffix=".json",
-        dir=str(PHONEBOOK_FILE.parent),
-    )
+    fd, temp_path = tempfile.mkstemp(prefix="phone_book_", suffix=".json", dir=str(PHONEBOOK_FILE.parent))
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             json.dump(phone_book, handle, indent=2, ensure_ascii=False)
@@ -139,16 +122,11 @@ def _write_atomic(phone_book: dict) -> None:
 def sync_google_contacts() -> str:
     """Synchronize Google Contacts into the local phone book without deleting local-only entries."""
     try:
-        if PHONEBOOK_FILE.exists():
-            local = json.loads(PHONEBOOK_FILE.read_text(encoding="utf-8"))
-        else:
-            local = {}
+        local = json.loads(PHONEBOOK_FILE.read_text(encoding="utf-8")) if PHONEBOOK_FILE.exists() else {}
     except (json.JSONDecodeError, OSError) as exc:
         return f"Local telefon kitabçası oxunmadı: {exc}"
-
     if not isinstance(local, dict):
         return "Local telefon kitabçasının strukturu düzgün deyil."
-
     try:
         google_contacts = get_google_contacts()
     except Exception as exc:
@@ -158,59 +136,43 @@ def sync_google_contacts() -> str:
     added = updated = unchanged = 0
     seen_google_phones: set[str] = set()
     seen_google_resources: set[str] = set()
-
     try:
         for contact in google_contacts:
             display_name = str(contact.get("display_name") or "").strip()
-            raw_phones = contact.get("phones") or []
             phones = []
-            for raw_phone in raw_phones:
+            for raw_phone in contact.get("phones") or []:
                 try:
                     normalized = _normalize_phone(str(raw_phone))
                 except ValueError:
                     continue
                 if normalized not in phones:
                     phones.append(normalized)
-
             if not display_name or not phones:
                 continue
-
             resource_name = str(contact.get("resource_name") or "")
             if resource_name and resource_name in seen_google_resources:
                 continue
             if resource_name:
                 seen_google_resources.add(resource_name)
-
-            unique_phone_set = set(phones)
-            if unique_phone_set.intersection(seen_google_phones):
+            phone_set = set(phones)
+            if phone_set.intersection(seen_google_phones):
                 continue
-            seen_google_phones.update(unique_phone_set)
-
-            normalized_contact = {
-                "display_name": display_name,
-                "resource_name": resource_name,
-            }
+            seen_google_phones.update(phone_set)
+            normalized_contact = {"display_name": display_name, "resource_name": resource_name}
             key, previous = _find_match(merged, normalized_contact, phones)
             if key is None:
                 key = _contact_key(display_name, phones[0], merged)
                 merged[key] = _build_entry(normalized_contact, phones)
                 added += 1
                 continue
-
             desired = _build_entry(normalized_contact, phones, previous)
             if desired == previous:
                 unchanged += 1
             else:
                 merged[key] = desired
                 updated += 1
-
         if merged != local:
             _write_atomic(merged)
     except Exception as exc:
         return f"Kontakt sinxronizasiyası zamanı local telefon kitabçası dəyişdirilmədi: {exc}"
-
-    return (
-        f"Google Contacts sinxronizasiya edildi: {added} yeni, "
-        f"{updated} yenilənmiş, {unchanged} dəyişməyən kontakt. "
-        f"Local-only kontaktlar saxlanıldı."
-    )
+    return f"Google Contacts sinxronizasiya edildi: {added} yeni, {updated} yenilənmiş, {unchanged} dəyişməyən kontakt. Local-only kontaktlar saxlanıldı."
