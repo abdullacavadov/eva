@@ -50,9 +50,10 @@ def get_reminders(
 ) -> str:
     try:
         task_list_id = resolve_task_list_id(list_name)
+        result_limit = max(1, min(int(limit or 8), 100))
         tasks = list_tasks(
             task_list_id=task_list_id,
-            max_results=max(1, min(int(limit or 8), 100)),
+            max_results=100,
             show_completed=False,
         )
 
@@ -71,6 +72,7 @@ def get_reminders(
                 or normalized_query in str(task.get("notes", "")).casefold()
             ]
 
+        tasks = tasks[:result_limit]
         if not tasks:
             return "Göstərilən meyarlara uyğun reminder tapılmadı."
 
