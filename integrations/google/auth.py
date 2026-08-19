@@ -18,7 +18,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/calendar",
     "https://www.googleapis.com/auth/tasks",
     "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/contacts.readonly",
+    "https://www.googleapis.com/auth/contacts",
 ]
 
 
@@ -65,7 +65,7 @@ def get_google_credentials() -> Credentials:
 
     if not _has_required_scopes(credentials):
         raise RuntimeError(
-            "Google OAuth üçün Calendar, Tasks, Gmail readonly və Contacts readonly scope-ları tələb olunur."
+            "Google OAuth üçün Calendar, Tasks, Gmail readonly və Contacts scope-ları tələb olunur."
         )
 
     TOKEN_FILE.write_text(
