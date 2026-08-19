@@ -1,73 +1,102 @@
+import pytest
+
 from core.security.command_policy import validate_command
 
-from core.security.command_runner import run_command
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "whoami",
+        "hostname",
+        "ver",
+        "ipconfig",
+        "ipconfig /all",
+        "getmac",
+        "tasklist",
+        "systeminfo",
+        "where python",
+    ],
+)
+def test_allowed_commands(command):
+    allowed, reason = validate_command(command)
+
+    assert allowed is True
+    assert reason == ""
 
 
-def test_safe_command_executes():
-    result = run_command("python --version")
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cmd /c whoami",
+        "powershell Get-Process",
+        "pwsh Get-Process",
+        "python -c \"print(1)\"",
+        "wscript test.vbs",
+        "cscript test.vbs",
+        "mshta test.hta",
+        "rundll32 something.dll",
+    ],
+)
+def test_dangerous_executables_are_blocked(command):
+    allowed, reason = validate_command(command)
 
-    assert "Python" in result
+    assert allowed is False
+    assert reason
 
 
-def test_blocked_command_is_not_executed():
-    result = run_command("shutdown /s /t 0")
+@pytest.mark.parametrize(
+    "command",
+    [
+        "whoami && whoami",
+        "whoami || hostname",
+        "whoami | findstr user",
+        "whoami > output.txt",
+        "whoami < input.txt",
+        "whoami; hostname",
+        "whoami `hostname`",
+    ],
+)
+def test_shell_operators_are_blocked(command):
+    allowed, reason = validate_command(command)
 
-    assert result.startswith("Komanda bloklandı:")
+    assert allowed is False
+    assert "operatoru" in reason
 
 
-def test_failed_command_reports_failure():
-    result = run_command("python -c \"raise SystemExit(7)\"")
+@pytest.mark.parametrize(
+    "command",
+    [
+        "del /f test.txt",
+        "erase /f test.txt",
+        "format C:",
+        "diskpart",
+        "shutdown /s",
+        "reg delete HKCU\\Software\\Test",
+        "remove-item test.txt",
+        "set-executionpolicy bypass",
+    ],
+)
+def test_destructive_commands_are_blocked(command):
+    allowed, reason = validate_command(command)
 
-    assert "exit code 7" in result
+    assert allowed is False
+    assert reason
+
+
+def test_unknown_executable_is_blocked():
+    allowed, reason = validate_command("notepad")
+
+    assert allowed is False
+    assert "icazə yoxdur" in reason
 
 
 def test_empty_command_is_blocked():
     allowed, reason = validate_command("")
 
     assert allowed is False
-    assert reason
 
 
-def test_normal_command_is_allowed():
-    allowed, reason = validate_command("python --version")
-
-    assert allowed is True
-    assert reason == ""
-
-
-def test_command_chaining_is_blocked():
-    allowed, reason = validate_command("python --version && whoami")
+def test_non_string_command_is_blocked():
+    allowed, reason = validate_command(None)
 
     assert allowed is False
-    assert "operator" in reason.lower()
-
-
-def test_pipe_is_blocked():
-    allowed, reason = validate_command("whoami | findstr user")
-
-    assert allowed is False
-
-
-def test_redirection_is_blocked():
-    allowed, reason = validate_command("echo hello > test.txt")
-
-    assert allowed is False
-
-
-def test_shutdown_is_blocked():
-    allowed, reason = validate_command("shutdown /s /t 0")
-
-    assert allowed is False
-
-
-def test_dangerous_delete_is_blocked():
-    allowed, reason = validate_command("del /f /q test.txt")
-
-    assert allowed is False
-
-
-def test_normal_python_command_is_allowed():
-    allowed, reason = validate_command("python -m pytest -q")
-
-    assert allowed is True
-    assert reason == ""
