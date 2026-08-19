@@ -6,8 +6,7 @@ from integrations.google import contacts
 
 
 def _service():
-    service = MagicMock()
-    return service
+    return MagicMock()
 
 
 def test_create_google_contact_uses_people_create_contact():
@@ -28,7 +27,7 @@ def test_create_google_contact_uses_people_create_contact():
     }
     service.people().createContact.assert_called_once_with(
         body={
-            "names": [{"displayName": "Test One"}],
+            "names": [{"unstructuredName": "Test One"}],
             "phoneNumbers": [{"value": "+994501234567"}],
         },
         personFields="names,phoneNumbers",
@@ -59,10 +58,9 @@ def test_update_google_contact_uses_resource_name_only():
         updatePersonFields="names,phoneNumbers",
         body={
             "resourceName": "people/c123",
-            "names": [{"displayName": "Updated"}],
+            "names": [{"unstructuredName": "Updated"}],
             "phoneNumbers": [{"value": "+994559041494"}],
         },
-        personFields="names,phoneNumbers",
     )
 
 
