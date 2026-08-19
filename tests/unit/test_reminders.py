@@ -31,6 +31,23 @@ def test_get_reminders_filters_text_query():
     assert "Buy milk" not in result
 
 
+def test_get_reminders_filters_before_applying_limit():
+    tasks = [{"title": f"Noise {index}"} for index in range(8)]
+    tasks.append({"title": "Call Ahmed"})
+
+    with patch("actions.reminders.resolve_task_list_id", return_value="default"), patch(
+        "actions.reminders.list_tasks", return_value=tasks
+    ) as mock_list_tasks:
+        result = get_reminders("Ahmed", 1, "")
+
+    mock_list_tasks.assert_called_once_with(
+        task_list_id="default",
+        max_results=100,
+        show_completed=False,
+    )
+    assert "Call Ahmed" in result
+
+
 def test_add_reminder_rejects_empty_title():
     with patch("actions.reminders.create_task") as mock_create:
         result = add_reminder("")
