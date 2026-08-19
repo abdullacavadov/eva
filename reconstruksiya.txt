@@ -92,6 +92,50 @@ Azerbaijani language quality
 Concise responses
 Context-aware answers
 Error explanations
+
+Cross-cutting architectural rule — Data-first / Presentation-later
+
+EVA istifadəçidən hər hansı məlumatı istədikdə, məlumatı yalnız səsləndirmək məqsədilə əldə etməməlidir. Məlumat səsli cavab verilməzdən əvvəl strukturlaşdırılmış və gələcək UI təqdimatına hazır vəziyyətdə hazırlanmalıdır.
+
+Məsələn:
+
+"X kontaktını mənə göstər"
+  ↓
+Contact məlumatını əldə et
+  ↓
+Strukturlaşdırılmış nəticə hazırla
+  ↓
+Hazır nəticədən:
+  ├─ Voice → məlumatı səsləndir
+  └─ Future UI → kontaktı futuristic modalda göstər
+
+və:
+
+"Filan tarixdə olan eventləri ekrana gətir"
+  ↓
+Həmin tarix üzrə eventləri əldə et
+  ↓
+Strukturlaşdırılmış event siyahısı hazırla
+  ↓
+Hazır nəticədən:
+  ├─ Voice → siyahını səsləndir
+  └─ Future UI → siyahını modalda göstər
+
+İstifadəçi daha sonra:
+
+"Siyahıdakı filan eventi aç göstər"
+
+dedikdə, əvvəlki retrieval nəticəsindəki konkret event identifikasiyası / strukturu istifadə edilərək həmin eventin detalları təqdimata hazırlanmalıdır. Lazımsız ikinci API çağırışı yalnız məlumat artıq mövcud deyilsə edilməlidir.
+
+Əsas prinsip:
+Data retrieval → Structured result → Presentation
+
+Səs EVA-nın yeganə təqdimat forması deyil. Eyni strukturlaşdırılmış nəticə həm TTS, həm də gələcək UI tərəfindən istifadə edilə bilməlidir.
+
+Bu qayda Calendar, Contacts, Gmail, Tasks və gələcək bütün məlumat qaytaran integration/action/tool-lara tətbiq edilməlidir.
+
+UI hazırda implement edilmir. Modal, siyahı, detail view və digər futuristic UI komponentləri son mərhələdə hazırlanacaq. `ui.py` ən sonda dəyişdiriləcək. Buna baxmayaraq, backend/action/tool nəticələri indidən gələcək UI-nin əlavə API çağırışı olmadan istifadə edə biləcəyi strukturlaşdırılmış data formasında hazırlanmalıdır.
+
 Phase 3 — Computer Control
 1. Application control
 Open/close applications
