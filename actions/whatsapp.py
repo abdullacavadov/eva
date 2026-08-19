@@ -10,7 +10,7 @@ import re
 import subprocess
 import time
 import unicodedata
-import urllib.parse
+import urllib.parse 
 import webbrowser
 from pathlib import Path
 
@@ -245,21 +245,29 @@ def _focus_whatsapp_window() -> None:
 
 def _type_and_send(message: str, load_delay: float) -> tuple[bool, str]:
     """
-    Söhbət açıldıqdan sonra mesajı mübadilə buferindən yapışdırıb göndərir.
-    URL-in əvvəlcədən doldurulmasına etibar etmir: pəncərəni ön plana gətirir, mətni `Ctrl+V` ilə yazır, 
-    sonra `Enter` düyməsinə basır. Buna görə çağırmazdan əvvəl söhbət `text` olmadan açılmalıdır.
+    Söhbət açıldıqdan sonra mesajı mesaj qutusuna yazıb göndərir.
+
+    Mövcud draftın üstünə əlavə etməmək üçün əvvəlcə Ctrl+A edilir.
     """
     if not HAS_PYAUTOGUI:
         return False, "pyautogui quraşdırılmayıb — avtomatik göndəriş alınmadı."
+
     try:
-        time.sleep(load_delay)          # pencere + sohbet yüklensin
+        time.sleep(load_delay)
         _focus_whatsapp_window()
         time.sleep(0.6)
+
         _copy_to_clipboard(message.strip())
         time.sleep(0.3)
-        pyautogui.hotkey("ctrl", "v")   # mesajı mesaj kutusuna yapıştır
+
+        # Mövcud draftı seç və əvəz et.
+        pyautogui.hotkey("ctrl", "a")
+        time.sleep(0.2)
+        pyautogui.hotkey("ctrl", "v")
         time.sleep(0.5)
-        pyautogui.press("enter")        # gönder
+
+        pyautogui.press("enter")
+
         return True, "ok"
     except Exception as exc:
         return False, str(exc)
@@ -290,12 +298,23 @@ def send_whatsapp_message(
     contact = _find_contact(resolved_name) if resolved_name else None
 
     if contact and not normalized_phone:
-        stored_phone = str(contact.get("value", "")).strip()
+        stored_phone = (
+            contact.get("value")
+            or contact.get("phone_number")
+            or contact.get("phone")
+            or contact.get("number")
+            or ""
+        )
+
         try:
-            normalized_phone = _normalize_phone(stored_phone)
+            normalized_phone = _normalize_phone(str(stored_phone).strip())
         except ValueError:
             normalized_phone = ""
-        resolved_name = str(contact.get("display_name", resolved_name)).strip() or resolved_name
+
+        resolved_name = (
+            str(contact.get("display_name", resolved_name)).strip()
+            or resolved_name
+        )
         contact_source = contact.get("_source", "")
     else:
         contact_source = ""

@@ -13,6 +13,7 @@ SAFE_MODULES = [
     "actions.sys_info",
     "actions.tts",
     "actions.weather",
+    "actions.whatsapp",
     "actions.youtube_stats",
     "tool_defs",
 ]
