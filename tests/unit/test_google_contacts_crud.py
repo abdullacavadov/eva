@@ -39,8 +39,17 @@ def test_update_google_contact_requires_resource_name():
         contacts.update_google_contact("", "Test One", ["+994501234567"])
 
 
-def test_update_google_contact_uses_resource_name_only():
+def test_update_google_contact_reads_current_contact_etag_before_update():
     service = _service()
+    service.people().get.return_value.execute.return_value = {
+        "resourceName": "people/c123",
+        "metadata": {
+            "sources": [
+                {"type": "PROFILE", "etag": "profile-etag"},
+                {"type": "CONTACT", "etag": "contact-etag"},
+            ]
+        },
+    }
     service.people().updateContact.return_value.execute.return_value = {
         "resourceName": "people/c123",
         "names": [{"displayName": "Updated"}],
@@ -53,15 +62,36 @@ def test_update_google_contact_uses_resource_name_only():
         )
 
     assert result["resource_name"] == "people/c123"
+    service.people().get.assert_called_once_with(
+        resourceName="people/c123",
+        personFields="metadata,names,phoneNumbers",
+    )
     service.people().updateContact.assert_called_once_with(
         resourceName="people/c123",
         updatePersonFields="names,phoneNumbers",
         body={
             "resourceName": "people/c123",
+            "etag": "contact-etag",
             "names": [{"unstructuredName": "Updated"}],
             "phoneNumbers": [{"value": "+994559041494"}],
         },
     )
+
+
+def test_update_google_contact_requires_contact_etag():
+    service = _service()
+    service.people().get.return_value.execute.return_value = {
+        "resourceName": "people/c123",
+        "metadata": {"sources": [{"type": "PROFILE", "etag": "profile-etag"}]},
+    }
+
+    with patch.object(contacts, "_get_people_service", return_value=service):
+        with pytest.raises(ValueError, match="etag"):
+            contacts.update_google_contact(
+                "people/c123", "Updated", ["+994559041494"]
+            )
+
+    service.people().updateContact.assert_not_called()
 
 
 def test_delete_google_contact_uses_resource_name_only():
