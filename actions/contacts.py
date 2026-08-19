@@ -13,6 +13,7 @@ from integrations.google.contacts import (
     get_google_contacts,
     update_google_contact,
 )
+from core.results import make_result
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PHONEBOOK_FILE = BASE_DIR / "memory" / "phone_book.json"
@@ -159,14 +160,7 @@ def _reconcile_local_update(contact: dict) -> None:
 
 def _reconcile_local_delete(resource_name: str) -> bool:
     local = _read_phone_book()
-    key = next(
-        (
-            key
-            for key, entry in local.items()
-            if isinstance(entry, dict) and entry.get("google_resource_name") == resource_name
-        ),
-        None,
-    )
+    key = next((key for key, entry in local.items() if isinstance(entry, dict) and entry.get("google_resource_name") == resource_name), None)
     if key is None:
         return False
     del local[key]
@@ -174,16 +168,23 @@ def _reconcile_local_delete(resource_name: str) -> bool:
     return True
 
 
-def sync_google_contacts() -> str:
-    """Synchronize Google Contacts into the local phone book without deleting local-only entries."""
+def _contact_result(contact: dict, query: dict | None = None, meta: dict | None = None) -> dict:
+    resource_name = str(contact.get("resource_name") or "")
+    item = dict(contact)
+    item["id"] = f"contact:{resource_name}" if resource_name else f"contact:{_normalize_lookup(str(contact.get('display_name') or ''))}"
+    item["google_resource_name"] = resource_name
+    return make_result("contact", "success", query=query or {}, data=[item], selected=item, meta=meta or {})
+
+
+def sync_google_contacts() -> dict:
     try:
         local = _read_phone_book()
     except (json.JSONDecodeError, OSError, ValueError) as exc:
-        return f"Local telefon kitabçası oxunmadı: {exc}"
+        return make_result("contact", "error", data=[], meta={"error": str(exc)})
     try:
         google_contacts = get_google_contacts()
     except Exception as exc:
-        return f"Google Contacts sinxronizasiyası alınmadı: {exc}"
+        return make_result("contact", "error", data=[], meta={"error": str(exc)})
 
     merged = dict(local)
     added = updated = unchanged = removed = 0
@@ -227,66 +228,42 @@ def sync_google_contacts() -> str:
             else:
                 merged[key] = desired
                 updated += 1
-
         for key, entry in list(merged.items()):
-            if (
-                isinstance(entry, dict)
-                and entry.get("google_resource_name")
-                and entry.get("google_resource_name") not in google_resource_names
-            ):
+            if isinstance(entry, dict) and entry.get("google_resource_name") and entry.get("google_resource_name") not in google_resource_names:
                 del merged[key]
                 removed += 1
-
         if merged != local:
             _write_atomic(merged)
     except Exception as exc:
-        return f"Kontakt sinxronizasiyası zamanı local telefon kitabçası dəyişdirilmədi: {exc}"
-    return (
-        f"Google Contacts sinxronizasiya edildi: {added} yeni, {updated} yenilənmiş, "
-        f"{removed} silinmiş, {unchanged} dəyişməyən kontakt. Local-only kontaktlar saxlanıldı."
-    )
+        return make_result("contact", "error", data=[], meta={"error": str(exc)})
+    status = "empty" if not google_contacts else "success"
+    return make_result("contact", status, data=[], count=0, meta={"added": added, "updated": updated, "removed": removed, "unchanged": unchanged})
 
 
-def create_contact(display_name: str, phone_number: str) -> str:
-    """Create a Google Contact and reconcile the successful result into the local phone book."""
+def create_contact(display_name: str, phone_number: str) -> dict:
     phone = _normalize_phone(phone_number)
     contact = create_google_contact(display_name, [f"+{phone}"])
     try:
         _reconcile_local_create(contact)
     except Exception as exc:
-        return (
-            f"Google kontaktı yaradıldı: {contact['display_name']} ({contact['resource_name']}), "
-            f"amma local telefon kitabçası yenilənmədi: {exc}"
-        )
-    return f"Google kontaktı yaradıldı və local phone book yeniləndi: {contact['display_name']} ({contact['resource_name']})."
+        return _contact_result(contact, {"display_name": display_name}, {"local_sync_error": str(exc)}) | {"status": "partial"}
+    return _contact_result(contact, {"display_name": display_name})
 
 
-def update_contact(resource_name: str, display_name: str, phone_number: str) -> str:
-    """Update a Google Contact using its known resource identity and reconcile local state."""
+def update_contact(resource_name: str, display_name: str, phone_number: str) -> dict:
     phone = _normalize_phone(phone_number)
     contact = update_google_contact(resource_name, display_name, [f"+{phone}"])
     try:
         _reconcile_local_update(contact)
     except Exception as exc:
-        return (
-            f"Google kontaktı yeniləndi: {contact['display_name']} ({contact['resource_name']}), "
-            f"amma local telefon kitabçası yenilənmədi: {exc}"
-        )
-    return f"Google kontaktı yeniləndi və local phone book yeniləndi: {contact['display_name']} ({contact['resource_name']})."
+        return _contact_result(contact, {"resource_name": resource_name, "display_name": display_name}, {"local_sync_error": str(exc)}) | {"status": "partial"}
+    return _contact_result(contact, {"resource_name": resource_name, "display_name": display_name})
 
 
-def delete_contact(resource_name: str) -> str:
-    """Delete a Google Contact using its known resource identity and reconcile local state."""
+def delete_contact(resource_name: str) -> dict:
     result = delete_google_contact(resource_name)
     try:
         local_removed = _reconcile_local_delete(result["resource_name"])
     except Exception as exc:
-        return (
-            f"Google kontaktı silindi və GET verification ilə HTTP {result['verification_status']} təsdiqləndi: "
-            f"{result['resource_name']}, amma local telefon kitabçası yenilənmədi: {exc}"
-        )
-    local_status = "local phone book-dan da silindi" if local_removed else "local phone book-da uyğun qeyd tapılmadı"
-    return (
-        f"Google kontaktı silindi və GET verification ilə HTTP {result['verification_status']} təsdiqləndi: "
-        f"{result['resource_name']}; {local_status}."
-    )
+        return make_result("contact", "partial", query={"resource_name": resource_name}, data=[{"id": f"contact:{resource_name}", "google_resource_name": resource_name}], selected=None, meta={"verification_status": result["verification_status"], "local_sync_error": str(exc)})
+    return make_result("contact", "success", query={"resource_name": resource_name}, data=[{"id": f"contact:{resource_name}", "google_resource_name": resource_name}], selected=None, meta={"verification_status": result["verification_status"], "local_removed": local_removed})
