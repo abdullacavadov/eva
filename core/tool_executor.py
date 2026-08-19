@@ -28,6 +28,15 @@ from actions.weather import get_weather_summary
 from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
 
+# main.py imports ToolExecutor before TOOL_DECLARATIONS. Registering here keeps
+# the existing tool registry intact while adding the Gmail read-only tools.
+import tool_defs as _tool_defs
+from core.email_tool_defs import EMAIL_TOOL_DECLARATIONS
+
+for _declaration in EMAIL_TOOL_DECLARATIONS:
+    if not any(item.get("name") == _declaration["name"] for item in _tool_defs.TOOL_DECLARATIONS):
+        _tool_defs.TOOL_DECLARATIONS.append(_declaration)
+
 
 class ToolExecutor:
     """Gemini tərəfindən çağırılan EVA alətlərini icra edir."""
