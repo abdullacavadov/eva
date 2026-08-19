@@ -1,5 +1,5 @@
-# EVA Windows — Gerekli paketler
-# Kurulum:  pip install -r requirements.txt
+# EVA — Runtime dependencies
+# Install: python -m pip install -r requirements.txt
 
 google-genai                              # Gemini Live API (ses + araç çağrıları)
 pyaudio                                   # Mikrofon / hoparlör (gerçek zamanlı ses)
@@ -9,7 +9,9 @@ requests                                  # Hava durumu, YouTube API, YouTube ar
 mss                                       # Ekran görüntüsü yakalama (analyze_screen)
 opencv-python                             # Webcam canlı akışı (toggle_webcam)
 pyperclip                                 # Pano kopyalama (WhatsApp otomasyonu)
-pyautogui                                 # WhatsApp Web otomatik gönderim (Enter)
-google-api-python-client
-google-auth-httplib2
-google-auth-oauthlib
+pyautogui                                 # WhatsApp Web avtomatik gönderim (Enter)
+pygetwindow                               # WhatsApp pəncərəsini önə gətirmək
+
+google-api-python-client                  # Google Calendar API
+google-auth-httplib2                      # Google API auth transport
+google-auth-oauthlib                      # Google OAuth flow
