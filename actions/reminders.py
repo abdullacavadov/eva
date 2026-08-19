@@ -17,6 +17,8 @@ def _parse_due(value: str, all_day: bool = False) -> str:
         return ""
 
     parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.now().astimezone().tzinfo)
 
     if all_day:
         parsed = datetime.combine(
@@ -55,7 +57,13 @@ def get_reminders(
         )
 
         normalized_query = str(query or "upcoming").strip().casefold()
-        if normalized_query not in {"", "upcoming", "next", "qarşıdakı", "qarşıdakı xatırlatmalar"}:
+        if normalized_query not in {
+            "",
+            "upcoming",
+            "next",
+            "qarşıdakı",
+            "qarşıdakı xatırlatmalar",
+        }:
             tasks = [
                 task
                 for task in tasks
