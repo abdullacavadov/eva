@@ -9,7 +9,7 @@ PERSON_FIELDS = "names,phoneNumbers"
 
 
 def _build_person(display_name: str, phones: list[str]) -> dict:
-    person = {"names": [{"displayName": display_name}]}
+    person = {"names": [{"unstructuredName": display_name}]}
     if phones:
         person["phoneNumbers"] = [{"value": phone} for phone in phones]
     return person
@@ -119,7 +119,6 @@ def update_google_contact(resource_name: str, display_name: str, phones: list[st
                 "resourceName": resource_name.strip(),
                 **_build_person(display_name.strip(), phones),
             },
-            personFields=PERSON_FIELDS,
         )
         .execute()
     )
