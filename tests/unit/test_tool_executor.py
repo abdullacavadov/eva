@@ -181,3 +181,33 @@ def test_delete_memory_exception_is_converted_to_error_response(mock_delete_memo
     mock_delete_memory.assert_called_once_with("profile", "name", "")
     speak_error.assert_called_once()
     ui.set_state.assert_any_call("ERROR")
+
+
+@patch("core.tool_executor.add_reminder", return_value="Google Tasks-a 'Test' reminder-i əlavə edildi.")
+def test_add_reminder_is_dispatched_to_action(mock_add_reminder):
+    executor, *_ = make_executor()
+    fc = SimpleNamespace(
+        id="reminder-add-1",
+        name="add_reminder",
+        args={
+            "title": "Test",
+            "due_iso": "2026-08-20T10:00:00+04:00",
+            "notes": "Note",
+            "list_name": "Work",
+            "priority": "",
+            "all_day": False,
+        },
+    )
+
+    response = asyncio.run(executor.execute(fc))
+
+    mock_add_reminder.assert_called_once_with(
+        "Test",
+        "2026-08-20T10:00:00+04:00",
+        "Note",
+        "Work",
+        "",
+        False,
+    )
+    assert "əlavə edildi" in response.response["result"]
+    executor.ui.play_success_sfx.assert_called_once()

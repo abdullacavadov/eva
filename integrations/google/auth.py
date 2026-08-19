@@ -16,10 +16,15 @@ TOKEN_FILE = CONFIG_DIR / "google_token.json"
 
 SCOPES = [
     "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/tasks",
 ]
 
 
-def get_calendar_credentials() -> Credentials:
+def _has_required_scopes(credentials: Credentials) -> bool:
+    return all(credentials.has_scopes([scope]) for scope in SCOPES)
+
+
+def get_google_credentials() -> Credentials:
     credentials = None
 
     if TOKEN_FILE.exists():
@@ -28,6 +33,8 @@ def get_calendar_credentials() -> Credentials:
                 str(TOKEN_FILE),
                 SCOPES,
             )
+            if not _has_required_scopes(credentials):
+                credentials = None
         except (json.JSONDecodeError, ValueError, OSError):
             credentials = None
 
@@ -54,9 +61,19 @@ def get_calendar_credentials() -> Credentials:
             prompt="consent",
         )
 
+    if not _has_required_scopes(credentials):
+        raise RuntimeError(
+            "Google OAuth üçün Calendar və Tasks scope-ları tələb olunur."
+        )
+
     TOKEN_FILE.write_text(
         credentials.to_json(),
         encoding="utf-8",
     )
 
     return credentials
+
+
+def get_calendar_credentials() -> Credentials:
+    """Backward-compatible alias for existing Calendar callers."""
+    return get_google_credentials()
