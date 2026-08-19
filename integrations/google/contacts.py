@@ -114,15 +114,11 @@ def _get_contact_etag(service, resource_name: str) -> str:
         if source.get("type") == "CONTACT" and source.get("etag"):
             return str(source["etag"]).strip()
 
-    for source in sources:
-        if source.get("etag"):
-            return str(source["etag"]).strip()
-
-    raise ValueError("Google kontaktının aktual etag məlumatı tapılmadı.")
+    raise ValueError("Google kontaktının aktual CONTACT etag məlumatı tapılmadı.")
 
 
 def update_google_contact(resource_name: str, display_name: str, phones: list[str]) -> dict:
-    """Update a Google Contact by resource name using its current etag."""
+    """Update a Google Contact by resource name using its current CONTACT etag."""
     if not resource_name.strip():
         raise ValueError("Google contact resource_name tələb olunur.")
     if not display_name.strip():
