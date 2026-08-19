@@ -108,7 +108,11 @@ def test_delete_google_contact_verifies_follow_up_get_returns_404():
     with patch.object(contacts, "_get_people_service", return_value=service):
         result = contacts.delete_google_contact("people/c123")
 
-    assert result is None
+    assert result == {
+        "resource_name": "people/c123",
+        "deleted": True,
+        "verification_status": 404,
+    }
     service.people().deleteContact.assert_called_once_with(resourceName="people/c123")
     service.people().get.assert_called_once_with(
         resourceName="people/c123",
