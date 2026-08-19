@@ -76,8 +76,8 @@ def test_draft_does_not_run_automatic_send(monkeypatch):
         "_open_whatsapp_desktop_via_scheme",
         MagicMock(return_value=(True, "WhatsApp Desktop açıldı.")),
     )
-    type_and_send = MagicMock(return_value=(True, "ok"))
-    monkeypatch.setattr(whatsapp, "_type_and_send", type_and_send)
+    send_prefilled = MagicMock(return_value=(True, "ok"))
+    monkeypatch.setattr(whatsapp, "_send_prefilled_message", send_prefilled)
 
     result = whatsapp.send_whatsapp_message(
         "Salam",
@@ -87,15 +87,15 @@ def test_draft_does_not_run_automatic_send(monkeypatch):
     )
 
     assert "qaralama" in result
-    type_and_send.assert_not_called()
+    send_prefilled.assert_not_called()
 
 
-def test_send_now_uses_automatic_send_path(monkeypatch):
+def test_send_now_sends_uri_prefilled_message(monkeypatch):
     monkeypatch.setattr(whatsapp, "HAS_PYAUTOGUI", True)
     open_desktop = MagicMock(return_value=(True, "WhatsApp Desktop açıldı."))
     monkeypatch.setattr(whatsapp, "_open_whatsapp_desktop_via_scheme", open_desktop)
-    type_and_send = MagicMock(return_value=(True, "ok"))
-    monkeypatch.setattr(whatsapp, "_type_and_send", type_and_send)
+    send_prefilled = MagicMock(return_value=(True, "ok"))
+    monkeypatch.setattr(whatsapp, "_send_prefilled_message", send_prefilled)
 
     result = whatsapp.send_whatsapp_message(
         "Salam",
@@ -108,9 +108,43 @@ def test_send_now_uses_automatic_send_path(monkeypatch):
     open_desktop.assert_called_once_with(
         "994501234567",
         "Salam",
-        include_text=False,
+        include_text=True,
     )
-    type_and_send.assert_called_once_with("Salam", whatsapp.DESKTOP_LOAD_DELAY)
+    send_prefilled.assert_called_once_with(whatsapp.DESKTOP_LOAD_DELAY)
+
+
+def test_resolve_contact_phone_supports_phone_collections():
+    contact = {
+        "display_name": "Test",
+        "phones": [{"number": "+994559041494"}],
+    }
+
+    assert whatsapp._resolve_contact_phone(contact) == "994559041494"
+
+
+def test_send_message_uses_resolved_contact_phone(monkeypatch):
+    monkeypatch.setattr(
+        whatsapp,
+        "_find_contact",
+        lambda _: {
+            "display_name": "Мисс Джавадова",
+            "phones": [{"number": "+994559041494"}],
+        },
+    )
+    monkeypatch.setattr(
+        whatsapp,
+        "_open_whatsapp_desktop_via_scheme",
+        MagicMock(return_value=(True, "WhatsApp Desktop açıldı.")),
+    )
+
+    result = whatsapp.send_whatsapp_message(
+        "Salam",
+        recipient_name="Мисс Джавадова",
+        send_now=False,
+        app_target="desktop",
+    )
+
+    assert "qaralama" in result
 
 
 def test_tool_executor_dispatches_whatsapp_send():
