@@ -103,22 +103,20 @@ def create_google_contact(display_name: str, phones: list[str]) -> dict:
 
 
 def _get_contact_etag(service, resource_name: str) -> str:
-    """Read the current contact etag required by Google updateContact."""
+    """Read the current person etag required by Google updateContact."""
     response = (
         service.people()
         .get(resourceName=resource_name, personFields=UPDATE_PERSON_GET_FIELDS)
         .execute()
     )
-    sources = ((response.get("metadata") or {}).get("sources") or [])
-    for source in sources:
-        if source.get("type") == "CONTACT" and source.get("etag"):
-            return str(source["etag"]).strip()
-
-    raise ValueError("Google kontaktının aktual CONTACT etag məlumatı tapılmadı.")
+    etag = str(response.get("etag") or "").strip()
+    if not etag:
+        raise ValueError("Google kontaktının aktual etag məlumatı tapılmadı.")
+    return etag
 
 
 def update_google_contact(resource_name: str, display_name: str, phones: list[str]) -> dict:
-    """Update a Google Contact by resource name using its current CONTACT etag."""
+    """Update a Google Contact by resource name using its current person etag."""
     if not resource_name.strip():
         raise ValueError("Google contact resource_name tələb olunur.")
     if not display_name.strip():
