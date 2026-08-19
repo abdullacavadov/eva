@@ -54,6 +54,7 @@ class ToolExecutor:
         error_markers = (
             "hata",
             "error",
+            "xəta",
             "alinamadi",
             "alınamadı",
             "bulunamadi",
@@ -69,7 +70,6 @@ class ToolExecutor:
             "baglanti",
             "bağlantı",
             "gerekli.",
-            "xəta",
             "mümkün olmadı",
         )
         return any(marker in text for marker in error_markers)
