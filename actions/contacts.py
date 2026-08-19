@@ -28,12 +28,10 @@ def _normalize_lookup(text: str) -> str:
 
 def _normalize_phone(phone_number: str) -> str:
     digits = re.sub(r"\D+", "", phone_number or "")
-    if len(digits) == 11 and digits.startswith("0"):
-        digits = "994" + digits[1:]
-    elif len(digits) == 10 and digits.startswith("0"):
-        digits = "994" + digits[1:]
-    elif len(digits) == 10:
+    if len(digits) == 10:
         digits = "994" + digits
+    elif len(digits) == 11 and digits.startswith("0"):
+        digits = "994" + digits[1:]
     if len(digits) < 8 or len(digits) > 15:
         raise ValueError("Telefon nömrəsi etibarlı beynəlxalq formatda deyil.")
     return digits
