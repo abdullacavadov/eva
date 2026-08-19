@@ -50,13 +50,13 @@ def _pythonw() -> str:
 
 
 def _write_shortcut(link_path: Path) -> Path:
-    """Verilen yola JARVIS .lnk kısayolu yazar."""
+    """Verilen yola EVA .lnk kısayolu yazar."""
     link_path.parent.mkdir(parents=True, exist_ok=True)
     target = _pythonw()
     main_py = BASE_DIR / "main.py"
 
     icon_line = ""
-    ico_candidate = BASE_DIR / "Icon" / "jarvis.ico"
+    ico_candidate = BASE_DIR / "Icon" / "logo_ico.ico"
     if ico_candidate.exists():
         icon_line = f"$s.IconLocation = '{ico_candidate}'; "
 
