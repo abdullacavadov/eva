@@ -150,34 +150,19 @@ class ToolExecutor:
                 r = await loop.run_in_executor(None, lambda: add_reminder(args.get("title", ""), args.get("due_iso", ""), args.get("notes", ""), args.get("list_name", ""), args.get("priority", ""), bool(args.get("all_day", False))))
                 result = r or "Xatırladıcı əlavə edildi."
             elif name == "get_emails":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: search_emails(
-                        args.get("query", ""),
-                        int(args.get("limit", 10) or 10),
-                        args.get("folder", ""),
-                    ),
-                )
+                query = args.get("query", "")
+                limit = int(args.get("limit", 10) or 10)
+                folder = args.get("folder", "")
+                if folder:
+                    r = await loop.run_in_executor(None, lambda: search_emails(query, limit, folder))
+                else:
+                    r = await loop.run_in_executor(None, lambda: search_emails(query, limit))
                 result = r or "Email məlumatı alındı."
             elif name == "prepare_trash_emails":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: prepare_trash_emails(
-                        args.get("folder", ""),
-                        args.get("message_id", ""),
-                        args.get("query", ""),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: prepare_trash_emails(args.get("folder", ""), args.get("message_id", ""), args.get("query", "")))
                 result = r or "Email silmə planı hazırlandı."
             elif name == "trash_emails":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: trash_emails(
-                        args.get("folder", ""),
-                        args.get("message_id", ""),
-                        args.get("query", ""),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: trash_emails(args.get("folder", ""), args.get("message_id", ""), args.get("query", "")))
                 result = r or "Email(lər) Trash-a göndərildi."
             elif name == "read_email":
                 r = await loop.run_in_executor(None, lambda: read_email(args.get("message_id", "")))
