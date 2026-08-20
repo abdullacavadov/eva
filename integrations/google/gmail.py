@@ -12,6 +12,7 @@ from integrations.google.auth import get_google_credentials
 
 GMAIL_FOLDER_QUERIES = {
     "inbox": "in:inbox",
+    "primary": "in_primary",
     "sent": "in:sent",
     "drafts": "in:drafts",
     "spam": "in:spam",
