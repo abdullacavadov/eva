@@ -17,7 +17,7 @@ from integrations.google.gmail import (
 def test_get_gmail_service_uses_gmail_v1():
     credentials = MagicMock()
     with patch("integrations.google.gmail.get_google_credentials", return_value=credentials), \
-         patch("integrations.google.gmail.build") as build:
+            patch("integrations.google.gmail.build") as build:
         get_gmail_service()
     build.assert_called_once_with("gmail", "v1", credentials=credentials)
 
@@ -44,7 +44,10 @@ def test_search_messages_parses_metadata_and_query():
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         result = search_messages("subject:invoice", 1)
 
-    assert result[0]["id"] == "m1"
+    assert result["messages"][0]["id"] == "m1"
+    assert result["count"] == 1
+    assert result["returned_count"] == 1
+    assert result["has_more"] is False
     assert result[0]["from"] == "billing@example.com"
     assert result[0]["subject"] == "Invoice"
     list_call.execute.assert_called_once()
@@ -55,8 +58,15 @@ def test_search_messages_paginates_until_limit():
     service = MagicMock()
     list_call = service.users.return_value.messages.return_value.list.return_value
     list_call.execute.side_effect = [
-        {"messages": [{"id": "m1"}], "nextPageToken": "p2"},
-        {"messages": [{"id": "m2"}]},
+        {
+            "messages": [{"id": "m1"}],
+            "resultSizeEstimate": 2,
+            "nextPageToken": "p2",
+        },
+        {
+            "messages": [{"id": "m2"}],
+            "resultSizeEstimate": 2,
+        },
     ]
     get_call = service.users.return_value.messages.return_value.get.return_value
     get_call.execute.side_effect = [
@@ -67,7 +77,10 @@ def test_search_messages_paginates_until_limit():
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         result = search_messages("", 2)
 
-    assert [item["id"] for item in result] == ["m1", "m2"]
+    assert [item["id"] for item in result["messages"]] == ["m1", "m2"]
+    assert result["count"] == 2
+    assert result["returned_count"] == 2
+    assert result["has_more"] is False
     assert list_call.execute.call_count == 2
 
 

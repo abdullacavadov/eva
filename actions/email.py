@@ -64,7 +64,6 @@ def search_emails(query: str = "", limit: int = 10) -> dict:
                 payload,
                 {
                     "returned_count": 0,
-                    "total_count": result["count"],
                     "has_more": False,
                 },
             )

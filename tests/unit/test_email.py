@@ -15,7 +15,15 @@ def test_search_emails_returns_structured_results():
         "id": "m1", "from": "a@example.com", "to": "b@example.com",
         "subject": "Invoice", "date": "Wed", "snippet": "Invoice attached",
     }]
-    with patch("actions.email.search_messages", return_value=messages):
+    with patch(
+        "actions.email.search_messages",
+        return_value={
+            "messages": messages,
+            "count": 1,
+            "returned_count": 1,
+            "has_more": False,
+        },
+    ):
         result = search_emails("subject:invoice", 5)
     assert result["type"] == "email"
     assert result["status"] == "success"
@@ -26,7 +34,15 @@ def test_search_emails_returns_structured_results():
 
 
 def test_search_emails_empty_result():
-    with patch("actions.email.search_messages", return_value=[]):
+    with patch(
+        "actions.email.search_messages",
+        return_value={
+            "messages": [],
+            "count": 0,
+            "returned_count": 0,
+            "has_more": False,
+        },
+    ):
         result = search_emails("from:nobody", 5)
     assert result["type"] == "email"
     assert result["status"] == "empty"
@@ -180,3 +196,33 @@ def test_send_email_missing_draft_id_is_rejected():
         else:
             raise AssertionError("ValueError gözlənilirdi")
         send.assert_not_called()
+
+
+def test_search_emails_preserves_total_count_when_paginated():
+    messages = [
+        {
+            "id": f"m{i}",
+            "from": "a@example.com",
+            "to": "b@example.com",
+            "subject": "Invoice",
+            "date": "Wed",
+            "snippet": "Invoice attached",
+        }
+        for i in range(10)
+    ]
+
+    with patch(
+        "actions.email.search_messages",
+        return_value={
+            "messages": messages,
+            "count": 28,
+            "returned_count": 10,
+            "has_more": True,
+        },
+    ):
+        result = search_emails("subject:invoice", 10)
+
+    assert result["status"] == "success"
+    assert result["count"] == 28
+    assert result["meta"]["returned_count"] == 10
+    assert result["meta"]["has_more"] is True
