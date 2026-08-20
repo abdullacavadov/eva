@@ -3,10 +3,10 @@ from __future__ import annotations
 import base64
 import html
 import re
+
 from typing import Any
-
+from email.message import EmailMessage
 from googleapiclient.discovery import build
-
 from integrations.google.auth import get_google_credentials
 
 
@@ -49,17 +49,25 @@ def _extract_body(payload: dict[str, Any]) -> str:
 def _parse_message(message: dict[str, Any], include_body: bool = False) -> dict[str, str]:
     payload = message.get("payload") or {}
     headers = _headers(payload)
+
     result = {
         "id": str(message.get("id", "")),
         "thread_id": str(message.get("threadId", "")),
         "from": headers.get("from", ""),
         "to": headers.get("to", ""),
+        "cc": headers.get("cc", ""),
+        "bcc": headers.get("bcc", ""),
         "subject": headers.get("subject", ""),
         "date": headers.get("date", ""),
         "snippet": str(message.get("snippet", "")),
+        "message_id_header": headers.get("message-id", ""),
+        "references": headers.get("references", ""),
+        "in_reply_to": headers.get("in-reply-to", ""),
     }
+
     if include_body:
         result["body"] = _extract_body(payload)
+
     return result
 
 
@@ -95,15 +103,112 @@ def search_messages(query: str = "", limit: int = 10) -> list[dict[str, str]]:
     return results
 
 
-def get_message(message_id: str) -> dict[str, str]:
-    message_id = str(message_id or "").strip()
-    if not message_id:
-        raise ValueError("Email message_id tələb olunur.")
+def get_thread(thread_id: str) -> list[dict[str, str]]:
+    thread_id = str(thread_id or "").strip()
+    if not thread_id:
+        raise ValueError("Email thread_id tələb olunur.")
 
     service = get_gmail_service()
-    message = service.users().messages().get(
+
+    response = service.users().threads().get(
         userId="me",
-        id=message_id,
+        id=thread_id,
         format="full",
     ).execute()
-    return _parse_message(message, include_body=True)
+
+    return [
+        _parse_message(message, include_body=True)
+        for message in response.get("messages", []) or []
+    ]
+
+
+def create_draft(
+    to: str,
+    subject: str,
+    body: str,
+    cc: str = "",
+    bcc: str = "",
+    thread_id: str = "",
+    in_reply_to: str = "",
+    references: str = "",
+) -> dict[str, str]:
+    to = str(to or "").strip()
+    subject = str(subject or "").strip()
+    body = str(body or "")
+
+    if not to:
+        raise ValueError("Email recipient tələb olunur.")
+    if not subject:
+        raise ValueError("Email subject tələb olunur.")
+    if not body.strip():
+        raise ValueError("Email body boş ola bilməz.")
+
+    message = EmailMessage()
+    message["To"] = to
+    message["Subject"] = subject
+
+    if cc.strip():
+        message["Cc"] = cc.strip()
+
+    if bcc.strip():
+        message["Bcc"] = bcc.strip()
+
+    if in_reply_to.strip():
+        message["In-Reply-To"] = in_reply_to.strip()
+
+    if references.strip():
+        message["References"] = references.strip()
+
+    message.set_content(body)
+
+    raw = base64.urlsafe_b64encode(
+        message.as_bytes()
+    ).decode("ascii")
+
+    gmail_message = {
+        "raw": raw,
+    }
+
+    if thread_id.strip():
+        gmail_message["threadId"] = thread_id.strip()
+
+    service = get_gmail_service()
+
+    response = service.users().drafts().create(
+        userId="me",
+        body={
+            "message": gmail_message,
+        },
+    ).execute()
+
+    draft_id = str(response.get("id", ""))
+    message_data = response.get("message") or {}
+
+    if not draft_id:
+        raise RuntimeError("Gmail draft ID qaytarmadı.")
+
+    return {
+        "draft_id": draft_id,
+        "gmail_message_id": str(message_data.get("id", "")),
+        "thread_id": str(message_data.get("threadId", thread_id)),
+    }
+
+
+def send_draft(draft_id: str) -> dict[str, str]:
+    draft_id = str(draft_id or "").strip()
+    if not draft_id:
+        raise ValueError("Email draft_id tələb olunur.")
+
+    service = get_gmail_service()
+
+    response = service.users().drafts().send(
+        userId="me",
+        body={
+            "id": draft_id,
+        },
+    ).execute()
+
+    return {
+        "message_id": str(response.get("id", "")),
+        "thread_id": str(response.get("threadId", "")),
+    }
