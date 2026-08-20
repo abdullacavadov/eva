@@ -52,6 +52,7 @@ class WhatsAppWebBridge:
         self._playwright = sync_playwright().start()
         self._context = self._playwright.chromium.launch_persistent_context(
             self.user_data_dir,
+            channel="chrome",
             headless=self.headless,
         )
         self._page = self._context.pages[0] if self._context.pages else self._context.new_page()
