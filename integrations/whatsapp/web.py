@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
+if TYPE_CHECKING:
+    from playwright.sync_api import BrowserContext, Page
 
 
 @dataclass(frozen=True)
@@ -28,12 +29,7 @@ class WhatsAppVisibleConversation:
 
 
 class WhatsAppWebBridge:
-    """Read-only adapter for data currently rendered by WhatsApp Web.
-
-    The bridge deliberately exposes no send/write operation. DOM selectors are
-    kept local to this adapter so the EVA domain layer is independent of the
-    WhatsApp Web UI.
-    """
+    """Read-only adapter for data currently rendered by WhatsApp Web."""
 
     def __init__(self, user_data_dir: str, headless: bool = False) -> None:
         self.user_data_dir = user_data_dir
@@ -45,6 +41,13 @@ class WhatsAppWebBridge:
     def connect(self) -> None:
         if self._page is not None:
             return
+
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError as exc:
+            raise RuntimeError(
+                "Playwright quraşdırılmayıb. requirements.txt-dən quraşdırın."
+            ) from exc
 
         self._playwright = sync_playwright().start()
         self._context = self._playwright.chromium.launch_persistent_context(
