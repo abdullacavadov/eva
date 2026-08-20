@@ -65,7 +65,7 @@ class WhatsAppWebBridge:
                     document.querySelector('[data-testid="chat-list"]') ||
                     document.querySelector('[contenteditable="true"]')
                 )""",
-                timeout=30_000,
+                timeout=120_000,
             )
         except Exception as exc:
             print("[WhatsApp] UI render timeout")
