@@ -1,6 +1,13 @@
 from unittest.mock import patch
 
-from actions.email import read_email, search_emails
+from actions.email import (
+    prepare_email_reply,
+    prepare_new_email,
+    read_email,
+    read_email_thread,
+    search_emails,
+    send_email,
+)
 
 
 def test_search_emails_returns_structured_results():
@@ -53,3 +60,123 @@ def test_read_email_propagates_missing_id_error():
             assert "message_id" in str(exc)
         else:
             raise AssertionError("ValueError gözlənilirdi")
+
+
+def test_read_email_thread_returns_structured_messages():
+    messages = [
+        {"id": "m1", "thread_id": "t1", "from": "a@example.com", "body": "Hello"},
+        {"id": "m2", "thread_id": "t1", "from": "b@example.com", "body": "Reply"},
+    ]
+    with patch("actions.email.get_thread", return_value=messages):
+        result = read_email_thread("t1")
+
+    assert result["type"] == "email"
+    assert result["status"] == "success"
+    assert result["count"] == 2
+    assert result["meta"]["thread_id"] == "t1"
+    assert result["data"][1]["body"] == "Reply"
+
+
+def test_prepare_email_reply_creates_confirmable_draft():
+    original = {
+        "id": "m1",
+        "thread_id": "t1",
+        "from": "sender@example.com",
+        "subject": "Hello",
+        "message_id_header": "<m1@example.com>",
+        "references": "<root@example.com>",
+    }
+    draft = {
+        "draft_id": "d1",
+        "gmail_message_id": "draft-message",
+        "thread_id": "t1",
+    }
+
+    with patch("actions.email.get_message", return_value=original), \
+         patch("actions.email.create_draft", return_value=draft) as create:
+        result = prepare_email_reply("m1", "Reply body")
+
+    create.assert_called_once_with(
+        to="sender@example.com",
+        subject="Re: Hello",
+        body="Reply body",
+        thread_id="t1",
+        in_reply_to="<m1@example.com>",
+        references="<root@example.com> <m1@example.com>",
+    )
+    item = result["data"][0]
+    assert item["draft_id"] == "d1"
+    assert item["action"] == "reply"
+    assert item["status"] == "draft"
+    assert result["meta"]["requires_confirmation"] is True
+    assert result["meta"]["confirmation_action"] == "send_email"
+
+
+def test_prepare_email_reply_does_not_duplicate_re_prefix():
+    original = {
+        "id": "m1",
+        "thread_id": "t1",
+        "from": "sender@example.com",
+        "subject": "Re: Hello",
+        "message_id_header": "<m1@example.com>",
+        "references": "",
+    }
+    draft = {"draft_id": "d1", "gmail_message_id": "m2", "thread_id": "t1"}
+
+    with patch("actions.email.get_message", return_value=original), \
+         patch("actions.email.create_draft", return_value=draft) as create:
+        prepare_email_reply("m1", "Reply")
+
+    assert create.call_args.kwargs["subject"] == "Re: Hello"
+
+
+def test_prepare_new_email_returns_confirmable_draft():
+    draft = {
+        "draft_id": "d1",
+        "gmail_message_id": "m1",
+        "thread_id": "t1",
+    }
+    with patch("actions.email.create_draft", return_value=draft) as create:
+        result = prepare_new_email(
+            "a@example.com",
+            "Hello",
+            "Body",
+            "cc@example.com",
+            "bcc@example.com",
+        )
+
+    create.assert_called_once_with(
+        to="a@example.com",
+        subject="Hello",
+        body="Body",
+        cc="cc@example.com",
+        bcc="bcc@example.com",
+    )
+    item = result["data"][0]
+    assert item["draft_id"] == "d1"
+    assert item["action"] == "new"
+    assert item["status"] == "draft"
+    assert result["meta"]["requires_confirmation"] is True
+
+
+def test_send_email_sends_only_existing_draft():
+    sent = {"message_id": "m1", "thread_id": "t1"}
+    with patch("actions.email.send_draft", return_value=sent) as send:
+        result = send_email("d1")
+
+    send.assert_called_once_with("d1")
+    item = result["data"][0]
+    assert item["draft_id"] == "d1"
+    assert item["gmail_message_id"] == "m1"
+    assert item["status"] == "sent"
+
+
+def test_send_email_missing_draft_id_is_rejected():
+    with patch("actions.email.send_draft") as send:
+        try:
+            send_email("")
+        except ValueError as exc:
+            assert "draft_id" in str(exc)
+        else:
+            raise AssertionError("ValueError gözlənilirdi")
+        send.assert_not_called()
