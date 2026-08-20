@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 from actions import whatsapp
+from integrations.whatsapp.web import WhatsAppVisibleMessage, WhatsAppWebBridge
 
 
 def test_normalize_phone_keeps_international_number():
@@ -184,3 +185,53 @@ def test_tool_executor_dispatches_whatsapp_send():
         "desktop",
     )
     assert response.response["result"] == "WhatsApp Desktop içində qaralama mesaj açıldı."
+
+
+def _message(message_id, timestamp, direction="incoming", content="text"):
+    return WhatsAppVisibleMessage(
+        message_id=message_id,
+        conversation_id="Rəşad Qurbanlı",
+        sender="Rəşad Qurbanlı" if direction == "incoming" else "Abdulla",
+        sender_phone="",
+        content=content,
+        timestamp=timestamp,
+        direction=direction,
+    )
+
+
+def test_whatsapp_message_sort_is_chronological_and_preserves_same_time_order():
+    messages = [
+        _message("late", "23:53"),
+        _message("early", "17:42"),
+        _message("middle", "21:58"),
+        _message("middle-2", "21:58"),
+    ]
+
+    result = WhatsAppWebBridge._sort_messages(messages)
+
+    assert [item.message_id for item in result] == ["early", "middle", "middle-2", "late"]
+
+
+def test_whatsapp_message_direction_uses_message_out_marker():
+    item = MagicMock()
+    item.locator.return_value.count.return_value = 0
+    item.evaluate.return_value = "message-out x1 abc"
+
+    assert WhatsAppWebBridge._message_direction(item) == "outgoing"
+
+
+def test_whatsapp_message_media_is_not_reported_as_empty():
+    item = MagicMock()
+    item.locator.return_value.count.return_value = 0
+    item.locator.side_effect = lambda selector: (
+        MagicMock(**{"count.return_value": 1})
+        if selector == '[data-testid="ptt-status"]'
+        else MagicMock(**{"count.return_value": 0})
+    )
+
+    assert WhatsAppWebBridge._message_media_label(item) == "Səsli mesaj"
+
+
+def test_whatsapp_emoji_content_is_normalized_for_tts():
+    assert WhatsAppWebBridge._is_emoji_only("😀👍") is True
+    assert WhatsAppWebBridge._is_emoji_only("Salam 😀") is False

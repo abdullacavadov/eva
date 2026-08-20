@@ -281,6 +281,21 @@ def search_messages(
     }
 
 
+def get_message(message_id: str) -> dict[str, str]:
+    message_id = str(message_id or "").strip()
+    if not message_id:
+        raise ValueError("Email message_id tələb olunur.")
+
+    service = get_gmail_service()
+    message = service.users().messages().get(
+        userId="me",
+        id=message_id,
+        format="full",
+    ).execute()
+
+    return _parse_message(message, include_body=True)
+
+
 def trash_message(message_id: str) -> dict[str, str]:
     message_id = str(message_id or "").strip()
     if not message_id:

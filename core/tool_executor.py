@@ -28,6 +28,7 @@ from actions.email import (
 from actions.browser import browser_control
 from actions.shell import shell_run
 from actions.whatsapp import send_whatsapp_message, save_whatsapp_contact
+from actions.whatsapp_read_action import read_whatsapp_conversations, read_whatsapp_messages
 from actions.contacts import create_contact, delete_contact, sync_google_contacts, update_contact
 from actions.media import play_media
 from actions.weather import get_weather_summary
@@ -39,8 +40,9 @@ from core.result_resolver import ResultResolutionError, resolve_item
 import tool_defs as _tool_defs
 from core.contact_tool_defs import CONTACT_TOOL_DECLARATIONS
 from core.email_tool_defs import EMAIL_TOOL_DECLARATIONS
+from core.whatsapp_tool_defs import WHATSAPP_TOOL_DECLARATIONS
 
-for _declaration in [*EMAIL_TOOL_DECLARATIONS, *CONTACT_TOOL_DECLARATIONS]:
+for _declaration in [*EMAIL_TOOL_DECLARATIONS, *CONTACT_TOOL_DECLARATIONS, *WHATSAPP_TOOL_DECLARATIONS]:
     if not any(item.get("name") == _declaration["name"] for item in _tool_defs.TOOL_DECLARATIONS):
         _tool_defs.TOOL_DECLARATIONS.append(_declaration)
 
@@ -155,24 +157,16 @@ class ToolExecutor:
                 r = await loop.run_in_executor(None, lambda: add_reminder(args.get("title", ""), args.get("due_iso", ""), args.get("notes", ""), args.get("list_name", ""), args.get("priority", ""), bool(args.get("all_day", False))))
                 result = r or "Xatırladıcı əlavə edildi."
             elif name == "get_emails":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: search_emails(
-                        args.get("query", ""),
-                        int(args.get("limit", 10) or 10),
-                        args.get("folder", ""),
-                    ),
-                )
+                query = args.get("query", "")
+                limit = int(args.get("limit", 10) or 10)
+                folder = args.get("folder", "")
+                if folder:
+                    r = await loop.run_in_executor(None, lambda: search_emails(query, limit, folder))
+                else:
+                    r = await loop.run_in_executor(None, lambda: search_emails(query, limit))
                 result = r or "Email məlumatı alındı."
             elif name == "prepare_trash_emails":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: prepare_trash_emails(
-                        args.get("folder", ""),
-                        args.get("message_id", ""),
-                        args.get("query", ""),
-                    ),
-                )
+                r = await loop.run_in_executor(None, lambda: prepare_trash_emails(args.get("folder", ""), args.get("message_id", ""), args.get("query", "")))
                 result = r or "Email silmə planı hazırlandı."
             elif name == "trash_emails":
                 r = await loop.run_in_executor(
@@ -262,6 +256,12 @@ class ToolExecutor:
             elif name == "save_whatsapp_contact":
                 r = await loop.run_in_executor(None, lambda: save_whatsapp_contact(args.get("display_name", ""), args.get("phone_number", ""), args.get("aliases", "")))
                 result = r or "WhatsApp kontaktı yadda saxlanıldı."
+            elif name == "read_whatsapp_conversations":
+                r = await loop.run_in_executor(None, read_whatsapp_conversations)
+                result = r or "WhatsApp söhbətləri oxundu."
+            elif name == "read_whatsapp_messages":
+                r = await loop.run_in_executor(None, lambda: read_whatsapp_messages(args.get("conversation", "")))
+                result = r or "WhatsApp mesajları oxundu."
             else:
                 result = f"Naməlum alət: {name}"
         except Exception as e:
