@@ -3,19 +3,18 @@ from unittest.mock import patch
 from actions.email import (
     prepare_email_reply,
     prepare_new_email,
+    prepare_trash_emails,
     read_email,
     read_email_thread,
     search_emails,
     send_email,
+    trash_emails,
 )
 
 
 def test_search_emails_returns_structured_results():
-    messages = [{
-        "id": "m1", "from": "a@example.com", "to": "b@example.com",
-        "subject": "Invoice", "date": "Wed", "snippet": "Invoice attached",
-    }]
-    with patch("actions.email.search_messages", return_value=messages):
+    messages = [{"id": "m1", "from": "a@example.com", "to": "b@example.com", "subject": "Invoice", "date": "Wed", "snippet": "Invoice attached"}]
+    with patch("actions.email.search_messages", return_value={"messages": messages, "count": 1, "returned_count": 1, "has_more": False}):
         result = search_emails("subject:invoice", 5)
     assert result["type"] == "email"
     assert result["status"] == "success"
@@ -25,8 +24,24 @@ def test_search_emails_returns_structured_results():
     assert result["data"][0]["subject"] == "Invoice"
 
 
+def test_search_emails_preserves_total_count_when_paginated():
+    messages = [{"id": f"m{i}", "subject": "Invoice"} for i in range(10)]
+    with patch("actions.email.search_messages", return_value={"messages": messages, "count": 28, "returned_count": 10, "has_more": True}):
+        result = search_emails("", 10, "inbox")
+    assert result["status"] == "success"
+    assert result["count"] == 28
+    assert result["meta"]["returned_count"] == 10
+    assert result["meta"]["has_more"] is True
+
+
+def test_search_emails_folder_is_added_to_query():
+    with patch("actions.email.search_messages", return_value={"messages": [], "count": 0, "returned_count": 0, "has_more": False}) as search:
+        search_emails("is:unread", 7, "inbox")
+    search.assert_called_once_with(query="in:inbox is:unread", limit=7)
+
+
 def test_search_emails_empty_result():
-    with patch("actions.email.search_messages", return_value=[]):
+    with patch("actions.email.search_messages", return_value={"messages": [], "count": 0, "returned_count": 0, "has_more": False}):
         result = search_emails("from:nobody", 5)
     assert result["type"] == "email"
     assert result["status"] == "empty"
@@ -35,16 +50,39 @@ def test_search_emails_empty_result():
 
 
 def test_search_emails_passes_query_and_limit():
-    with patch("actions.email.search_messages", return_value=[]) as search:
+    with patch("actions.email.search_messages", return_value={"messages": [], "count": 0, "returned_count": 0, "has_more": False}) as search:
         search_emails("is:unread", 7)
     search.assert_called_once_with(query="is:unread", limit=7)
 
 
+def test_prepare_trash_emails_requires_confirmation():
+    result = prepare_trash_emails(folder="promotions")
+    assert result["status"] == "success"
+    assert result["meta"]["requires_confirmation"] is True
+    assert result["meta"]["confirmation_action"] == "trash_emails"
+    assert result["data"][0]["action"] == "trash"
+
+
+def test_trash_emails_uses_message_id_for_single_message():
+    with patch("actions.email.trash_message", return_value={"message_id": "m1", "thread_id": "t1"}) as trash:
+        result = trash_emails(message_id="m1")
+    trash.assert_called_once_with("m1")
+    assert result["status"] == "success"
+    assert result["count"] == 1
+    assert result["data"][0]["status"] == "trashed"
+
+
+def test_trash_emails_folder_uses_folder_query_and_returns_count():
+    with patch("actions.email.trash_messages_by_query", return_value={"matched_count": 28, "trashed_count": 28}) as trash:
+        result = trash_emails(folder="social")
+    trash.assert_called_once_with("category:social")
+    assert result["status"] == "success"
+    assert result["count"] == 28
+    assert result["data"][0]["trashed_count"] == 28
+
+
 def test_read_email_returns_body_structured():
-    message = {
-        "id": "m1", "from": "a@example.com", "to": "b@example.com",
-        "subject": "Hello", "date": "Wed", "body": "Hello Abdulla",
-    }
+    message = {"id": "m1", "from": "a@example.com", "to": "b@example.com", "subject": "Hello", "date": "Wed", "body": "Hello Abdulla"}
     with patch("actions.email.get_message", return_value=message):
         result = read_email("m1")
     assert result["status"] == "success"
@@ -63,13 +101,9 @@ def test_read_email_propagates_missing_id_error():
 
 
 def test_read_email_thread_returns_structured_messages():
-    messages = [
-        {"id": "m1", "thread_id": "t1", "from": "a@example.com", "body": "Hello"},
-        {"id": "m2", "thread_id": "t1", "from": "b@example.com", "body": "Reply"},
-    ]
+    messages = [{"id": "m1", "thread_id": "t1", "from": "a@example.com", "body": "Hello"}, {"id": "m2", "thread_id": "t1", "from": "b@example.com", "body": "Reply"}]
     with patch("actions.email.get_thread", return_value=messages):
         result = read_email_thread("t1")
-
     assert result["type"] == "email"
     assert result["status"] == "success"
     assert result["count"] == 2
@@ -78,32 +112,11 @@ def test_read_email_thread_returns_structured_messages():
 
 
 def test_prepare_email_reply_creates_confirmable_draft():
-    original = {
-        "id": "m1",
-        "thread_id": "t1",
-        "from": "sender@example.com",
-        "subject": "Hello",
-        "message_id_header": "<m1@example.com>",
-        "references": "<root@example.com>",
-    }
-    draft = {
-        "draft_id": "d1",
-        "gmail_message_id": "draft-message",
-        "thread_id": "t1",
-    }
-
-    with patch("actions.email.get_message", return_value=original), \
-         patch("actions.email.create_draft", return_value=draft) as create:
+    original = {"id": "m1", "thread_id": "t1", "from": "sender@example.com", "subject": "Hello", "message_id_header": "<m1@example.com>", "references": "<root@example.com>"}
+    draft = {"draft_id": "d1", "gmail_message_id": "draft-message", "thread_id": "t1"}
+    with patch("actions.email.get_message", return_value=original), patch("actions.email.create_draft", return_value=draft) as create:
         result = prepare_email_reply("m1", "Reply body")
-
-    create.assert_called_once_with(
-        to="sender@example.com",
-        subject="Re: Hello",
-        body="Reply body",
-        thread_id="t1",
-        in_reply_to="<m1@example.com>",
-        references="<root@example.com> <m1@example.com>",
-    )
+    create.assert_called_once_with(to="sender@example.com", subject="Re: Hello", body="Reply body", thread_id="t1", in_reply_to="<m1@example.com>", references="<root@example.com> <m1@example.com>")
     item = result["data"][0]
     assert item["draft_id"] == "d1"
     assert item["action"] == "reply"
@@ -113,45 +126,18 @@ def test_prepare_email_reply_creates_confirmable_draft():
 
 
 def test_prepare_email_reply_does_not_duplicate_re_prefix():
-    original = {
-        "id": "m1",
-        "thread_id": "t1",
-        "from": "sender@example.com",
-        "subject": "Re: Hello",
-        "message_id_header": "<m1@example.com>",
-        "references": "",
-    }
+    original = {"id": "m1", "thread_id": "t1", "from": "sender@example.com", "subject": "Re: Hello", "message_id_header": "<m1@example.com>", "references": ""}
     draft = {"draft_id": "d1", "gmail_message_id": "m2", "thread_id": "t1"}
-
-    with patch("actions.email.get_message", return_value=original), \
-         patch("actions.email.create_draft", return_value=draft) as create:
+    with patch("actions.email.get_message", return_value=original), patch("actions.email.create_draft", return_value=draft) as create:
         prepare_email_reply("m1", "Reply")
-
     assert create.call_args.kwargs["subject"] == "Re: Hello"
 
 
 def test_prepare_new_email_returns_confirmable_draft():
-    draft = {
-        "draft_id": "d1",
-        "gmail_message_id": "m1",
-        "thread_id": "t1",
-    }
+    draft = {"draft_id": "d1", "gmail_message_id": "m1", "thread_id": "t1"}
     with patch("actions.email.create_draft", return_value=draft) as create:
-        result = prepare_new_email(
-            "a@example.com",
-            "Hello",
-            "Body",
-            "cc@example.com",
-            "bcc@example.com",
-        )
-
-    create.assert_called_once_with(
-        to="a@example.com",
-        subject="Hello",
-        body="Body",
-        cc="cc@example.com",
-        bcc="bcc@example.com",
-    )
+        result = prepare_new_email("a@example.com", "Hello", "Body", "cc@example.com", "bcc@example.com")
+    create.assert_called_once_with(to="a@example.com", subject="Hello", body="Body", cc="cc@example.com", bcc="bcc@example.com")
     item = result["data"][0]
     assert item["draft_id"] == "d1"
     assert item["action"] == "new"
@@ -163,7 +149,6 @@ def test_send_email_sends_only_existing_draft():
     sent = {"message_id": "m1", "thread_id": "t1"}
     with patch("actions.email.send_draft", return_value=sent) as send:
         result = send_email("d1")
-
     send.assert_called_once_with("d1")
     item = result["data"][0]
     assert item["draft_id"] == "d1"
