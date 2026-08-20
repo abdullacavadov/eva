@@ -50,13 +50,45 @@ def _structured_message(message: dict[str, str], include_body: bool = False) -> 
 
 def search_emails(query: str = "", limit: int = 10) -> dict:
     try:
-        messages = search_messages(query=query, limit=limit)
-        payload = {"query": query, "limit": limit}
+        result = search_messages(query=query, limit=limit)
+        messages = result["messages"]
+
+        payload = {
+            "query": query,
+            "limit": limit,
+        }
+
         if not messages:
-            return empty("email", payload)
-        return success("email", [_structured_message(message) for message in messages], payload)
+            return empty(
+                "email",
+                payload,
+                {
+                    "returned_count": 0,
+                    "total_count": result["count"],
+                    "has_more": False,
+                },
+            )
+
+        return success(
+            "email",
+            [_structured_message(message) for message in messages],
+            payload,
+            {
+                "returned_count": result["returned_count"],
+                "has_more": result["has_more"],
+            },
+            count=result["count"],
+        )
+
     except Exception as exc:
-        return error("email", str(exc), {"query": query, "limit": limit})
+        return error(
+            "email",
+            str(exc),
+            {
+                "query": query,
+                "limit": limit,
+            },
+        )
 
 
 def read_email(message_id: str) -> dict:
@@ -278,7 +310,8 @@ def _email_delete_target(scope: str, draft_id: str = "") -> tuple[list[str], lis
         return list_draft_ids(), []
     if scope == "draft":
         if not draft_id:
-            raise ValueError("Konkret draftı silmək üçün draft_id tələb olunur.")
+            raise ValueError(
+                "Konkret draftı silmək üçün draft_id tələb olunur.")
         get_draft(draft_id)
         return [draft_id], []
     if scope == "spam":
@@ -342,7 +375,8 @@ def delete_email(confirmation_id: str) -> dict:
 
     plan = _PENDING_EMAIL_DELETIONS.pop(confirmation_id, None)
     if plan is None:
-        raise ValueError("Email silmə təsdiqi tapılmadı və ya artıq istifadə olunub.")
+        raise ValueError(
+            "Email silmə təsdiqi tapılmadı və ya artıq istifadə olunub.")
 
     try:
         deleted_drafts = delete_drafts(plan["draft_ids"])

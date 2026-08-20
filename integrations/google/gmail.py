@@ -71,11 +71,16 @@ def _parse_message(message: dict[str, Any], include_body: bool = False) -> dict[
     return result
 
 
-def search_messages(query: str = "", limit: int = 10) -> list[dict[str, str]]:
+def search_messages(
+    query: str = "",
+    limit: int = 10,
+) -> dict[str, Any]:
     limit = max(1, min(int(limit or 10), 100))
     service = get_gmail_service()
     results: list[dict[str, str]] = []
     page_token = None
+    total_count = 0
+    has_more = False
 
     while len(results) < limit:
         kwargs = {
@@ -83,24 +88,57 @@ def search_messages(query: str = "", limit: int = 10) -> list[dict[str, str]]:
             "q": str(query or "").strip(),
             "maxResults": min(100, limit - len(results)),
         }
+
         if page_token:
             kwargs["pageToken"] = page_token
-        response = service.users().messages().list(**kwargs).execute()
+
+        response = (
+            service.users()
+            .messages()
+            .list(**kwargs)
+            .execute()
+        )
+
+        total_count = int(
+            response.get(
+                "resultSizeEstimate",
+                total_count,
+            )
+            or 0
+        )
+
         for item in response.get("messages", []) or []:
-            message = service.users().messages().get(
-                userId="me",
-                id=item["id"],
-                format="metadata",
-                metadataHeaders=["From", "To", "Subject", "Date"],
-            ).execute()
+            message = (
+                service.users()
+                .messages()
+                .get(
+                    userId="me",
+                    id=item["id"],
+                    format="metadata",
+                    metadataHeaders=["From", "To", "Subject", "Date"],
+                )
+                .execute()
+            )
+
             results.append(_parse_message(message))
+
             if len(results) >= limit:
                 break
+
         page_token = response.get("nextPageToken")
+
         if not page_token:
+            has_more = False
             break
 
-    return results
+        has_more = len(results) < limit
+
+    return {
+        "messages": results,
+        "count": total_count,
+        "returned_count": len(results),
+        "has_more": has_more,
+    }
 
 
 def get_message(message_id: str) -> dict[str, str]:
@@ -320,7 +358,8 @@ def delete_drafts(draft_ids: list[str]) -> int:
 
 
 def batch_delete_messages(message_ids: list[str]) -> int:
-    message_ids = [str(message_id).strip() for message_id in message_ids if str(message_id).strip()]
+    message_ids = [str(message_id).strip()
+                   for message_id in message_ids if str(message_id).strip()]
     if not message_ids:
         return 0
 

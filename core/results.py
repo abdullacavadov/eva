@@ -10,12 +10,13 @@ class StructuredResult:
     status: str
     query: dict[str, Any] = field(default_factory=dict)
     data: list[dict[str, Any]] = field(default_factory=list)
-    count: int = 0
+    count: int | None = None
     selected: dict[str, Any] | None = None
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        self.count = len(self.data)
+        if self.count is None:
+            self.count = len(self.data)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -38,21 +39,32 @@ def make_result(
     selected: dict[str, Any] | None = None,
     meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    result = StructuredResult(
+    return StructuredResult(
         result_type,
         status,
         query or {},
         data or [],
+        count=count,
         selected=selected,
         meta=meta or {},
     ).to_dict()
-    if count is not None:
-        result["count"] = count
-    return result
 
 
-def success(result_type: str, data: list[dict[str, Any]], query: dict[str, Any] | None = None, meta: dict[str, Any] | None = None) -> dict[str, Any]:
-    return make_result(result_type, "success", query=query, data=data, meta=meta)
+def success(
+    result_type: str,
+    data: list[dict[str, Any]],
+    query: dict[str, Any] | None = None,
+    meta: dict[str, Any] | None = None,
+    count: int | None = None,
+) -> dict[str, Any]:
+    return make_result(
+        result_type,
+        "success",
+        query=query,
+        data=data,
+        count=count,
+        meta=meta,
+    )
 
 
 def empty(result_type: str, query: dict[str, Any] | None = None, meta: dict[str, Any] | None = None) -> dict[str, Any]:
