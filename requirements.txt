@@ -11,6 +11,7 @@ opencv-python                             # Webcam canlı akışı (toggle_webca
 pyperclip                                 # Pano kopyalama (WhatsApp otomasyonu)
 pyautogui                                 # WhatsApp Web avtomatik gönderim (Enter)
 pygetwindow                               # WhatsApp pəncərəsini önə gətirmək
+playwright                                # WhatsApp Web read-only browser bridge
 
 google-api-python-client                  # Google Calendar API
 google-auth-httplib2                      # Google API auth transport
