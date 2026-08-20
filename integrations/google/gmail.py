@@ -115,6 +115,7 @@ def get_draft(draft_id: str) -> dict[str, Any]:
         format="metadata",
     ).execute()
 
+
 def list_message_ids(query: str, include_spam_trash: bool = False) -> list[str]:
     query = str(query or "").strip()
     if not query:
@@ -217,7 +218,7 @@ def folder_query(folder: str) -> str:
         return GMAIL_FOLDER_QUERIES[folder]
     except KeyError as exc:
         raise ValueError(
-            "Dəstəklənən Gmail qovluqları: inbox, sent, drafts, spam, trash, promotions, social, updates, purchases, starred, all_mail."
+            f"Naməlum Gmail qovluğu: {folder}. Dəstəklənən Gmail qovluqları: inbox, sent, drafts, spam, trash, promotions, social, updates, purchases, starred, all_mail."
         ) from exc
 
 
@@ -305,14 +306,12 @@ def trash_messages_by_query(query: str) -> dict[str, int]:
     page_token = None
     matched = 0
     trashed = 0
-    include_scoped_spam_trash = "in:spam" in query or "in:trash" in query
 
     while True:
         kwargs = {
             "userId": "me",
             "q": query,
             "maxResults": 100,
-            "includeSpamTrash": include_scoped_spam_trash,
         }
         if page_token:
             kwargs["pageToken"] = page_token
