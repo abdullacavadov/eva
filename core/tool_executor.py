@@ -233,7 +233,7 @@ class ToolExecutor:
                 r = await loop.run_in_executor(None, read_whatsapp_conversations)
                 result = r or "WhatsApp söhbətləri oxundu."
             elif name == "read_whatsapp_messages":
-                r = await loop.run_in_executor(None, read_whatsapp_messages)
+                r = await loop.run_in_executor(None, lambda: read_whatsapp_messages(args.get("conversation", "")))
                 result = r or "WhatsApp mesajları oxundu."
             else:
                 result = f"Naməlum alət: {name}"
