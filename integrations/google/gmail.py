@@ -18,6 +18,10 @@ GMAIL_FOLDER_QUERIES = {
     "trash": "in:trash",
     "promotions": "category:promotions",
     "social": "category:social",
+    "updates": "category:updates",
+    "purchases": "category:purchases",
+    "starred": "is:starred",
+    "all_mail": "-in:spam -in:trash",
 }
 
 
@@ -39,7 +43,7 @@ def _strip_html(value: str) -> str:
 def get_message(message_id: str) -> dict[str, str]:
     message_id = str(message_id or "").strip()
     if not message_id:
-        raise ValueError("Email message_id t╔Щl╔Щb olunur.")
+        raise ValueError("Email message_id tələb olunur.")
 
     service = get_gmail_service()
 
@@ -102,7 +106,7 @@ def list_draft_ids() -> list[str]:
 def get_draft(draft_id: str) -> dict[str, Any]:
     draft_id = str(draft_id or "").strip()
     if not draft_id:
-        raise ValueError("Email draft_id t╔Щl╔Щb olunur.")
+        raise ValueError("Email draft_id tələb olunur.")
 
     service = get_gmail_service()
     return service.users().drafts().get(
@@ -111,10 +115,11 @@ def get_draft(draft_id: str) -> dict[str, Any]:
         format="metadata",
     ).execute()
 
+
 def list_message_ids(query: str, include_spam_trash: bool = False) -> list[str]:
     query = str(query or "").strip()
     if not query:
-        raise ValueError("Gmail delete query t╔Щl╔Щb olunur.")
+        raise ValueError("Gmail delete query tələb olunur.")
 
     service = get_gmail_service()
     message_ids: list[str] = []
@@ -146,7 +151,7 @@ def list_message_ids(query: str, include_spam_trash: bool = False) -> list[str]:
 def delete_draft(draft_id: str) -> None:
     draft_id = str(draft_id or "").strip()
     if not draft_id:
-        raise ValueError("Email draft_id t╔Щl╔Щb olunur.")
+        raise ValueError("Email draft_id tələb olunur.")
 
     service = get_gmail_service()
     service.users().drafts().delete(
@@ -210,7 +215,7 @@ def folder_query(folder: str) -> str:
         return GMAIL_FOLDER_QUERIES[folder]
     except KeyError as exc:
         raise ValueError(
-            "Dəstəklənən Gmail qovluqları: inbox, sent, drafts, spam, trash, promotions, social."
+            "Dəstəklənən Gmail qovluqları: inbox, sent, drafts, spam, trash, promotions, social, updates, purchases, starred, all_mail."
         ) from exc
 
 
