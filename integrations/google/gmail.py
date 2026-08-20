@@ -14,7 +14,7 @@ GMAIL_FOLDER_QUERIES = {
     "inbox": "in:inbox",
     "sent": "in:sent",
     "drafts": "in:drafts",
-    "spam": "in:spam",
+    "spam": "category:spam",
     "trash": "in:trash",
     "promotions": "category:promotions",
     "social": "category:social",
@@ -124,13 +124,16 @@ def list_message_ids(query: str, include_spam_trash: bool = False) -> list[str]:
     service = get_gmail_service()
     message_ids: list[str] = []
     page_token = None
+    include_scoped_spam_trash = bool(
+        include_spam_trash or "in:spam" in query or "in:trash" in query
+    )
 
     while True:
         kwargs = {
             "userId": "me",
             "q": query,
             "maxResults": 100,
-            "includeSpamTrash": bool(include_spam_trash),
+            "includeSpamTrash": include_scoped_spam_trash,
         }
         if page_token:
             kwargs["pageToken"] = page_token
@@ -303,12 +306,14 @@ def trash_messages_by_query(query: str) -> dict[str, int]:
     page_token = None
     matched = 0
     trashed = 0
+    include_scoped_spam_trash = "in:spam" in query or "in:trash" in query
 
     while True:
         kwargs = {
             "userId": "me",
             "q": query,
             "maxResults": 100,
+            "includeSpamTrash": include_scoped_spam_trash,
         }
         if page_token:
             kwargs["pageToken"] = page_token
