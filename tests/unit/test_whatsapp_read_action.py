@@ -12,6 +12,22 @@ class FakeBridge:
     def close(self):
         pass
 
+    def _require_page(self):
+        return self
+
+    def locator(self, selector):
+        return self
+
+    def filter(self, **kwargs):
+        return self
+
+    @property
+    def first(self):
+        return self
+
+    def click(self):
+        pass
+
     def get_visible_conversations(self):
         return [
             WhatsAppVisibleConversation(
@@ -65,3 +81,72 @@ def test_read_whatsapp_messages_uses_existing_message_contract(monkeypatch, tmp_
     assert item["timestamp"] == "12:00"
     assert item["direction"] == "incoming"
     assert item["content"] == "Salam"
+
+
+def test_read_whatsapp_messages_rejects_ambiguous_partial_match(monkeypatch, tmp_path):
+    class AmbiguousBridge(FakeBridge):
+        def get_visible_conversations(self):
+            return [
+                WhatsAppVisibleConversation(
+                    conversation_id="c1",
+                    title="Ali Baba",
+                    contact_name="Ali Baba",
+                    contact_phone="",
+                    last_message="",
+                    last_message_timestamp="",
+                    unread_count=2,
+                ),
+                WhatsAppVisibleConversation(
+                    conversation_id="c2",
+                    title="Ali Veli",
+                    contact_name="Ali Veli",
+                    contact_phone="",
+                    last_message="",
+                    last_message_timestamp="",
+                    unread_count=1,
+                ),
+            ]
+
+    monkeypatch.setattr("actions.whatsapp_read_action.WhatsAppWebBridge", AmbiguousBridge)
+    monkeypatch.setenv("EVA_WHATSAPP_SEEN_FILE", str(tmp_path / "seen.json"))
+
+    result = read_whatsapp_messages("Ali")
+
+    assert result["type"] == "whatsapp_message"
+    assert result["status"] == "error"
+    assert result["count"] == 2
+    assert result["selected"] is None
+    assert result["meta"]["ambiguous"] is True
+    assert result["meta"]["candidates"] == ["Ali Baba", "Ali Veli"]
+    assert [item["title"] for item in result["data"]] == ["Ali Baba", "Ali Veli"]
+
+
+def test_read_whatsapp_messages_keeps_exact_match_precedence(monkeypatch, tmp_path):
+    class ExactBridge(FakeBridge):
+        def get_visible_conversations(self):
+            return [
+                WhatsAppVisibleConversation(
+                    conversation_id="c1",
+                    title="Ali",
+                    contact_name="Ali",
+                    contact_phone="",
+                    last_message="",
+                    last_message_timestamp="",
+                ),
+                WhatsAppVisibleConversation(
+                    conversation_id="c2",
+                    title="Ali Baba",
+                    contact_name="Ali Baba",
+                    contact_phone="",
+                    last_message="",
+                    last_message_timestamp="",
+                ),
+            ]
+
+    monkeypatch.setattr("actions.whatsapp_read_action.WhatsAppWebBridge", ExactBridge)
+    monkeypatch.setenv("EVA_WHATSAPP_SEEN_FILE", str(tmp_path / "seen.json"))
+
+    result = read_whatsapp_messages("Ali")
+
+    assert result["status"] == "success"
+    assert result["data"][0]["conversation_id"] == "c1"
