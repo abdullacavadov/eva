@@ -7,7 +7,28 @@ def test_gmail_read_tools_are_registered():
     assert "read_email" in names
 
 
+def test_gmail_communication_tools_are_registered():
+    names = {item["name"] for item in TOOL_DECLARATIONS}
+    assert "read_email_thread" in names
+    assert "prepare_email_reply" in names
+    assert "prepare_new_email" in names
+    assert "send_email" in names
+
+
 def test_gmail_read_tools_are_read_only():
     by_name = {item["name"]: item for item in TOOL_DECLARATIONS}
     assert "send" not in by_name["get_emails"]["name"]
     assert "modify" not in by_name["get_emails"]["name"]
+
+
+def test_send_email_requires_draft_id():
+    by_name = {item["name"]: item for item in TOOL_DECLARATIONS}
+    send = by_name["send_email"]
+    assert send["parameters"]["required"] == ["draft_id"]
+
+
+def test_draft_tools_require_confirmation_in_description():
+    by_name = {item["name"]: item for item in TOOL_DECLARATIONS}
+    assert "təsdiq" in by_name["prepare_email_reply"]["description"].lower()
+    assert "təsdiq" in by_name["prepare_new_email"]["description"].lower()
+    assert "təsdiq" in by_name["send_email"]["description"].lower()
