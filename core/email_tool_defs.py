@@ -3,14 +3,14 @@ EMAIL_TOOL_DECLARATIONS = [
         "name": "get_emails",
         "description": (
             "Gmail hesabında email axtarır və uyğun mesajların göndərən, mövzu, tarix və qısa məzmununu qaytarır. "
-            "Qovluq sorğularında folder parametrini mütləq istifadə et: inbox, sent, drafts, spam, trash, promotions, social. "
+            "Qovluq sorğularında folder parametrini mütləq istifadə et: inbox, sent, drafts, spam, trash, promotions, social, updates, purchases, starred, all_mail. "
             "folder verildikdə həmin Gmail qovluğuna filtr avtomatik tətbiq olunur. Əlavə Gmail query də verilə bilər."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "query": {"type": "STRING", "description": "Əlavə Gmail search query. Məsələn: from:, to:, subject:, is:unread, after:, before:."},
-                "folder": {"type": "STRING", "description": "inbox | sent | drafts | spam | trash | promotions | social. Qovluq soruşulanda uyğun dəyəri ver."},
+                "folder": {"type": "STRING", "description": "inbox | sent | drafts | spam | trash | promotions | social | updates | purchases | starred | all_mail. Qovluq soruşulanda uyğun dəyəri ver."},
                 "limit": {"type": "NUMBER", "description": "Maksimum email sayı. Defolt 10."}
             }
         }
@@ -25,13 +25,13 @@ EMAIL_TOOL_DECLARATIONS = [
         "description": (
             "Gmail email(lər)ini Trash-a göndərmək üçün əvvəlcə dəqiq mesaj snapshot-ı hazırlayır. "
             "Bu alət heç bir emaili silmir; confirmation_id yaradır və istifadəçidən açıq təsdiq tələb edir. "
-            "Qovluq üçün folder parametrindən istifadə et: inbox, sent, drafts, spam, trash, promotions, social. "
+            "Qovluq üçün folder parametrindən istifadə et: inbox, sent, drafts, spam, trash, promotions, social, updates, purchases, starred, all_mail. "
             "Konkret email üçün message_id ver. Confirmation-dan sonra yalnız həmin snapshot-dakı mesajlar Trash-a göndərilir."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "folder": {"type": "STRING", "description": "inbox | sent | drafts | spam | trash | promotions | social"},
+                "folder": {"type": "STRING", "description": "inbox | sent | drafts | spam | trash | promotions | social | updates | purchases | starred | all_mail"},
                 "message_id": {"type": "STRING", "description": "Konkret Gmail message ID."},
                 "query": {"type": "STRING", "description": "İxtiyari əlavə Gmail search query."}
             }
