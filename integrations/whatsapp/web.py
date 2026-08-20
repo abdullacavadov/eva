@@ -57,6 +57,30 @@ class WhatsAppWebBridge:
         self._page = self._context.pages[0] if self._context.pages else self._context.new_page()
         self._page.goto("https://web.whatsapp.com", wait_until="domcontentloaded")
 
+        try:
+            self._page.wait_for_function(
+                """() => Boolean(
+                    document.querySelector('[data-testid="cell-frame-container"]') ||
+                    document.querySelector('[data-testid="conversation-header"]') ||
+                    document.querySelector('[data-testid="chat-list"]') ||
+                    document.querySelector('[contenteditable="true"]')
+                )""",
+                timeout=30_000,
+            )
+        except Exception as exc:
+            print("[WhatsApp] UI render timeout")
+            print(f"[WhatsApp] URL: {self._page.url}")
+            print(f"[WhatsApp] Title: {self._page.title()!r}")
+            print(f"[WhatsApp] #app: {self._page.locator('#app').count() > 0}")
+            for selector in (
+                '[data-testid="cell-frame-container"]',
+                '[data-testid="conversation-header"]',
+                '[data-testid="chat-list"]',
+                '[contenteditable="true"]',
+            ):
+                print(f"[WhatsApp] {selector}: {self._page.locator(selector).count()}")
+            raise RuntimeError("WhatsApp Web UI render timeout.") from exc
+
     def get_visible_conversations(self) -> list[WhatsAppVisibleConversation]:
         page = self._require_page()
         conversations: list[WhatsAppVisibleConversation] = []
