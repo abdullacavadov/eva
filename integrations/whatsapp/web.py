@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -31,9 +32,10 @@ class WhatsAppVisibleConversation:
 class WhatsAppWebBridge:
     """Read-only adapter for data currently rendered by WhatsApp Web."""
 
-    def __init__(self, user_data_dir: str, headless: bool = False) -> None:
+    def __init__(self, user_data_dir: str, headless: bool = False, cdp_url: str | None = None) -> None:
         self.user_data_dir = user_data_dir
         self.headless = headless
+        self.cdp_url = cdp_url or os.getenv("EVA_WHATSAPP_CDP_URL")
         self._playwright = None
         self._context: BrowserContext | None = None
         self._page: Page | None = None
@@ -50,13 +52,17 @@ class WhatsAppWebBridge:
             ) from exc
 
         self._playwright = sync_playwright().start()
-        self._context = self._playwright.chromium.launch_persistent_context(
-            self.user_data_dir,
-            channel="chrome",
-            headless=self.headless,
-        )
+        if self.cdp_url:
+            self._context = self._playwright.chromium.connect_over_cdp(self.cdp_url)
+        else:
+            self._context = self._playwright.chromium.launch_persistent_context(
+                self.user_data_dir,
+                channel="chrome",
+                headless=self.headless,
+            )
         self._page = self._context.pages[0] if self._context.pages else self._context.new_page()
-        self._page.goto("https://web.whatsapp.com", wait_until="domcontentloaded")
+        if not self.cdp_url:
+            self._page.goto("https://web.whatsapp.com", wait_until="domcontentloaded")
 
         try:
             self._page.wait_for_function(
