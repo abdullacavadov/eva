@@ -21,7 +21,7 @@ def test_get_emails_dispatches_query_and_limit():
     )
     with patch("core.tool_executor.search_emails", return_value="ID: m1") as search:
         response = asyncio.run(executor.execute(fc))
-    search.assert_called_once_with("is:unread", 5, "")
+    search.assert_called_once_with("is:unread", 5)
     assert response.response["result"] == "ID: m1"
 
 
