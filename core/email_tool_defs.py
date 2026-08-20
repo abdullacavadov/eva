@@ -108,6 +108,47 @@ EMAIL_TOOL_DECLARATIONS = [
         }
     },
     {
+        "name": "prepare_email_deletion",
+        "description": (
+            "Gmail mesajlarının dağıdıcı silinməsi üçün əvvəlcə hədəfi müəyyən edir və istifadəçi təsdiqi tələb edən plan hazırlayır. "
+            "Dəstəklənən scope-lar: drafts (bütün qaralamalar), draft (konkret draft), spam, trash, promotions və social. "
+            "Bu alət özü heç nə silmir."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "scope": {
+                    "type": "STRING",
+                    "description": "Silinəcək Gmail sahəsi.",
+                    "enum": ["drafts", "draft", "spam", "trash", "promotions", "social"]
+                },
+                "draft_id": {
+                    "type": "STRING",
+                    "description": "Yalnız scope=draft olduqda konkret Gmail draft ID-si."
+                }
+            },
+            "required": ["scope"]
+        }
+    },
+    {
+        "name": "delete_email",
+        "description": (
+            "Əvvəlcədən hazırlanmış Gmail silmə planını icra edir. "
+            "Yalnız prepare_email_deletion nəticəsində verilmiş confirmation_id istifadəçinin açıq təsdiqindən sonra təqdim edilə bilər. "
+            "Bu əməliyyat geri qaytarılmayan permanent delete edir."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "confirmation_id": {
+                    "type": "STRING",
+                    "description": "İstifadəçi təsdiqindən əvvəl prepare_email_deletion tərəfindən yaradılmış confirmation ID."
+                }
+            },
+            "required": ["confirmation_id"]
+        }
+    },
+    {
         "name": "read_email",
         "description": "Gmail-da message_id ilə konkret emaili oxuyur və məzmununu qaytarır.",
         "parameters": {
