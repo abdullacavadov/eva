@@ -10,6 +10,17 @@ from googleapiclient.discovery import build
 from integrations.google.auth import get_google_credentials
 
 
+GMAIL_FOLDER_QUERIES = {
+    "inbox": "in:inbox",
+    "sent": "in:sent",
+    "drafts": "in:drafts",
+    "spam": "in:spam",
+    "trash": "in:trash",
+    "promotions": "category:promotions",
+    "social": "category:social",
+}
+
+
 def get_gmail_service():
     return build("gmail", "v1", credentials=get_google_credentials())
 
@@ -71,11 +82,28 @@ def _parse_message(message: dict[str, Any], include_body: bool = False) -> dict[
     return result
 
 
-def search_messages(query: str = "", limit: int = 10) -> list[dict[str, str]]:
+def folder_query(folder: str) -> str:
+    folder = str(folder or "").strip().lower()
+    if not folder:
+        return ""
+    try:
+        return GMAIL_FOLDER_QUERIES[folder]
+    except KeyError as exc:
+        raise ValueError(
+            "Dəstəklənən Gmail qovluqları: inbox, sent, drafts, spam, trash, promotions, social."
+        ) from exc
+
+
+def search_messages(
+    query: str = "",
+    limit: int = 10,
+) -> dict[str, Any]:
     limit = max(1, min(int(limit or 10), 100))
     service = get_gmail_service()
     results: list[dict[str, str]] = []
     page_token = None
+    total_count = 0
+    has_more = False
 
     while len(results) < limit:
         kwargs = {
@@ -85,7 +113,16 @@ def search_messages(query: str = "", limit: int = 10) -> list[dict[str, str]]:
         }
         if page_token:
             kwargs["pageToken"] = page_token
+
         response = service.users().messages().list(**kwargs).execute()
+        total_count = int(
+            response.get(
+                "resultSizeEstimate",
+                total_count,
+            )
+            or 0
+        )
+
         for item in response.get("messages", []) or []:
             message = service.users().messages().get(
                 userId="me",
@@ -96,11 +133,84 @@ def search_messages(query: str = "", limit: int = 10) -> list[dict[str, str]]:
             results.append(_parse_message(message))
             if len(results) >= limit:
                 break
+
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            has_more = False
+            break
+
+        has_more = len(results) < limit
+
+    if total_count == 0 and results:
+        total_count = len(results)
+
+    return {
+        "messages": results,
+        "count": total_count,
+        "returned_count": len(results),
+        "has_more": has_more,
+    }
+
+
+def trash_message(message_id: str) -> dict[str, str]:
+    message_id = str(message_id or "").strip()
+    if not message_id:
+        raise ValueError("Email message_id tələb olunur.")
+
+    service = get_gmail_service()
+    response = service.users().messages().trash(
+        userId="me",
+        id=message_id,
+    ).execute()
+
+    return {
+        "message_id": str(response.get("id", message_id)),
+        "thread_id": str(response.get("threadId", "")),
+    }
+
+
+def trash_messages_by_query(query: str) -> dict[str, int]:
+    query = str(query or "").strip()
+    if not query:
+        raise ValueError("Trash əməliyyatı üçün Gmail query tələb olunur.")
+
+    service = get_gmail_service()
+    page_token = None
+    matched = 0
+    trashed = 0
+
+    while True:
+        kwargs = {
+            "userId": "me",
+            "q": query,
+            "maxResults": 100,
+        }
+        if page_token:
+            kwargs["pageToken"] = page_token
+
+        response = service.users().messages().list(**kwargs).execute()
+        message_ids = [
+            str(item.get("id", ""))
+            for item in response.get("messages", []) or []
+            if item.get("id")
+        ]
+        matched += len(message_ids)
+
+        for message_id in message_ids:
+            service.users().messages().trash(
+                userId="me",
+                id=message_id,
+            ).execute()
+            trashed += 1
+
         page_token = response.get("nextPageToken")
         if not page_token:
             break
 
-    return results
+    return {
+        "matched_count": matched,
+        "trashed_count": trashed,
+    }
 
 
 def get_thread(thread_id: str) -> list[dict[str, str]]:
