@@ -178,19 +178,7 @@ class ToolExecutor:
                 r = await loop.run_in_executor(
                     None,
                     lambda: trash_emails(
-                        args.get("folder", ""),
-                        args.get("message_id", ""),
-                        args.get("query", ""),
-                    ),
-                )
-                result = r or "Email(lər) Trash-a göndərildi."
-            elif name == "trash_emails":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: trash_emails(
-                         args.get("folder", ""),
-                         args.get("message_id", ""),
-                         args.get("query", ""),
+                        args.get("confirmation_id", ""),
                     ),
                 )
                 result = r or "Email(lər) Trash-a göndərildi."
