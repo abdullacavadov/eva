@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -25,6 +26,17 @@ SELECTOR_PROBES = (
     '[data-testid="chat-list"]',
     '[data-testid="intro"]',
     '[data-testid="qrcode"]',
+)
+
+
+MESSAGE_SELECTOR_CANDIDATES = (
+    '[data-testid="msg-container"]',
+    '[data-testid="msg-container"] [data-testid="selectable-text"]',
+    '[data-testid="msg-container"] [data-testid="msg-meta"]',
+    '[data-testid="msg-container"] [data-testid="msg-time"]',
+    '[data-id][data-testid="msg-container"]',
+    '[data-testid="msg-container"] div[role="row"]',
+    '[data-testid="msg-container"] [aria-label]',
 )
 
 
@@ -59,6 +71,69 @@ def print_diagnostics(page) -> None:
     print("=== End diagnostics ===\n")
 
 
+def _message_dom_diagnostics(page) -> dict:
+    containers = page.locator('[data-testid="msg-container"]')
+    results = []
+
+    for index in range(min(containers.count(), 5)):
+        item = containers.nth(index)
+        attrs = item.evaluate(
+            """el => Object.fromEntries(
+                Array.from(el.attributes).map(attr => [attr.name, attr.value])
+            )"""
+        )
+        descendants = item.locator("*")
+        tag_names = descendants.evaluate_all(
+            """els => Array.from(new Set(els.map(el => el.tagName.toLowerCase())))
+                .slice(0, 30)"""
+        )
+        data_testids = descendants.evaluate_all(
+            """els => Array.from(new Set(
+                els.map(el => el.getAttribute('data-testid')).filter(Boolean)
+            )).slice(0, 30)"""
+        )
+        results.append(
+            {
+                "index": index,
+                "attributes": attrs,
+                "tag_names": tag_names,
+                "data_testids": data_testids,
+                "descendant_count": descendants.count(),
+            }
+        )
+
+    selector_counts = {
+        selector: page.locator(selector).count()
+        for selector in MESSAGE_SELECTOR_CANDIDATES
+    }
+
+    return {
+        "message_container_count": containers.count(),
+        "selector_candidates": selector_counts,
+        "sample_elements": results,
+    }
+
+
+def print_message_dom_diagnostics(page, conversations) -> None:
+    print("\n=== WhatsApp message DOM diagnostics ===")
+    if not conversations:
+        print(json.dumps({"status": "no_visible_conversations"}, ensure_ascii=False, indent=2))
+        print("=== End message DOM diagnostics ===\n")
+        return
+
+    target = page.locator('[data-testid="cell-frame-container"]').first
+    target.click()
+    page.wait_for_timeout(1500)
+
+    result = _message_dom_diagnostics(page)
+    result["status"] = "conversation_opened"
+    result["conversation_title_present"] = bool(conversations[0].title)
+    result["conversation_header_count"] = page.locator('[data-testid="conversation-header"]').count()
+
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    print("=== End message DOM diagnostics ===\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Read-only WhatsApp Web DOM smoke test")
     parser.add_argument("--profile", default=".eva/whatsapp-profile", help="Persistent Chromium profile directory")
@@ -85,6 +160,8 @@ def main() -> int:
                 f"title={conversation.title!r} | "
                 f"last_message_present={bool(conversation.last_message)}"
             )
+
+        print_message_dom_diagnostics(page, conversations)
 
         print(f"Visible messages in current conversation: {len(messages)}")
         for message in messages[-20:]:
