@@ -20,6 +20,8 @@ from actions.calendar import (
 )
 from actions.reminders import get_reminders, add_reminder
 from actions.email import (
+    delete_email,
+    prepare_email_deletion,
     prepare_email_reply,
     prepare_new_email,
     read_email_thread,
@@ -171,16 +173,12 @@ class ToolExecutor:
             elif name == "read_email":
                 r = await loop.run_in_executor(None, lambda: read_email(args.get("message_id", "")))
                 result = r or "Email oxundu."
-
-
-
             elif name == "read_email_thread":
                 r = await loop.run_in_executor(
                     None,
                     lambda: read_email_thread(args.get("thread_id", "")),
                 )
                 result = r or "Email thread oxundu."
-
             elif name == "prepare_email_reply":
                 r = await loop.run_in_executor(
                     None,
@@ -190,7 +188,6 @@ class ToolExecutor:
                     ),
                 )
                 result = r or "Email cavabı draft kimi hazırlandı."
-
             elif name == "prepare_new_email":
                 r = await loop.run_in_executor(
                     None,
@@ -203,14 +200,27 @@ class ToolExecutor:
                     ),
                 )
                 result = r or "Yeni email draft kimi hazırlandı."
-
             elif name == "send_email":
                 r = await loop.run_in_executor(
                     None,
                     lambda: send_email(args.get("draft_id", "")),
                 )
                 result = r or "Email göndərildi."
-
+            elif name == "prepare_email_deletion":
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: prepare_email_deletion(
+                        args.get("scope", ""),
+                        args.get("draft_id", ""),
+                    ),
+                )
+                result = r or "Email silinməsi üçün təsdiq planı hazırlandı."
+            elif name == "delete_email":
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: delete_email(args.get("confirmation_id", "")),
+                )
+                result = r or "Email silindi."
             elif name == "sync_google_contacts":
                 r = await loop.run_in_executor(None, sync_google_contacts)
                 result = r or "Google Contacts sinxronizasiyası tamamlandı."
