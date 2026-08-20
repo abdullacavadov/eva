@@ -17,3 +17,6 @@ config/google_credentials.json
 #apis
 config/api_keys.json
 config/google_token.json
+
+#Whatsapp
+.eva/
