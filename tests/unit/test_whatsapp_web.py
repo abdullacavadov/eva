@@ -104,3 +104,28 @@ def test_get_visible_messages_parses_message_nodes_without_msg_time():
     assert messages[1].timestamp == "10:16"
     assert messages[1].direction == "outgoing"
     assert messages[1].message_id == "Test conversation:dom-1:Bob:10:16:outgoing"
+
+
+def test_parse_conversation_title_extracts_russian_unread_count():
+    title, unread_count = WhatsAppWebBridge._parse_conversation_title(
+        "Непрочитанные сообщения: 4\nМис Джавадова"
+    )
+
+    assert title == "Мис Джавадова"
+    assert unread_count == 4
+
+
+def test_parse_conversation_title_extracts_singular_russian_unread_count():
+    title, unread_count = WhatsAppWebBridge._parse_conversation_title(
+        "1 непрочитанное сообщение\n+994 70 833 71 01"
+    )
+
+    assert title == "+994 70 833 71 01"
+    assert unread_count == 1
+
+
+def test_parse_conversation_title_keeps_normal_title_and_zero_unread_count():
+    title, unread_count = WhatsAppWebBridge._parse_conversation_title("Рашад Гурбанлы")
+
+    assert title == "Рашад Гурбанлы"
+    assert unread_count == 0
