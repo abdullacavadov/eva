@@ -3,10 +3,11 @@ from unittest.mock import MagicMock, patch
 from integrations.google.auth import SCOPES, get_google_credentials
 
 
-def test_google_scopes_include_calendar_tasks_gmail_readonly_and_contacts_write():
+def test_google_scopes_include_calendar_tasks_gmail_modify_and_contacts():
     assert "https://www.googleapis.com/auth/calendar" in SCOPES
     assert "https://www.googleapis.com/auth/tasks" in SCOPES
-    assert "https://www.googleapis.com/auth/gmail.readonly" in SCOPES
+    assert "https://www.googleapis.com/auth/gmail.modify" in SCOPES
+    assert "https://www.googleapis.com/auth/gmail.readonly" not in SCOPES
     assert "https://www.googleapis.com/auth/contacts" in SCOPES
     assert "https://www.googleapis.com/auth/contacts.readonly" not in SCOPES
 
