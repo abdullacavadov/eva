@@ -103,6 +103,22 @@ def search_messages(query: str = "", limit: int = 10) -> list[dict[str, str]]:
     return results
 
 
+def get_message(message_id: str) -> dict[str, str]:
+    message_id = str(message_id or "").strip()
+    if not message_id:
+        raise ValueError("Email message_id tələb olunur.")
+
+    service = get_gmail_service()
+
+    response = service.users().messages().get(
+        userId="me",
+        id=message_id,
+        format="full",
+    ).execute()
+
+    return _parse_message(response, include_body=True)
+
+
 def get_thread(thread_id: str) -> list[dict[str, str]]:
     thread_id = str(thread_id or "").strip()
     if not thread_id:
