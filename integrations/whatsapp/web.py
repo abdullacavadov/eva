@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import re
 import subprocess
 import time
 from typing import TYPE_CHECKING, Any
@@ -181,7 +182,10 @@ class WhatsAppWebBridge:
             content = self._text(item, '[data-testid="selectable-text"]')
             sender = self._text(item, '[data-testid="author"]')
             timestamp = self._text(item, '[data-testid="msg-meta"]')
-            direction = "outgoing" if item.locator('[data-testid="msg-outgoing"]').count() else "incoming"
+            direction = self._message_direction(item)
+
+            if not content:
+                content = self._message_media_label(item)
 
             if not message_id:
                 message_id = f"{conversation_id}:dom-{index}:{sender}:{timestamp}:{direction}"
@@ -198,7 +202,57 @@ class WhatsAppWebBridge:
                 )
             )
 
-        return messages
+        return self._sort_messages(messages)
+
+    @staticmethod
+    def _message_direction(item: Any) -> str:
+        if item.locator('[data-testid="msg-outgoing"]').count():
+            return "outgoing"
+
+        try:
+            markers = item.evaluate(
+                """el => {
+                    const values = [];
+                    for (let node = el; node && node !== document.body; node = node.parentElement) {
+                        values.push(node.getAttribute('data-testid') || '');
+                        values.push(node.getAttribute('data-icon') || '');
+                        values.push(node.className && typeof node.className === 'string' ? node.className : '');
+                        if (values.length > 60) break;
+                    }
+                    return values.join(' ');
+                }"""
+            )
+        except Exception:
+            markers = ""
+
+        if re.search(r"(?:^|[\\s_-])message-out(?:[\\s_-]|$)", str(markers)):
+            return "outgoing"
+        if re.search(r"(?:^|[\\s_-])message-in(?:[\\s_-]|$)", str(markers)):
+            return "incoming"
+        return "incoming"
+
+    @staticmethod
+    def _message_media_label(item: Any) -> str:
+        if item.locator('[data-testid="ptt-status"]').count() or item.locator('audio').count():
+            return "Səsli mesaj"
+        if item.locator('video').count():
+            return "Video mesajı"
+        if item.locator('img').count():
+            return "Şəkil mesajı"
+        if item.locator('[data-testid="addon-bubble-container"]').count():
+            return "Media mesajı"
+        return "Boş mesaj"
+
+    @staticmethod
+    def _sort_messages(messages: list[WhatsAppVisibleMessage]) -> list[WhatsAppVisibleMessage]:
+        def key(message: WhatsAppVisibleMessage) -> tuple[int, int, str]:
+            match = re.search(r"(?<!\\d)(\\d{1,2}):(\\d{2})(?!\\d)", message.timestamp)
+            if not match:
+                return (1, 0, message.message_id)
+            hour, minute = int(match.group(1)), int(match.group(2))
+            return (0, hour * 60 + minute, message.message_id)
+
+        return sorted(enumerate(messages), key=lambda pair: (key(pair[1]), pair[0])) and sorted(messages, key=key)
 
     def close(self) -> None:
         if self._playwright is not None:
