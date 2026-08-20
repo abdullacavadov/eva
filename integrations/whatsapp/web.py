@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.request import urlopen
 
 if TYPE_CHECKING:
-    from playwright.sync_api import BrowserContext, Page
+    from playwright.sync_api import Browser, BrowserContext, Page
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,7 @@ class WhatsAppWebBridge:
         self.headless = headless
         self.cdp_url = cdp_url or os.getenv("EVA_WHATSAPP_CDP_URL")
         self._playwright = None
+        self._browser: Browser | None = None
         self._context: BrowserContext | None = None
         self._page: Page | None = None
         self._chrome_process: subprocess.Popen[bytes] | None = None
@@ -62,7 +63,11 @@ class WhatsAppWebBridge:
         if self.cdp_url is None and not self._cdp_available(cdp_url):
             self._start_eva_chrome(cdp_url)
 
-        self._context = self._connect_cdp_with_retry(cdp_url)
+        self._browser = self._connect_cdp_with_retry(cdp_url)
+        contexts = self._browser.contexts
+        if not contexts:
+            raise RuntimeError("WhatsApp Chrome-da browser context tapılmadı.")
+        self._context = contexts[0]
         self._page = self._context.pages[0] if self._context.pages else self._context.new_page()
         if self._page.url in ("", "about:blank"):
             self._page.goto("https://web.whatsapp.com", wait_until="domcontentloaded")
@@ -108,7 +113,7 @@ class WhatsAppWebBridge:
 
         self._chrome_process = subprocess.Popen(args)
 
-    def _connect_cdp_with_retry(self, cdp_url: str) -> BrowserContext:
+    def _connect_cdp_with_retry(self, cdp_url: str) -> Browser:
         last_exc: Exception | None = None
         for _ in range(60):
             try:
@@ -199,13 +204,12 @@ class WhatsAppWebBridge:
         return messages
 
     def close(self) -> None:
-        if self._context is not None:
-            self._context.close()
-        self._context = None
-        self._page = None
         if self._playwright is not None:
             self._playwright.stop()
         self._playwright = None
+        self._browser = None
+        self._context = None
+        self._page = None
 
     def _require_page(self) -> Page:
         if self._page is None:
