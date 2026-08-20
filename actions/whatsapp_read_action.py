@@ -39,34 +39,37 @@ def read_whatsapp_messages(conversation: str = "") -> dict:
             page = bridge._require_page()
             target = conversation.strip().casefold()
             candidates = bridge.get_visible_conversations()
-            match = next(
-                (
+
+            exact_matches = [
+                item
+                for item in candidates
+                if item.conversation_id.casefold() == target
+                or item.title.casefold() == target
+            ]
+            if len(exact_matches) == 1:
+                match = exact_matches[0]
+            elif len(exact_matches) > 1:
+                return _ambiguous_conversation_result(conversation, exact_matches)
+            else:
+                partial_matches = [
                     item
                     for item in candidates
-                    if item.conversation_id.casefold() == target
-                    or item.title.casefold() == target
-                ),
-                None,
-            )
-            if match is None:
-                match = next(
-                    (
-                        item
-                        for item in candidates
-                        if target in item.title.casefold()
-                    ),
-                    None,
-                )
-            if match is None:
-                return {
-                    "type": "whatsapp_message",
-                    "status": "error",
-                    "query": {"conversation": conversation},
-                    "data": [],
-                    "count": 0,
-                    "selected": None,
-                    "meta": {"error": f"WhatsApp söhbəti tapılmadı: {conversation}"},
-                }
+                    if target in item.title.casefold()
+                ]
+                if not partial_matches:
+                    return {
+                        "type": "whatsapp_message",
+                        "status": "error",
+                        "query": {"conversation": conversation},
+                        "data": [],
+                        "count": 0,
+                        "selected": None,
+                        "meta": {"error": f"WhatsApp söhbəti tapılmadı: {conversation}"},
+                    }
+                if len(partial_matches) > 1:
+                    return _ambiguous_conversation_result(conversation, partial_matches)
+                match = partial_matches[0]
+
             page.locator('[data-testid="cell-frame-container"]').filter(
                 has_text=match.title
             ).first.click()
@@ -75,3 +78,29 @@ def read_whatsapp_messages(conversation: str = "") -> dict:
         return read_visible_whatsapp_messages(bridge, seen_file)
     finally:
         bridge.close()
+
+
+def _ambiguous_conversation_result(conversation: str, matches: list) -> dict:
+    return {
+        "type": "whatsapp_message",
+        "status": "error",
+        "query": {"conversation": conversation},
+        "data": [
+            {
+                "id": f"whatsapp:conversation:{item.conversation_id}",
+                "conversation_id": item.conversation_id,
+                "title": item.title,
+                "contact_name": item.contact_name,
+                "contact_phone": item.contact_phone,
+                "unread_count": item.unread_count,
+            }
+            for item in matches
+        ],
+        "count": len(matches),
+        "selected": None,
+        "meta": {
+            "error": f"Bir neçə WhatsApp söhbəti uyğun gəldi: {conversation}",
+            "ambiguous": True,
+            "candidates": [item.title for item in matches],
+        },
+    }
