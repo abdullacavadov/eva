@@ -133,7 +133,8 @@ def test_get_thread_requires_id():
 
 def test_get_thread_fetches_full_messages():
     service = MagicMock()
-    get_call = service.users.return_value.threads.return_value.get.return_value
+    get_method = service.users.return_value.threads.return_value.get
+    get_call = get_method.return_value
     get_call.execute.return_value = {
         "id": "t1",
         "messages": [
@@ -168,7 +169,7 @@ def test_get_thread_fetches_full_messages():
     assert result[0]["thread_id"] == "t1"
     assert result[0]["message_id_header"] == "<m1@example.com>"
     assert result[0]["body"] == "Hello"
-    get_call.assert_called_once_with(userId="me", id="t1", format="full")
+    get_method.assert_called_once_with(userId="me", id="t1", format="full")
 
 
 def test_create_draft_requires_recipient_subject_and_body():
@@ -182,7 +183,8 @@ def test_create_draft_requires_recipient_subject_and_body():
 
 def test_create_draft_builds_mime_and_thread_headers():
     service = MagicMock()
-    create_call = service.users.return_value.drafts.return_value.create.return_value
+    create_method = service.users.return_value.drafts.return_value.create
+    create_call = create_method.return_value
     create_call.execute.return_value = {
         "id": "d1",
         "message": {
@@ -209,7 +211,7 @@ def test_create_draft_builds_mime_and_thread_headers():
         "thread_id": "t1",
     }
 
-    request = create_call.call_args.kwargs["body"]
+    request = create_method.call_args.kwargs["body"]
     assert request["message"]["threadId"] == "t1"
 
     raw = base64.urlsafe_b64decode(request["message"]["raw"])
@@ -225,7 +227,8 @@ def test_create_draft_builds_mime_and_thread_headers():
 
 def test_create_draft_new_email_does_not_set_thread_id():
     service = MagicMock()
-    create_call = service.users.return_value.drafts.return_value.create.return_value
+    create_method = service.users.return_value.drafts.return_value.create
+    create_call = create_method.return_value
     create_call.execute.return_value = {
         "id": "d1",
         "message": {"id": "m1", "threadId": "t1"},
@@ -234,7 +237,7 @@ def test_create_draft_new_email_does_not_set_thread_id():
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         create_draft("a@example.com", "Hello", "Body")
 
-    request = create_call.call_args.kwargs["body"]
+    request = create_method.call_args.kwargs["body"]
     assert "threadId" not in request["message"]
 
 
@@ -245,7 +248,8 @@ def test_send_draft_requires_id():
 
 def test_send_draft_sends_existing_draft():
     service = MagicMock()
-    send_call = service.users.return_value.drafts.return_value.send.return_value
+    send_method = service.users.return_value.drafts.return_value.send
+    send_call = send_method.return_value
     send_call.execute.return_value = {
         "id": "m1",
         "threadId": "t1",
@@ -258,4 +262,4 @@ def test_send_draft_sends_existing_draft():
         "message_id": "m1",
         "thread_id": "t1",
     }
-    send_call.assert_called_once_with(userId="me", body={"id": "d1"})
+    send_method.assert_called_once_with(userId="me", body={"id": "d1"})
