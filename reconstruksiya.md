@@ -137,7 +137,7 @@ Phase 1 aşağıdakılar tamamlandıqda bağlanacaq:
 - Google Calendar ✅
 - Google Tasks / Reminders ✅
 - Gmail Read ✅
-- Gmail Write
+- Gmail Write ✅
 - WhatsApp
 - Regression test suite
 - Final architecture/code audit
