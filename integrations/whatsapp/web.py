@@ -176,18 +176,15 @@ class WhatsAppWebBridge:
             return []
 
         messages: list[WhatsAppVisibleMessage] = []
-        for item in page.locator('[data-testid="msg-container"]').all():
+        for index, item in enumerate(page.locator('[data-testid="msg-container"]').all()):
             message_id = item.get_attribute("data-id") or ""
             content = self._text(item, '[data-testid="selectable-text"]')
-            if not content:
-                continue
-
-            sender = self._text(item, '[data-testid="msg-meta"]')
-            timestamp = self._text(item, '[data-testid="msg-time"]')
+            sender = self._text(item, '[data-testid="author"]')
+            timestamp = self._text(item, '[data-testid="msg-meta"]')
             direction = "outgoing" if item.locator('[data-testid="msg-outgoing"]').count() else "incoming"
 
             if not message_id:
-                message_id = f"{conversation_id}:{timestamp}:{sender}:{content}"
+                message_id = f"{conversation_id}:dom-{index}:{sender}:{timestamp}:{direction}"
 
             messages.append(
                 WhatsAppVisibleMessage(
