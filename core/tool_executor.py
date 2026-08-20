@@ -25,6 +25,7 @@ from actions.email import (
 from actions.browser import browser_control
 from actions.shell import shell_run
 from actions.whatsapp import send_whatsapp_message, save_whatsapp_contact
+from actions.whatsapp_read_action import read_whatsapp_conversations, read_whatsapp_messages
 from actions.contacts import create_contact, delete_contact, sync_google_contacts, update_contact
 from actions.media import play_media
 from actions.weather import get_weather_summary
@@ -36,8 +37,9 @@ from core.result_resolver import ResultResolutionError, resolve_item
 import tool_defs as _tool_defs
 from core.contact_tool_defs import CONTACT_TOOL_DECLARATIONS
 from core.email_tool_defs import EMAIL_TOOL_DECLARATIONS
+from core.whatsapp_tool_defs import WHATSAPP_TOOL_DECLARATIONS
 
-for _declaration in [*EMAIL_TOOL_DECLARATIONS, *CONTACT_TOOL_DECLARATIONS]:
+for _declaration in [*EMAIL_TOOL_DECLARATIONS, *CONTACT_TOOL_DECLARATIONS, *WHATSAPP_TOOL_DECLARATIONS]:
     if not any(item.get("name") == _declaration["name"] for item in _tool_defs.TOOL_DECLARATIONS):
         _tool_defs.TOOL_DECLARATIONS.append(_declaration)
 
@@ -227,6 +229,12 @@ class ToolExecutor:
             elif name == "save_whatsapp_contact":
                 r = await loop.run_in_executor(None, lambda: save_whatsapp_contact(args.get("display_name", ""), args.get("phone_number", ""), args.get("aliases", "")))
                 result = r or "WhatsApp kontaktı yadda saxlanıldı."
+            elif name == "read_whatsapp_conversations":
+                r = await loop.run_in_executor(None, read_whatsapp_conversations)
+                result = r or "WhatsApp söhbətləri oxundu."
+            elif name == "read_whatsapp_messages":
+                r = await loop.run_in_executor(None, read_whatsapp_messages)
+                result = r or "WhatsApp mesajları oxundu."
             else:
                 result = f"Naməlum alət: {name}"
         except Exception as e:
