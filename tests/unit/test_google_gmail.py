@@ -29,26 +29,19 @@ def test_search_messages_parses_metadata_and_query():
     list_method = service.users.return_value.messages.return_value.list
     list_call = list_method.return_value
     list_call.execute.side_effect = [
-        {
-            "messages": [{"id": "m1", "threadId": "t1"}],
-            "resultSizeEstimate": 1,
-        }
+        {"messages": [{"id": "m1", "threadId": "t1"}], "resultSizeEstimate": 1}
     ]
     get_call = service.users.return_value.messages.return_value.get.return_value
     get_call.execute.return_value = {
-        "id": "m1",
-        "threadId": "t1",
-        "snippet": "Invoice received",
+        "id": "m1", "threadId": "t1", "snippet": "Invoice received",
         "payload": {"headers": [
             {"name": "From", "value": "billing@example.com"},
             {"name": "Subject", "value": "Invoice"},
             {"name": "Date", "value": "Wed, 19 Aug 2026 10:00:00 +0400"},
         ]},
     }
-
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         result = search_messages("subject:invoice", 1)
-
     assert result["messages"][0]["id"] == "m1"
     assert result["messages"][0]["from"] == "billing@example.com"
     assert result["messages"][0]["subject"] == "Invoice"
@@ -63,25 +56,16 @@ def test_search_messages_paginates_until_limit():
     service = MagicMock()
     list_call = service.users.return_value.messages.return_value.list.return_value
     list_call.execute.side_effect = [
-        {
-            "messages": [{"id": "m1"}],
-            "resultSizeEstimate": 2,
-            "nextPageToken": "p2",
-        },
-        {
-            "messages": [{"id": "m2"}],
-            "resultSizeEstimate": 2,
-        },
+        {"messages": [{"id": "m1"}], "resultSizeEstimate": 2, "nextPageToken": "p2"},
+        {"messages": [{"id": "m2"}], "resultSizeEstimate": 2},
     ]
     get_call = service.users.return_value.messages.return_value.get.return_value
     get_call.execute.side_effect = [
         {"id": "m1", "payload": {"headers": []}},
         {"id": "m2", "payload": {"headers": []}},
     ]
-
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         result = search_messages("", 2)
-
     assert [item["id"] for item in result["messages"]] == ["m1", "m2"]
     assert result["count"] == 2
     assert result["returned_count"] == 2
@@ -94,10 +78,8 @@ def test_search_messages_caps_limit_at_100():
     list_method = service.users.return_value.messages.return_value.list
     list_call = list_method.return_value
     list_call.execute.return_value = {"messages": []}
-
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         search_messages("", 1000)
-
     assert list_call.execute.call_count == 1
     assert list_method.call_args.kwargs["maxResults"] == 100
 
@@ -106,10 +88,8 @@ def test_trash_message_uses_gmail_trash_not_delete():
     service = MagicMock()
     trash_call = service.users.return_value.messages.return_value.trash.return_value
     trash_call.execute.return_value = {"id": "m1", "threadId": "t1"}
-
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         result = trash_message("m1")
-
     assert result == {"message_id": "m1", "thread_id": "t1"}
     trash_call.execute.assert_called_once()
     service.users.return_value.messages.return_value.delete.assert_not_called()
@@ -122,10 +102,8 @@ def test_trash_messages_by_query_paginates_and_trashes_all_matches():
         {"messages": [{"id": "m1"}], "nextPageToken": "p2"},
         {"messages": [{"id": "m2"}]},
     ]
-
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         result = trash_messages_by_query("in:spam")
-
     assert result == {"matched_count": 2, "trashed_count": 2}
     assert service.users.return_value.messages.return_value.trash.call_count == 2
     assert list_call.execute.call_count == 2
@@ -141,11 +119,7 @@ def test_get_message_extracts_plain_text_body():
     get_call = service.users.return_value.messages.return_value.get.return_value
     get_call.execute.return_value = {
         "id": "m1", "threadId": "t1",
-        "payload": {
-            "mimeType": "text/plain",
-            "headers": [{"name": "Subject", "value": "Hello"}],
-            "body": {"data": "SGVsbG8gQWJkdWxsYQ=="},
-        },
+        "payload": {"mimeType": "text/plain", "headers": [{"name": "Subject", "value": "Hello"}], "body": {"data": "SGVsbG8gQWJkdWxsYQ=="}},
     }
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         result = get_message("m1")
@@ -157,8 +131,7 @@ def test_get_message_strips_html():
     service = MagicMock()
     get_call = service.users.return_value.messages.return_value.get.return_value
     get_call.execute.return_value = {
-        "id": "m1",
-        "payload": {"mimeType": "text/html", "body": {"data": "PGh0bWw+PGJvZHk+SGVsbG8gPGI+QWJkdWxsYTwvYj48L2JvZHk+PC9odG1sPg=="}},
+        "id": "m1", "payload": {"mimeType": "text/html", "body": {"data": "PGh0bWw+PGJvZHk+SGVsbG8gPGI+QWJkdWxsYTwvYj48L2JvZHk+PC9odG1sPg=="}},
     }
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         result = get_message("m1")
@@ -201,12 +174,12 @@ def test_create_draft_requires_recipient_subject_and_body():
 
 def test_create_draft_builds_mime_and_thread_headers():
     service = MagicMock()
-    create_call = service.users.return_value.drafts.return_value.create.return_value
-    create_call.execute.return_value = {"id": "d1", "message": {"id": "m1", "threadId": "t1"}}
+    create_method = service.users.return_value.drafts.return_value.create
+    create_method.return_value.execute.return_value = {"id": "d1", "message": {"id": "m1", "threadId": "t1"}}
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         result = create_draft("a@example.com", "Re: Hello", "Reply body", "cc@example.com", "bcc@example.com", "t1", "<m1@example.com>", "<root@example.com> <m1@example.com>")
     assert result == {"draft_id": "d1", "gmail_message_id": "m1", "thread_id": "t1"}
-    request = create_call.call_args.kwargs["body"]
+    request = create_method.call_args.kwargs["body"]
     assert request["message"]["threadId"] == "t1"
     raw = base64.urlsafe_b64decode(request["message"]["raw"])
     parsed = message_from_bytes(raw)
@@ -221,11 +194,11 @@ def test_create_draft_builds_mime_and_thread_headers():
 
 def test_create_draft_new_email_does_not_set_thread_id():
     service = MagicMock()
-    create_call = service.users.return_value.drafts.return_value.create.return_value
-    create_call.execute.return_value = {"id": "d1", "message": {"id": "m1", "threadId": "t1"}}
+    create_method = service.users.return_value.drafts.return_value.create
+    create_method.return_value.execute.return_value = {"id": "d1", "message": {"id": "m1", "threadId": "t1"}}
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         create_draft("a@example.com", "Hello", "Body")
-    request = create_call.call_args.kwargs["body"]
+    request = create_method.call_args.kwargs["body"]
     assert "threadId" not in request["message"]
 
 
@@ -236,9 +209,9 @@ def test_send_draft_requires_id():
 
 def test_send_draft_sends_existing_draft():
     service = MagicMock()
-    send_call = service.users.return_value.drafts.return_value.send.return_value
-    send_call.execute.return_value = {"id": "m1", "threadId": "t1"}
+    send_method = service.users.return_value.drafts.return_value.send
+    send_method.return_value.execute.return_value = {"id": "m1", "threadId": "t1"}
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         result = send_draft("d1")
     assert result == {"message_id": "m1", "thread_id": "t1"}
-    send_call.assert_called_once_with(userId="me", body={"id": "d1"})
+    send_method.assert_called_once_with(userId="me", body={"id": "d1"})
