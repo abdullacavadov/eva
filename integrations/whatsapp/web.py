@@ -228,9 +228,9 @@ class WhatsAppWebBridge:
         except Exception:
             markers = ""
 
-        if re.search(r"(?:^|[\\s_-])message-out(?:[\\s_-]|$)", str(markers)):
+        if re.search(r"(?:^|[\s_-])message-out(?:[\s_-]|$)", str(markers)):
             return "outgoing"
-        if re.search(r"(?:^|[\\s_-])message-in(?:[\\s_-]|$)", str(markers)):
+        if re.search(r"(?:^|[\s_-])message-in(?:[\s_-]|$)", str(markers)):
             return "incoming"
         return "incoming"
 
@@ -244,7 +244,7 @@ class WhatsAppWebBridge:
             return "Şəkil mesajı"
         if item.locator('[data-testid="addon-bubble-container"]').count():
             return "Media mesajı"
-        return "Boş mesaj"
+        return ""
 
     @staticmethod
     def _is_emoji_only(content: str) -> bool:
@@ -264,17 +264,12 @@ class WhatsAppWebBridge:
 
     @staticmethod
     def _sort_messages(messages: list[WhatsAppVisibleMessage]) -> list[WhatsAppVisibleMessage]:
-        now_minutes = datetime.now().hour * 60 + datetime.now().minute
-
         def key(message: WhatsAppVisibleMessage) -> tuple[int, int]:
             match = re.search(r"(?<!\d)(\d{1,2}):(\d{2})(?!\d)", message.timestamp)
             if not match:
                 return (1, 0)
             hour, minute = int(match.group(1)), int(match.group(2))
-            value = hour * 60 + minute
-            if value > now_minutes:
-                value -= 24 * 60
-            return (0, value)
+            return (0, hour * 60 + minute)
 
         return [
             message
