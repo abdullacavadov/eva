@@ -228,3 +228,107 @@ def send_draft(draft_id: str) -> dict[str, str]:
         "message_id": str(response.get("id", "")),
         "thread_id": str(response.get("threadId", "")),
     }
+
+
+def list_draft_ids() -> list[str]:
+    service = get_gmail_service()
+    draft_ids: list[str] = []
+    page_token = None
+
+    while True:
+        kwargs = {
+            "userId": "me",
+            "maxResults": 100,
+        }
+        if page_token:
+            kwargs["pageToken"] = page_token
+
+        response = service.users().drafts().list(**kwargs).execute()
+        draft_ids.extend(
+            str(item["id"])
+            for item in response.get("drafts", []) or []
+            if item.get("id")
+        )
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+
+    return draft_ids
+
+
+def get_draft(draft_id: str) -> dict[str, Any]:
+    draft_id = str(draft_id or "").strip()
+    if not draft_id:
+        raise ValueError("Email draft_id tələb olunur.")
+
+    service = get_gmail_service()
+    return service.users().drafts().get(
+        userId="me",
+        id=draft_id,
+        format="metadata",
+    ).execute()
+
+
+def list_message_ids(query: str, include_spam_trash: bool = False) -> list[str]:
+    query = str(query or "").strip()
+    if not query:
+        raise ValueError("Gmail delete query tələb olunur.")
+
+    service = get_gmail_service()
+    message_ids: list[str] = []
+    page_token = None
+
+    while True:
+        kwargs = {
+            "userId": "me",
+            "q": query,
+            "maxResults": 100,
+            "includeSpamTrash": bool(include_spam_trash),
+        }
+        if page_token:
+            kwargs["pageToken"] = page_token
+
+        response = service.users().messages().list(**kwargs).execute()
+        message_ids.extend(
+            str(item["id"])
+            for item in response.get("messages", []) or []
+            if item.get("id")
+        )
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+
+    return message_ids
+
+
+def delete_draft(draft_id: str) -> None:
+    draft_id = str(draft_id or "").strip()
+    if not draft_id:
+        raise ValueError("Email draft_id tələb olunur.")
+
+    service = get_gmail_service()
+    service.users().drafts().delete(
+        userId="me",
+        id=draft_id,
+    ).execute()
+
+
+def delete_drafts(draft_ids: list[str]) -> int:
+    for draft_id in draft_ids:
+        delete_draft(draft_id)
+    return len(draft_ids)
+
+
+def batch_delete_messages(message_ids: list[str]) -> int:
+    message_ids = [str(message_id).strip() for message_id in message_ids if str(message_id).strip()]
+    if not message_ids:
+        return 0
+
+    service = get_gmail_service()
+    for start in range(0, len(message_ids), 1000):
+        chunk = message_ids[start:start + 1000]
+        service.users().messages().batchDelete(
+            userId="me",
+            body={"ids": chunk},
+        ).execute()
+    return len(message_ids)
