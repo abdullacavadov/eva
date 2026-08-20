@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import time
 from typing import TYPE_CHECKING, Any
+from urllib.request import urlopen
 
 if TYPE_CHECKING:
     from playwright.sync_api import BrowserContext, Page
@@ -58,7 +59,7 @@ class WhatsAppWebBridge:
         self._playwright = sync_playwright().start()
         cdp_url = self.cdp_url or "http://127.0.0.1:9222"
 
-        if self.cdp_url is None:
+        if self.cdp_url is None and not self._cdp_available(cdp_url):
             self._start_eva_chrome(cdp_url)
 
         self._context = self._connect_cdp_with_retry(cdp_url)
@@ -91,13 +92,7 @@ class WhatsAppWebBridge:
             raise RuntimeError("WhatsApp Web UI render timeout.") from exc
 
     def _start_eva_chrome(self, cdp_url: str) -> None:
-        host, port = cdp_url.rsplit(":", 1)
-        if host not in {"http", "https"}:
-            port = host
-
-        if self._cdp_available(cdp_url):
-            return
-
+        port = cdp_url.rsplit(":", 1)[-1]
         chrome = os.getenv("EVA_WHATSAPP_CHROME") or self._find_chrome()
         profile_dir = Path(self.user_data_dir).expanduser().resolve()
         profile_dir.mkdir(parents=True, exist_ok=True)
@@ -123,10 +118,11 @@ class WhatsAppWebBridge:
                 time.sleep(0.5)
         raise RuntimeError(f"WhatsApp Chrome CDP qoşulmadı: {cdp_url}") from last_exc
 
-    def _cdp_available(self, cdp_url: str) -> bool:
+    @staticmethod
+    def _cdp_available(cdp_url: str) -> bool:
         try:
-            self._playwright.chromium.connect_over_cdp(cdp_url).close()
-            return True
+            with urlopen(f"{cdp_url}/json/version", timeout=1) as response:
+                return response.status == 200
         except Exception:
             return False
 
