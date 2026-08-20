@@ -19,7 +19,14 @@ from actions.calendar import (
     delete_calendar_event,
 )
 from actions.reminders import get_reminders, add_reminder
-from actions.email import search_emails, read_email
+from actions.email import (
+    prepare_email_reply,
+    prepare_new_email,
+    read_email_thread,
+    search_emails,
+    read_email,
+    send_email,
+)
 from actions.browser import browser_control
 from actions.shell import shell_run
 from actions.whatsapp import send_whatsapp_message, save_whatsapp_contact
@@ -240,6 +247,44 @@ class ToolExecutor:
                     lambda: read_email(args.get("message_id", "")),
                 )
                 result = r or "Email oxundu."
+
+
+            elif name == "read_email_thread":
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: read_email_thread(args.get("thread_id", "")),
+                )
+                result = r or "Email thread oxundu."
+
+            elif name == "prepare_email_reply":
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: prepare_email_reply(
+                        args.get("message_id", ""),
+                        args.get("body", ""),
+                    ),
+                )
+                result = r or "Email cavabı draft kimi hazırlandı."
+
+            elif name == "prepare_new_email":
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: prepare_new_email(
+                        args.get("to", ""),
+                        args.get("subject", ""),
+                        args.get("body", ""),
+                        args.get("cc", ""),
+                        args.get("bcc", ""),
+                    ),
+                )
+                result = r or "Yeni email draft kimi hazırlandı."
+
+            elif name == "send_email":
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: send_email(args.get("draft_id", "")),
+                )
+                result = r or "Email göndərildi."
 
             elif name == "sync_google_contacts":
                 r = await loop.run_in_executor(None, sync_google_contacts)
