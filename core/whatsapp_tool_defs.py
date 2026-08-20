@@ -15,13 +15,19 @@ WHATSAPP_TOOL_DECLARATIONS = [
     {
         "name": "read_whatsapp_messages",
         "description": (
-            "WhatsApp Web-də hazırda görünən yeni mesajları oxuyur. "
-            "İstifadəçi WhatsApp mesajlarını, yeni gələn mesajları və ya oxunmalı WhatsApp yazışmalarını soruşduqda istifadə et. "
+            "WhatsApp Web-də görünən yeni mesajları oxuyur. "
+            "conversation verildikdə həmin söhbəti açıb mesajları oxuyur. "
+            "İstifadəçi WhatsApp mesajlarını, yeni gələn mesajları və ya konkret söhbətdə nə yazıldığını soruşduqda istifadə et. "
             "Nəticə strukturlaşdırılmış mesaj məlumatıdır: id, conversation_id, sender, timestamp, direction və content."
         ),
         "parameters": {
             "type": "OBJECT",
-            "properties": {},
+            "properties": {
+                "conversation": {
+                    "type": "STRING",
+                    "description": "İxtiyari söhbət adı və ya conversation identifikatoru. Boş saxlanılarsa hazırkı görünən söhbət oxunur.",
+                },
+            },
         },
     },
 ]
