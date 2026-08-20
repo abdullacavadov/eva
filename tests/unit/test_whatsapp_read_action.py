@@ -28,6 +28,9 @@ class FakeBridge:
     def click(self):
         pass
 
+    def wait_for_timeout(self, _ms):
+        pass
+
     def get_visible_conversations(self):
         return [
             WhatsAppVisibleConversation(
