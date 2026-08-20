@@ -5,39 +5,30 @@ import traceback
 import re
 from typing import Callable
 
+
 from google.genai import types  # type: ignore[reportMissingImports]
 
-from memory.memory_manager import (
-    delete_memory,
-    update_memory,
-)
+from memory.memory_manager import delete_memory, update_memory
 from actions.open_app import open_app
 from actions.sys_info import sys_info
-from actions.calendar import (
-    get_calendar_events,
-    add_calendar_event,
-    delete_calendar_event,
-)
+from actions.calendar import get_calendar_events, add_calendar_event, delete_calendar_event
 from actions.reminders import get_reminders, add_reminder
 from actions.email import (
     delete_email,
     prepare_email_deletion,
     prepare_email_reply,
     prepare_new_email,
+    prepare_trash_emails,
     read_email_thread,
     search_emails,
     read_email,
     send_email,
+    trash_emails
 )
 from actions.browser import browser_control
 from actions.shell import shell_run
 from actions.whatsapp import send_whatsapp_message, save_whatsapp_contact
-from actions.contacts import (
-    create_contact,
-    delete_contact,
-    sync_google_contacts,
-    update_contact,
-)
+from actions.contacts import create_contact, delete_contact, sync_google_contacts, update_contact
 from actions.media import play_media
 from actions.weather import get_weather_summary
 from actions.screen_vision import analyze_screen
@@ -45,8 +36,6 @@ from actions.youtube_stats import get_youtube_channel_report
 from core.result_store import ResultStore
 from core.result_resolver import ResultResolutionError, resolve_item
 
-# main.py imports ToolExecutor before TOOL_DECLARATIONS. Registering here keeps
-# the existing tool registry intact while adding Gmail and Contacts tools.
 import tool_defs as _tool_defs
 from core.contact_tool_defs import CONTACT_TOOL_DECLARATIONS
 from core.email_tool_defs import EMAIL_TOOL_DECLARATIONS
@@ -76,7 +65,6 @@ class ToolExecutor:
         self.result_store = result_store or ResultStore()
 
     def resolve_follow_up(self, query: str) -> dict:
-        """Cari structured nəticədən follow-up sorğusunu konkret obyektə çevirir."""
         context = self.result_store.current()
         if context is None:
             raise ResultResolutionError("Əvvəlki nəticə tapılmadı")
@@ -86,7 +74,6 @@ class ToolExecutor:
 
     @staticmethod
     def result_looks_like_error(result) -> bool:
-        """Alət nəticəsinin xəta mesajına bənzəyib-bənzəmədiyini yoxlayır."""
         text = str(result or "").strip().lower()
         if not text:
             return False
@@ -101,11 +88,13 @@ class ToolExecutor:
 
     @staticmethod
     def should_play_success_sfx(tool_name: str, args: dict, result) -> bool:
-        """Uğurlu əməliyyatdan sonra səs effektinin çalınıb-çalınmayacağını müəyyən edir."""
         action_tools = {
             "open_app", "add_calendar_event", "add_reminder",
+            "create_contact", "update_contact", "delete_contact",
+            "trash_emails", "trash_emails", "delete_email",
             "delete_calendar_event", "remove_calendar_event",
             "create_contact", "update_contact", "delete_contact",
+            "trash_emails",
         }
         if tool_name in action_tools:
             return True
@@ -117,7 +106,6 @@ class ToolExecutor:
         return False
 
     async def execute(self, fc) -> types.FunctionResponse:
-        """Gemini function call-ını uyğun action-a yönləndirir."""
         name = fc.name
         args = dict(fc.args or {})
         print(f"[E.V.A] 🔧 {name} {args}")
@@ -138,7 +126,6 @@ class ToolExecutor:
                     update_memory({cat: {key: {"value": val}}})
                     print(f"[Memory] 💾 {cat}/{key} = {val}")
                     result = "ok"
-
             elif name == "delete_memory":
                 result = delete_memory(args.get("category", ""), args.get("key", ""), args.get("match_text", ""))
             elif name == "open_app":
@@ -168,44 +155,45 @@ class ToolExecutor:
                 r = await loop.run_in_executor(None, lambda: add_reminder(args.get("title", ""), args.get("due_iso", ""), args.get("notes", ""), args.get("list_name", ""), args.get("priority", ""), bool(args.get("all_day", False))))
                 result = r or "Xatırladıcı əlavə edildi."
             elif name == "get_emails":
-                r = await loop.run_in_executor(None, lambda: search_emails(args.get("query", ""), int(args.get("limit", 10) or 10)))
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: search_emails(
+                        args.get("query", ""),
+                        int(args.get("limit", 10) or 10),
+                        args.get("folder", ""),
+                    ),
+                )
                 result = r or "Email məlumatı alındı."
-            elif name == "read_email":
-                r = await loop.run_in_executor(None, lambda: read_email(args.get("message_id", "")))
-                result = r or "Email oxundu."
-            elif name == "read_email_thread":
+            elif name == "prepare_trash_emails":
                 r = await loop.run_in_executor(
                     None,
-                    lambda: read_email_thread(args.get("thread_id", "")),
-                )
-                result = r or "Email thread oxundu."
-            elif name == "prepare_email_reply":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: prepare_email_reply(
+                    lambda: prepare_trash_emails(
+                        args.get("folder", ""),
                         args.get("message_id", ""),
-                        args.get("body", ""),
+                        args.get("query", ""),
                     ),
                 )
-                result = r or "Email cavabı draft kimi hazırlandı."
-            elif name == "prepare_new_email":
+                result = r or "Email silmə planı hazırlandı."
+            elif name == "trash_emails":
                 r = await loop.run_in_executor(
                     None,
-                    lambda: prepare_new_email(
-                        args.get("to", ""),
-                        args.get("subject", ""),
-                        args.get("body", ""),
-                        args.get("cc", ""),
-                        args.get("bcc", ""),
+                    lambda: trash_emails(
+                        args.get("folder", ""),
+                        args.get("message_id", ""),
+                        args.get("query", ""),
                     ),
                 )
-                result = r or "Yeni email draft kimi hazırlandı."
-            elif name == "send_email":
+                result = r or "Email(lər) Trash-a göndərildi."
+            elif name == "trash_emails":
                 r = await loop.run_in_executor(
                     None,
-                    lambda: send_email(args.get("draft_id", "")),
+                    lambda: trash_emails(
+                         args.get("folder", ""),
+                         args.get("message_id", ""),
+                         args.get("query", ""),
+                    ),
                 )
-                result = r or "Email göndərildi."
+                result = r or "Email(lər) Trash-a göndərildi."
             elif name == "prepare_email_deletion":
                 r = await loop.run_in_executor(
                     None,
@@ -214,13 +202,30 @@ class ToolExecutor:
                         args.get("draft_id", ""),
                     ),
                 )
-                result = r or "Email silinməsi üçün təsdiq planı hazırlandı."
+                result = r or "Email silmə planı hazırlandı."
             elif name == "delete_email":
                 r = await loop.run_in_executor(
                     None,
-                    lambda: delete_email(args.get("confirmation_id", "")),
+                    lambda: delete_email(
+                        args.get("confirmation_id", ""),
+                    ),
                 )
-                result = r or "Email silindi."
+                result = r or "Email(lər) həmişəlik silindi."
+            elif name == "read_email":
+                r = await loop.run_in_executor(None, lambda: read_email(args.get("message_id", "")))
+                result = r or "Email oxundu."
+            elif name == "read_email_thread":
+                r = await loop.run_in_executor(None, lambda: read_email_thread(args.get("thread_id", "")))
+                result = r or "Email thread oxundu."
+            elif name == "prepare_email_reply":
+                r = await loop.run_in_executor(None, lambda: prepare_email_reply(args.get("message_id", ""), args.get("body", "")))
+                result = r or "Email cavabı draft kimi hazırlandı."
+            elif name == "prepare_new_email":
+                r = await loop.run_in_executor(None, lambda: prepare_new_email(args.get("to", ""), args.get("subject", ""), args.get("body", ""), args.get("cc", ""), args.get("bcc", "")))
+                result = r or "Yeni email draft kimi hazırlandı."
+            elif name == "send_email":
+                r = await loop.run_in_executor(None, lambda: send_email(args.get("draft_id", "")))
+                result = r or "Email göndərildi."
             elif name == "sync_google_contacts":
                 r = await loop.run_in_executor(None, sync_google_contacts)
                 result = r or "Google Contacts sinxronizasiyası tamamlandı."
