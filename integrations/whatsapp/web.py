@@ -33,6 +33,7 @@ class WhatsAppVisibleConversation:
     contact_phone: str
     last_message: str
     last_message_timestamp: str
+    unread_count: int = 0
 
 
 class WhatsAppWebBridge:
@@ -150,10 +151,11 @@ class WhatsAppWebBridge:
         conversations: list[WhatsAppVisibleConversation] = []
 
         for item in page.locator('[data-testid="cell-frame-container"]').all():
-            title = self._text(item, '[data-testid="cell-frame-title"]')
-            if not title:
+            raw_title = self._text(item, '[data-testid="cell-frame-title"]')
+            if not raw_title:
                 continue
 
+            title, unread_count = self._parse_conversation_title(raw_title)
             conversation_id = item.get_attribute("data-id") or title
             last_message = self._text(item, '[data-testid="last-msg"]')
             timestamp = self._text(item, '[data-testid="last-msg-time"]')
@@ -166,10 +168,24 @@ class WhatsAppWebBridge:
                     contact_phone="",
                     last_message=last_message,
                     last_message_timestamp=timestamp,
+                    unread_count=unread_count,
                 )
             )
 
         return conversations
+
+    @staticmethod
+    def _parse_conversation_title(raw_title: str) -> tuple[str, int]:
+        text = (raw_title or "").strip()
+        match = re.match(r"^\s*(?:Непрочитанные сообщения|Unread messages):\s*(\d+)\s*\n+(.+?)\s*$", text, re.IGNORECASE | re.DOTALL)
+        if match:
+            return match.group(2).strip(), int(match.group(1))
+
+        match = re.match(r"^\s*(\d+)\s+непрочитанное(?:\s+сообщение|\s+сообщения|\s+сообщений)?\s*\n+(.+?)\s*$", text, re.IGNORECASE | re.DOTALL)
+        if match:
+            return match.group(2).strip(), int(match.group(1))
+
+        return text, 0
 
     def get_visible_messages(self) -> list[WhatsAppVisibleMessage]:
         page = self._require_page()
