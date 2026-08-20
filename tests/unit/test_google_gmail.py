@@ -1,8 +1,17 @@
+import base64
+from email import message_from_bytes
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from integrations.google.gmail import get_gmail_service, get_message, search_messages
+from integrations.google.gmail import (
+    create_draft,
+    get_gmail_service,
+    get_message,
+    get_thread,
+    search_messages,
+    send_draft,
+)
 
 
 def test_get_gmail_service_uses_gmail_v1():
@@ -115,3 +124,138 @@ def test_get_message_strips_html():
         result = get_message("m1")
 
     assert result["body"] == "Hello Abdulla"
+
+
+def test_get_thread_requires_id():
+    with pytest.raises(ValueError):
+        get_thread("")
+
+
+def test_get_thread_fetches_full_messages():
+    service = MagicMock()
+    get_call = service.users.return_value.threads.return_value.get.return_value
+    get_call.execute.return_value = {
+        "id": "t1",
+        "messages": [
+            {
+                "id": "m1",
+                "threadId": "t1",
+                "payload": {
+                    "headers": [
+                        {"name": "From", "value": "a@example.com"},
+                        {"name": "Message-ID", "value": "<m1@example.com>"},
+                    ],
+                    "body": {"data": "SGVsbG8="},
+                },
+            },
+            {
+                "id": "m2",
+                "threadId": "t1",
+                "payload": {
+                    "headers": [
+                        {"name": "From", "value": "b@example.com"},
+                    ],
+                    "body": {"data": "UmVwbHk="},
+                },
+            },
+        ],
+    }
+
+    with patch("integrations.google.gmail.get_gmail_service", return_value=service):
+        result = get_thread("t1")
+
+    assert [item["id"] for item in result] == ["m1", "m2"]
+    assert result[0]["thread_id"] == "t1"
+    assert result[0]["message_id_header"] == "<m1@example.com>"
+    assert result[0]["body"] == "Hello"
+    get_call.assert_called_once_with(userId="me", id="t1", format="full")
+
+
+def test_create_draft_requires_recipient_subject_and_body():
+    with pytest.raises(ValueError, match="recipient"):
+        create_draft("", "Subject", "Body")
+    with pytest.raises(ValueError, match="subject"):
+        create_draft("a@example.com", "", "Body")
+    with pytest.raises(ValueError, match="body"):
+        create_draft("a@example.com", "Subject", "")
+
+
+def test_create_draft_builds_mime_and_thread_headers():
+    service = MagicMock()
+    create_call = service.users.return_value.drafts.return_value.create.return_value
+    create_call.execute.return_value = {
+        "id": "d1",
+        "message": {
+            "id": "m1",
+            "threadId": "t1",
+        },
+    }
+
+    with patch("integrations.google.gmail.get_gmail_service", return_value=service):
+        result = create_draft(
+            to="a@example.com",
+            subject="Re: Hello",
+            body="Reply body",
+            cc="cc@example.com",
+            bcc="bcc@example.com",
+            thread_id="t1",
+            in_reply_to="<m1@example.com>",
+            references="<root@example.com> <m1@example.com>",
+        )
+
+    assert result == {
+        "draft_id": "d1",
+        "gmail_message_id": "m1",
+        "thread_id": "t1",
+    }
+
+    request = create_call.call_args.kwargs["body"]
+    assert request["message"]["threadId"] == "t1"
+
+    raw = base64.urlsafe_b64decode(request["message"]["raw"])
+    parsed = message_from_bytes(raw)
+    assert parsed["To"] == "a@example.com"
+    assert parsed["Cc"] == "cc@example.com"
+    assert parsed["Bcc"] == "bcc@example.com"
+    assert parsed["Subject"] == "Re: Hello"
+    assert parsed["In-Reply-To"] == "<m1@example.com>"
+    assert parsed["References"] == "<root@example.com> <m1@example.com>"
+    assert parsed.get_payload().strip() == "Reply body"
+
+
+def test_create_draft_new_email_does_not_set_thread_id():
+    service = MagicMock()
+    create_call = service.users.return_value.drafts.return_value.create.return_value
+    create_call.execute.return_value = {
+        "id": "d1",
+        "message": {"id": "m1", "threadId": "t1"},
+    }
+
+    with patch("integrations.google.gmail.get_gmail_service", return_value=service):
+        create_draft("a@example.com", "Hello", "Body")
+
+    request = create_call.call_args.kwargs["body"]
+    assert "threadId" not in request["message"]
+
+
+def test_send_draft_requires_id():
+    with pytest.raises(ValueError):
+        send_draft("")
+
+
+def test_send_draft_sends_existing_draft():
+    service = MagicMock()
+    send_call = service.users.return_value.drafts.return_value.send.return_value
+    send_call.execute.return_value = {
+        "id": "m1",
+        "threadId": "t1",
+    }
+
+    with patch("integrations.google.gmail.get_gmail_service", return_value=service):
+        result = send_draft("d1")
+
+    assert result == {
+        "message_id": "m1",
+        "thread_id": "t1",
+    }
+    send_call.assert_called_once_with(userId="me", body={"id": "d1"})
