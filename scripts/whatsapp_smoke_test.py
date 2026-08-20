@@ -1,23 +1,20 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from integrations.whatsapp.web import WhatsAppWebBridge
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Read-only WhatsApp Web DOM smoke test")
-    parser.add_argument(
-        "--profile",
-        default=".eva/whatsapp-profile",
-        help="Persistent Chromium profile directory",
-    )
-    parser.add_argument(
-        "--headless",
-        action="store_true",
-        help="Run Chromium without a visible window",
-    )
+    parser.add_argument("--profile", default=".eva/whatsapp-profile", help="Persistent Chromium profile directory")
+    parser.add_argument("--headless", action="store_true", help="Run Chromium without a visible window")
     args = parser.parse_args()
 
     bridge = WhatsAppWebBridge(user_data_dir=str(Path(args.profile)), headless=args.headless)
