@@ -30,11 +30,48 @@ def read_whatsapp_conversations() -> dict:
         bridge.close()
 
 
-def read_whatsapp_messages() -> dict:
+def read_whatsapp_messages(conversation: str = "") -> dict:
     bridge = _bridge()
     seen_file = os.getenv("EVA_WHATSAPP_SEEN_FILE") or str(DEFAULT_SEEN_FILE)
     try:
         bridge.connect()
+        if conversation.strip():
+            page = bridge._require_page()
+            target = conversation.strip().casefold()
+            candidates = bridge.get_visible_conversations()
+            match = next(
+                (
+                    item
+                    for item in candidates
+                    if item.conversation_id.casefold() == target
+                    or item.title.casefold() == target
+                ),
+                None,
+            )
+            if match is None:
+                match = next(
+                    (
+                        item
+                        for item in candidates
+                        if target in item.title.casefold()
+                    ),
+                    None,
+                )
+            if match is None:
+                return {
+                    "type": "whatsapp_message",
+                    "status": "error",
+                    "query": {"conversation": conversation},
+                    "data": [],
+                    "count": 0,
+                    "selected": None,
+                    "meta": {"error": f"WhatsApp söhbəti tapılmadı: {conversation}"},
+                }
+            page.locator('[data-testid="cell-frame-container"]').filter(
+                has_text=match.title
+            ).first.click()
+            page.wait_for_timeout(500)
+
         return read_visible_whatsapp_messages(bridge, seen_file)
     finally:
         bridge.close()
