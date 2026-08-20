@@ -55,22 +55,38 @@ Status: tamamlandı.
 
 ---
 
-### 4. Gmail Read ✅
+### 4. Gmail Read / Management ✅
 
 - Shared Google OAuth
-- gmail.readonly
 - Gmail API adapter
 - Email search
 - Pagination
 - Metadata extraction
 - Plain-text body
 - HTML → text
+- Gmail folder/category queries
+- Inbox, Primary, Sent, Drafts, Spam, Trash
+- Promotions, Social, Updates, Purchases
+- Starred, All Mail
 - Structured Result Contract
 - ResultStore / Context integration
 - Result Resolver / Selection
 - ToolExecutor
+- Draft listing / retrieval
+- Draft deletion
+- Folder/category trash operations
+- Confirmation boundary for destructive operations
+- Confirmation snapshot preservation
+- Permanent deletion scopes
+- Spam / Trash handling
 - Tests
 - Real Gmail test
+
+Safety rules:
+
+- Destructive Gmail operations require explicit user confirmation.
+- Confirmation uses the prepared message snapshot rather than silently re-running a potentially changed query.
+- Permanent deletion is separated from reversible trash operations.
 
 Status: tamamlandı.
 
@@ -136,7 +152,7 @@ Phase 1 aşağıdakılar tamamlandıqda bağlanacaq:
 - Memory ✅
 - Google Calendar ✅
 - Google Tasks / Reminders ✅
-- Gmail Read ✅
+- Gmail Read / Management ✅
 - Gmail Write
 - WhatsApp
 - Regression test suite
@@ -212,3 +228,47 @@ Lazımsız ikinci API çağırışı yalnız tələb olunan məlumat əvvəlki s
   "selected": null,
   "meta": {}
 }
+```
+
+---
+
+# Next Work — Gmail Write
+
+Gmail Read / Management artıq bağlanıb. Növbəti əsas iş Gmail Write inteqrasiyasıdır.
+
+Scope:
+
+- Draft hazırlamaq
+- Recipient / subject / body validation
+- Mövcud thread-ə reply hazırlamaq
+- Yeni email hazırlamaq
+- Structured draft nəticəsi
+- Açıq confirmation boundary
+- Confirmation-dan sonra send
+- Error handling
+- Unit/integration tests
+- Real Gmail send testi
+
+Qayda:
+
+Draft → User confirmation → Send
+
+Yeni çatda işə başlamaq üçün aşağıdakı prompt istifadə olunsun:
+
+> EVA layihəsinə davam edirik.
+>
+> GitHub repository: https://github.com/abdullacavadov/eva
+>
+> VACİB:
+> - GitHub `main` branch-i source of truth-dur.
+> - Mövcud işlək kodu lazımsız refactor etmə.
+> - Minimal diff prinsipinə əməl et.
+> - Əvvəlcə repository-nin cari `main` vəziyyətini audit et.
+> - Gmail Read / Management artıq tamamlanıb və dəyişdirilməməlidir, yalnız Gmail Write üçün tələb olunan boşluqlar araşdırılmalıdır.
+> - Gmail Write üçün Draft → User confirmation → Send safety boundary məcburidir.
+> - Structured Result Contract, ResultStore / Context, Result Resolver / Selection və ToolExecutor arxitekturasını mövcud pattern-lərə uyğun istifadə et.
+> - Əvvəlcə mövcud email action/tool-ları və Google OAuth/Gmail adapterini audit et, sonra yalnız konkret fayllar və minimal dəyişiklik planı ver.
+> - Hər dəyişiklikdən sonra bütün pytest suite-ni işə sal və regression nəticəsini yoxla.
+> - Real Gmail send testini yalnız confirmation boundary və test suite keçdikdən sonra et.
+>
+> Başlanğıc tapşırığı: `main` branch-də Gmail Write üçün mövcud draft/create/send imkanlarını, tool definitions, actions, ToolExecutor inteqrasiyasını, Structured Result Contract istifadəsini və test coverage-i audit et. Sonra yalnız növbəti konkret işi müəyyənləşdir.
