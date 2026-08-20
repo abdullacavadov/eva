@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+from pathlib import Path
+import subprocess
+import time
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -39,6 +42,7 @@ class WhatsAppWebBridge:
         self._playwright = None
         self._context: BrowserContext | None = None
         self._page: Page | None = None
+        self._chrome_process: subprocess.Popen[bytes] | None = None
 
     def connect(self) -> None:
         if self._page is not None:
@@ -52,16 +56,14 @@ class WhatsAppWebBridge:
             ) from exc
 
         self._playwright = sync_playwright().start()
-        if self.cdp_url:
-            self._context = self._playwright.chromium.connect_over_cdp(self.cdp_url)
-        else:
-            self._context = self._playwright.chromium.launch_persistent_context(
-                self.user_data_dir,
-                channel="chrome",
-                headless=self.headless,
-            )
+        cdp_url = self.cdp_url or "http://127.0.0.1:9222"
+
+        if self.cdp_url is None:
+            self._start_eva_chrome(cdp_url)
+
+        self._context = self._connect_cdp_with_retry(cdp_url)
         self._page = self._context.pages[0] if self._context.pages else self._context.new_page()
-        if not self.cdp_url:
+        if self._page.url in ("", "about:blank"):
             self._page.goto("https://web.whatsapp.com", wait_until="domcontentloaded")
 
         try:
@@ -87,6 +89,58 @@ class WhatsAppWebBridge:
             ):
                 print(f"[WhatsApp] {selector}: {self._page.locator(selector).count()}")
             raise RuntimeError("WhatsApp Web UI render timeout.") from exc
+
+    def _start_eva_chrome(self, cdp_url: str) -> None:
+        host, port = cdp_url.rsplit(":", 1)
+        if host not in {"http", "https"}:
+            port = host
+
+        if self._cdp_available(cdp_url):
+            return
+
+        chrome = os.getenv("EVA_WHATSAPP_CHROME") or self._find_chrome()
+        profile_dir = Path(self.user_data_dir).expanduser().resolve()
+        profile_dir.mkdir(parents=True, exist_ok=True)
+
+        args = [
+            chrome,
+            f"--remote-debugging-port={port}",
+            f"--user-data-dir={profile_dir}",
+            "https://web.whatsapp.com",
+        ]
+        if self.headless:
+            args.insert(1, "--headless=new")
+
+        self._chrome_process = subprocess.Popen(args)
+
+    def _connect_cdp_with_retry(self, cdp_url: str) -> BrowserContext:
+        last_exc: Exception | None = None
+        for _ in range(60):
+            try:
+                return self._playwright.chromium.connect_over_cdp(cdp_url)
+            except Exception as exc:
+                last_exc = exc
+                time.sleep(0.5)
+        raise RuntimeError(f"WhatsApp Chrome CDP qoşulmadı: {cdp_url}") from last_exc
+
+    def _cdp_available(self, cdp_url: str) -> bool:
+        try:
+            self._playwright.chromium.connect_over_cdp(cdp_url).close()
+            return True
+        except Exception:
+            return False
+
+    @staticmethod
+    def _find_chrome() -> str:
+        candidates = (
+            os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+        )
+        for candidate in candidates:
+            if os.path.exists(candidate):
+                return candidate
+        raise RuntimeError("Google Chrome tapılmadı. EVA_WHATSAPP_CHROME təyin edin.")
 
     def get_visible_conversations(self) -> list[WhatsAppVisibleConversation]:
         page = self._require_page()
