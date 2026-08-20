@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 import os
 from pathlib import Path
 import re
@@ -184,7 +185,9 @@ class WhatsAppWebBridge:
             timestamp = self._text(item, '[data-testid="msg-meta"]')
             direction = self._message_direction(item)
 
-            if not content:
+            if self._is_emoji_only(content):
+                content = "Emoji mesajı"
+            elif not content:
                 content = self._message_media_label(item)
 
             if not message_id:
@@ -244,15 +247,42 @@ class WhatsAppWebBridge:
         return "Boş mesaj"
 
     @staticmethod
-    def _sort_messages(messages: list[WhatsAppVisibleMessage]) -> list[WhatsAppVisibleMessage]:
-        def key(message: WhatsAppVisibleMessage) -> tuple[int, int, str]:
-            match = re.search(r"(?<!\\d)(\\d{1,2}):(\\d{2})(?!\\d)", message.timestamp)
-            if not match:
-                return (1, 0, message.message_id)
-            hour, minute = int(match.group(1)), int(match.group(2))
-            return (0, hour * 60 + minute, message.message_id)
+    def _is_emoji_only(content: str) -> bool:
+        text = content.strip()
+        if not text:
+            return False
+        emoji_ranges = (
+            (0x1F000, 0x1FAFF),
+            (0x2600, 0x27BF),
+            (0x2300, 0x23FF),
+        )
+        meaningful = [char for char in text if not char.isspace() and char not in "\uFE0F\u200D"]
+        return bool(meaningful) and all(
+            any(start <= ord(char) <= end for start, end in emoji_ranges)
+            for char in meaningful
+        )
 
-        return sorted(enumerate(messages), key=lambda pair: (key(pair[1]), pair[0])) and sorted(messages, key=key)
+    @staticmethod
+    def _sort_messages(messages: list[WhatsAppVisibleMessage]) -> list[WhatsAppVisibleMessage]:
+        now_minutes = datetime.now().hour * 60 + datetime.now().minute
+
+        def key(message: WhatsAppVisibleMessage) -> tuple[int, int]:
+            match = re.search(r"(?<!\d)(\d{1,2}):(\d{2})(?!\d)", message.timestamp)
+            if not match:
+                return (1, 0)
+            hour, minute = int(match.group(1)), int(match.group(2))
+            value = hour * 60 + minute
+            if value > now_minutes:
+                value -= 24 * 60
+            return (0, value)
+
+        return [
+            message
+            for _, message in sorted(
+                enumerate(messages),
+                key=lambda pair: (*key(pair[1]), pair[0]),
+            )
+        ]
 
     def close(self) -> None:
         if self._playwright is not None:
