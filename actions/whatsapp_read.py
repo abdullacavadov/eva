@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Iterable
 
-from actions.whatsapp import WhatsAppWebBridge  # type: ignore[attr-defined]
+from core.results import empty, success
 from core.whatsapp import conversation_result, message_result
 
 SEEN_MESSAGES_PATH = Path("memory/whatsapp_seen_messages.json")
@@ -42,7 +42,10 @@ def _load_seen(path: Path = SEEN_MESSAGES_PATH) -> list[str]:
 def _save_seen(values: Iterable[str], path: Path = SEEN_MESSAGES_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     unique = list(dict.fromkeys(str(value) for value in values))[-MAX_SEEN_MESSAGES:]
-    path.write_text(json.dumps({"message_ids": unique}, ensure_ascii=False, indent=2), encoding="utf-8")
+    path.write_text(
+        json.dumps({"message_ids": unique}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def read_visible_whatsapp_messages(bridge: object, *, seen_path: Path = SEEN_MESSAGES_PATH) -> dict:
@@ -61,15 +64,11 @@ def read_visible_whatsapp_messages(bridge: object, *, seen_path: Path = SEEN_MES
     _save_seen(seen, seen_path)
 
     if not fresh:
-        return {
-            "type": "whatsapp_message",
-            "status": "empty",
-            "query": {},
-            "data": [],
-            "count": 0,
-            "selected": None,
-            "meta": {"deduplicated": True},
-        }
+        return empty(
+            "whatsapp_message",
+            query={},
+            meta={"deduplicated": True},
+        )
 
     items = []
     for message in fresh:
@@ -84,15 +83,12 @@ def read_visible_whatsapp_messages(bridge: object, *, seen_path: Path = SEEN_MES
         )
         items.extend(result.get("data", []))
 
-    return {
-        "type": "whatsapp_message",
-        "status": "success",
-        "query": {},
-        "data": items,
-        "count": len(items),
-        "selected": None,
-        "meta": {"deduplicated": True},
-    }
+    return success(
+        "whatsapp_message",
+        items,
+        query={},
+        meta={"deduplicated": True},
+    )
 
 
 def read_visible_whatsapp_conversations(bridge: object) -> dict:
@@ -110,22 +106,11 @@ def read_visible_whatsapp_conversations(bridge: object) -> dict:
         items.extend(result.get("data", []))
 
     if not items:
-        return {
-            "type": "whatsapp_conversation",
-            "status": "empty",
-            "query": {},
-            "data": [],
-            "count": 0,
-            "selected": None,
-            "meta": {},
-        }
+        return empty("whatsapp_conversation", query={}, meta={})
 
-    return {
-        "type": "whatsapp_conversation",
-        "status": "success",
-        "query": {},
-        "data": items,
-        "count": len(items),
-        "selected": None,
-        "meta": {},
-    }
+    return success(
+        "whatsapp_conversation",
+        items,
+        query={},
+        meta={},
+    )
