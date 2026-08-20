@@ -152,8 +152,9 @@ Phase 1 aşağıdakılar tamamlandıqda bağlanacaq:
 - Memory ✅
 - Google Calendar ✅
 - Google Tasks / Reminders ✅
-- Gmail Read / Management ✅
-- Gmail Write
+- Gmail Read ✅
+- Gmail Write ✅
+
 - WhatsApp
 - Regression test suite
 - Final architecture/code audit

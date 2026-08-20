@@ -5,6 +5,7 @@ import traceback
 import re
 from typing import Callable
 
+
 from google.genai import types  # type: ignore[reportMissingImports]
 
 from memory.memory_manager import delete_memory, update_memory
@@ -13,6 +14,8 @@ from actions.sys_info import sys_info
 from actions.calendar import get_calendar_events, add_calendar_event, delete_calendar_event
 from actions.reminders import get_reminders, add_reminder
 from actions.email import (
+    delete_email,
+    prepare_email_deletion,
     prepare_email_reply,
     prepare_new_email,
     prepare_trash_emails,
@@ -20,7 +23,7 @@ from actions.email import (
     search_emails,
     read_email,
     send_email,
-    trash_emails,
+    trash_emails
 )
 from actions.browser import browser_control
 from actions.shell import shell_run
@@ -89,6 +92,8 @@ class ToolExecutor:
     def should_play_success_sfx(tool_name: str, args: dict, result) -> bool:
         action_tools = {
             "open_app", "add_calendar_event", "add_reminder",
+            "create_contact", "update_contact", "delete_contact",
+            "trash_emails", "trash_emails", "delete_email",
             "delete_calendar_event", "remove_calendar_event",
             "create_contact", "update_contact", "delete_contact",
             "trash_emails",
@@ -164,8 +169,30 @@ class ToolExecutor:
                 r = await loop.run_in_executor(None, lambda: prepare_trash_emails(args.get("folder", ""), args.get("message_id", ""), args.get("query", "")))
                 result = r or "Email silmə planı hazırlandı."
             elif name == "trash_emails":
-                r = await loop.run_in_executor(None, lambda: trash_emails(args.get("folder", ""), args.get("message_id", ""), args.get("query", "")))
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: trash_emails(
+                        args.get("confirmation_id", ""),
+                    ),
+                )
                 result = r or "Email(lər) Trash-a göndərildi."
+            elif name == "prepare_email_deletion":
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: prepare_email_deletion(
+                        args.get("scope", ""),
+                        args.get("draft_id", ""),
+                    ),
+                )
+                result = r or "Email silmə planı hazırlandı."
+            elif name == "delete_email":
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: delete_email(
+                        args.get("confirmation_id", ""),
+                    ),
+                )
+                result = r or "Email(lər) həmişəlik silindi."
             elif name == "read_email":
                 r = await loop.run_in_executor(None, lambda: read_email(args.get("message_id", "")))
                 result = r or "Email oxundu."

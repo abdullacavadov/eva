@@ -12,12 +12,17 @@ from integrations.google.auth import get_google_credentials
 
 GMAIL_FOLDER_QUERIES = {
     "inbox": "in:inbox",
+    "primary": "category:primary",
     "sent": "in:sent",
     "drafts": "in:drafts",
     "spam": "in:spam",
     "trash": "in:trash",
     "promotions": "category:promotions",
     "social": "category:social",
+    "updates": "category:updates",
+    "purchases": "category:purchases",
+    "starred": "is:starred",
+    "all_mail": "-in:spam -in:trash",
 }
 
 
@@ -34,6 +39,22 @@ def _strip_html(value: str) -> str:
     value = re.sub(r"(?is)<(script|style).*?>.*?</\1>", " ", value)
     value = re.sub(r"(?s)<[^>]+>", " ", value)
     return " ".join(html.unescape(value).split())
+
+
+def get_message(message_id: str) -> dict[str, str]:
+    message_id = str(message_id or "").strip()
+    if not message_id:
+        raise ValueError("Email message_id t╔Щl╔Щb olunur.")
+
+    service = get_gmail_service()
+
+    response = service.users().messages().get(
+        userId="me",
+        id=message_id,
+        format="full",
+    ).execute()
+
+    return _parse_message(response, include_body=True)
 
 
 def _headers(payload: dict[str, Any]) -> dict[str, str]:
@@ -55,6 +76,114 @@ def _extract_body(payload: dict[str, Any]) -> str:
         if text:
             return text
     return ""
+
+
+def list_draft_ids() -> list[str]:
+    service = get_gmail_service()
+    draft_ids: list[str] = []
+    page_token = None
+
+    while True:
+        kwargs = {
+            "userId": "me",
+            "maxResults": 100,
+        }
+        if page_token:
+            kwargs["pageToken"] = page_token
+
+        response = service.users().drafts().list(**kwargs).execute()
+        draft_ids.extend(
+            str(item["id"])
+            for item in response.get("drafts", []) or []
+            if item.get("id")
+        )
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+
+    return draft_ids
+
+
+def get_draft(draft_id: str) -> dict[str, Any]:
+    draft_id = str(draft_id or "").strip()
+    if not draft_id:
+        raise ValueError("Email draft_id t╔Щl╔Щb olunur.")
+
+    service = get_gmail_service()
+    return service.users().drafts().get(
+        userId="me",
+        id=draft_id,
+        format="metadata",
+    ).execute()
+
+
+def list_message_ids(query: str, include_spam_trash: bool = False) -> list[str]:
+    query = str(query or "").strip()
+    if not query:
+        raise ValueError("Gmail delete query t╔Щl╔Щb olunur.")
+
+    service = get_gmail_service()
+    message_ids: list[str] = []
+    page_token = None
+    include_scoped_spam_trash = bool(
+        include_spam_trash or "in:spam" in query or "in:trash" in query
+    )
+
+    while True:
+        kwargs = {
+            "userId": "me",
+            "q": query,
+            "maxResults": 100,
+            "includeSpamTrash": include_scoped_spam_trash,
+        }
+        if page_token:
+            kwargs["pageToken"] = page_token
+
+        response = service.users().messages().list(**kwargs).execute()
+        message_ids.extend(
+            str(item["id"])
+            for item in response.get("messages", []) or []
+            if item.get("id")
+        )
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+
+    return message_ids
+
+
+def delete_draft(draft_id: str) -> None:
+    draft_id = str(draft_id or "").strip()
+    if not draft_id:
+        raise ValueError("Email draft_id t╔Щl╔Щb olunur.")
+
+    service = get_gmail_service()
+    service.users().drafts().delete(
+        userId="me",
+        id=draft_id,
+    ).execute()
+
+
+def delete_drafts(draft_ids: list[str]) -> int:
+    for draft_id in draft_ids:
+        delete_draft(draft_id)
+    return len(draft_ids)
+
+
+def batch_delete_messages(message_ids: list[str]) -> int:
+    message_ids = [str(message_id).strip()
+                   for message_id in message_ids if str(message_id).strip()]
+    if not message_ids:
+        return 0
+
+    service = get_gmail_service()
+    for start in range(0, len(message_ids), 1000):
+        chunk = message_ids[start:start + 1000]
+        service.users().messages().batchDelete(
+            userId="me",
+            body={"ids": chunk},
+        ).execute()
+    return len(message_ids)
 
 
 def _parse_message(message: dict[str, Any], include_body: bool = False) -> dict[str, str]:
@@ -90,7 +219,7 @@ def folder_query(folder: str) -> str:
         return GMAIL_FOLDER_QUERIES[folder]
     except KeyError as exc:
         raise ValueError(
-            "Dəstəklənən Gmail qovluqları: inbox, sent, drafts, spam, trash, promotions, social."
+            f"Naməlum Gmail qovluğu: {folder}. Dəstəklənən Gmail qovluqları: inbox, sent, drafts, spam, trash, promotions, social, updates, purchases, starred, all_mail."
         ) from exc
 
 

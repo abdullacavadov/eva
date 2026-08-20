@@ -67,23 +67,9 @@ def success(
     )
 
 
-def empty(
-    result_type: str,
-    query: dict[str, Any] | None = None,
-    meta: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+def empty(result_type: str, query: dict[str, Any] | None = None, meta: dict[str, Any] | None = None) -> dict[str, Any]:
     return make_result(result_type, "empty", query=query, data=[], meta=meta)
 
 
-def error(
-    result_type: str,
-    message: str,
-    query: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    return make_result(
-        result_type,
-        "error",
-        query=query,
-        data=[],
-        meta={"message": message},
-    )
+def error(result_type: str, message: str, query: dict[str, Any] | None = None) -> dict[str, Any]:
+    return make_result(result_type, "error", query=query, data=[], meta={"message": message})

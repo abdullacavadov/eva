@@ -150,8 +150,10 @@ def test_get_thread_fetches_full_messages():
     get_call.execute.return_value = {
         "id": "t1",
         "messages": [
-            {"id": "m1", "threadId": "t1", "payload": {"headers": [{"name": "From", "value": "a@example.com"}, {"name": "Message-ID", "value": "<m1@example.com>"}], "body": {"data": "SGVsbG8="}}},
-            {"id": "m2", "threadId": "t1", "payload": {"headers": [{"name": "From", "value": "b@example.com"}], "body": {"data": "UmVwbHk="}}},
+            {"id": "m1", "threadId": "t1", "payload": {"headers": [{"name": "From", "value": "a@example.com"}, {
+                "name": "Message-ID", "value": "<m1@example.com>"}], "body": {"data": "SGVsbG8="}}},
+            {"id": "m2", "threadId": "t1", "payload": {"headers": [
+                {"name": "From", "value": "b@example.com"}], "body": {"data": "UmVwbHk="}}},
         ],
     }
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
@@ -175,14 +177,38 @@ def test_create_draft_requires_recipient_subject_and_body():
 def test_create_draft_builds_mime_and_thread_headers():
     service = MagicMock()
     create_method = service.users.return_value.drafts.return_value.create
-    create_method.return_value.execute.return_value = {"id": "d1", "message": {"id": "m1", "threadId": "t1"}}
+
+    create_call = create_method.return_value
+    create_call.execute.return_value = {
+        "id": "d1",
+        "message": {"id": "m1", "threadId": "t1"},
+    }
+
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
-        result = create_draft("a@example.com", "Re: Hello", "Reply body", "cc@example.com", "bcc@example.com", "t1", "<m1@example.com>", "<root@example.com> <m1@example.com>")
-    assert result == {"draft_id": "d1", "gmail_message_id": "m1", "thread_id": "t1"}
+        result = create_draft(
+            "a@example.com",
+            "Re: Hello",
+            "Reply body",
+            "cc@example.com",
+            "bcc@example.com",
+            "t1",
+            "<m1@example.com>",
+            "<root@example.com> <m1@example.com>",
+        )
+
+    assert result == {
+        "draft_id": "d1",
+        "gmail_message_id": "m1",
+        "thread_id": "t1",
+    }
+
     request = create_method.call_args.kwargs["body"]
+
     assert request["message"]["threadId"] == "t1"
+
     raw = base64.urlsafe_b64decode(request["message"]["raw"])
     parsed = message_from_bytes(raw)
+
     assert parsed["To"] == "a@example.com"
     assert parsed["Cc"] == "cc@example.com"
     assert parsed["Bcc"] == "bcc@example.com"
@@ -195,23 +221,32 @@ def test_create_draft_builds_mime_and_thread_headers():
 def test_create_draft_new_email_does_not_set_thread_id():
     service = MagicMock()
     create_method = service.users.return_value.drafts.return_value.create
-    create_method.return_value.execute.return_value = {"id": "d1", "message": {"id": "m1", "threadId": "t1"}}
+    create_call = create_method.return_value
+    create_call.execute.return_value = {
+        "id": "d1",
+        "message": {"id": "m1", "threadId": "t1"},
+    }
+
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         create_draft("a@example.com", "Hello", "Body")
-    request = create_method.call_args.kwargs["body"]
-    assert "threadId" not in request["message"]
+        request = create_method.call_args.kwargs["body"]
+        assert "threadId" not in request["message"]
 
 
 def test_send_draft_requires_id():
-    with pytest.raises(ValueError):
-        send_draft("")
+        with pytest.raises(ValueError):
+            send_draft("")  
 
 
 def test_send_draft_sends_existing_draft():
     service = MagicMock()
     send_method = service.users.return_value.drafts.return_value.send
-    send_method.return_value.execute.return_value = {"id": "m1", "threadId": "t1"}
+    send_call = send_method.return_value
+    send_call.execute.return_value = {"id": "m1", "threadId": "t1"}
+
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         result = send_draft("d1")
+   
+
     assert result == {"message_id": "m1", "thread_id": "t1"}
     send_method.assert_called_once_with(userId="me", body={"id": "d1"})
