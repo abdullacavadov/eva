@@ -1,13 +1,32 @@
 from __future__ import annotations
 
+import uuid
+
 from integrations.google.gmail import (
+    batch_delete_messages,
     create_draft,
+    delete_draft,
+    delete_drafts,
+    get_draft,
     get_message,
     get_thread,
+    list_draft_ids,
+    list_message_ids,
     search_messages,
     send_draft,
 )
 from core.results import empty, error, success
+
+
+_PENDING_EMAIL_DELETIONS: dict[str, dict] = {}
+_EMAIL_DELETE_SCOPES = {
+    "drafts",
+    "draft",
+    "spam",
+    "trash",
+    "promotions",
+    "social",
+}
 
 
 def _structured_message(message: dict[str, str], include_body: bool = False) -> dict:
@@ -245,4 +264,114 @@ def send_email(draft_id: str) -> dict:
             {
                 "draft_id": draft_id,
             },
+        )
+
+
+def _email_delete_target(scope: str, draft_id: str = "") -> tuple[list[str], list[str]]:
+    scope = str(scope or "").strip().lower()
+    draft_id = str(draft_id or "").strip()
+
+    if scope not in _EMAIL_DELETE_SCOPES:
+        raise ValueError(f"Dəstəklənməyən email silmə scope-u: {scope}")
+
+    if scope == "drafts":
+        return list_draft_ids(), []
+    if scope == "draft":
+        if not draft_id:
+            raise ValueError("Konkret draftı silmək üçün draft_id tələb olunur.")
+        get_draft(draft_id)
+        return [draft_id], []
+    if scope == "spam":
+        return [], list_message_ids("in:spam", include_spam_trash=True)
+    if scope == "trash":
+        return [], list_message_ids("in:trash", include_spam_trash=True)
+    if scope == "promotions":
+        return [], list_message_ids("category:promotions")
+    return [], list_message_ids("category:social")
+
+
+def prepare_email_deletion(scope: str, draft_id: str = "") -> dict:
+    scope = str(scope or "").strip().lower()
+    draft_id = str(draft_id or "").strip()
+
+    try:
+        draft_ids, message_ids = _email_delete_target(scope, draft_id)
+        target_count = len(draft_ids) + len(message_ids)
+        confirmation_id = uuid.uuid4().hex
+        _PENDING_EMAIL_DELETIONS[confirmation_id] = {
+            "scope": scope,
+            "draft_ids": draft_ids,
+            "message_ids": message_ids,
+        }
+
+        item = {
+            "id": f"email:delete:{confirmation_id}",
+            "action": "delete",
+            "scope": scope,
+            "draft_id": draft_id,
+            "target_count": target_count,
+            "permanent": True,
+            "status": "pending_confirmation",
+        }
+
+        return success(
+            "email",
+            [item],
+            {"scope": scope, "draft_id": draft_id},
+            {
+                "selected_id": item["id"],
+                "requires_confirmation": True,
+                "confirmation_action": "delete_email",
+                "confirmation_id": confirmation_id,
+                "destructive": True,
+                "permanent": True,
+            },
+        )
+    except Exception as exc:
+        return error(
+            "email",
+            str(exc),
+            {"scope": scope, "draft_id": draft_id},
+        )
+
+
+def delete_email(confirmation_id: str) -> dict:
+    confirmation_id = str(confirmation_id or "").strip()
+    if not confirmation_id:
+        raise ValueError("Email silmə üçün confirmation_id tələb olunur.")
+
+    plan = _PENDING_EMAIL_DELETIONS.pop(confirmation_id, None)
+    if plan is None:
+        raise ValueError("Email silmə təsdiqi tapılmadı və ya artıq istifadə olunub.")
+
+    try:
+        deleted_drafts = delete_drafts(plan["draft_ids"])
+        deleted_messages = batch_delete_messages(plan["message_ids"])
+        deleted_count = deleted_drafts + deleted_messages
+
+        item = {
+            "id": f"email:delete:{confirmation_id}",
+            "action": "delete",
+            "scope": plan["scope"],
+            "deleted_count": deleted_count,
+            "permanent": True,
+            "status": "deleted",
+        }
+
+        return success(
+            "email",
+            [item],
+            {"scope": plan["scope"]},
+            {
+                "selected_id": item["id"],
+                "requires_confirmation": False,
+                "destructive": True,
+                "permanent": True,
+            },
+        )
+    except Exception as exc:
+        return error(
+            "email",
+            str(exc),
+            {"scope": plan["scope"]},
         )
