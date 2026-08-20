@@ -27,7 +27,10 @@ def test_search_messages_parses_metadata_and_query():
     list_method = service.users.return_value.messages.return_value.list
     list_call = list_method.return_value
     list_call.execute.side_effect = [
-        {"messages": [{"id": "m1", "threadId": "t1"}]}
+        {
+            "messages": [{"id": "m1", "threadId": "t1"}],
+            "resultSizeEstimate": 1,
+        }
     ]
     get_call = service.users.return_value.messages.return_value.get.return_value
     get_call.execute.return_value = {
@@ -48,8 +51,8 @@ def test_search_messages_parses_metadata_and_query():
     assert result["count"] == 1
     assert result["returned_count"] == 1
     assert result["has_more"] is False
-    assert result[0]["from"] == "billing@example.com"
-    assert result[0]["subject"] == "Invoice"
+    assert result["messages"][0]["from"] == "billing@example.com"
+    assert result["messages"][0]["subject"] == "Invoice"
     list_call.execute.assert_called_once()
     assert list_method.call_args.kwargs["q"] == "subject:invoice"
 
