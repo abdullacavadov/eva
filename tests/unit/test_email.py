@@ -10,10 +10,8 @@ from actions.email import (
     send_email,
     trash_emails,
     delete_email,
-    prepare_email_deletion
+    prepare_email_deletion,
 )
-
-
 
 
 def test_search_emails_returns_structured_results():
@@ -59,30 +57,78 @@ def test_search_emails_passes_query_and_limit():
     search.assert_called_once_with(query="is:unread", limit=7)
 
 
-def test_prepare_trash_emails_requires_confirmation():
-    result = prepare_trash_emails(folder="promotions")
+def test_prepare_trash_emails_requires_confirmation_and_snapshots_ids():
+    with patch("actions.email.list_message_ids", return_value=["m1", "m2", "m3"]) as list_ids:
+        result = prepare_trash_emails(folder="promotions")
+
+    list_ids.assert_called_once_with("category:promotions")
     assert result["status"] == "success"
     assert result["meta"]["requires_confirmation"] is True
     assert result["meta"]["confirmation_action"] == "trash_emails"
+    assert result["meta"]["confirmation_id"]
+    assert result["count"] == 3
     assert result["data"][0]["action"] == "trash"
+    assert result["data"][0]["target_count"] == 3
 
 
-def test_trash_emails_uses_message_id_for_single_message():
-    with patch("actions.email.trash_message", return_value={"message_id": "m1", "thread_id": "t1"}) as trash:
-        result = trash_emails(message_id="m1")
-    trash.assert_called_once_with("m1")
-    assert result["status"] == "success"
+def test_prepare_trash_emails_single_message_snapshots_id_without_listing():
+    with patch("actions.email.list_message_ids") as list_ids:
+        result = prepare_trash_emails(message_id="m1")
+
+    list_ids.assert_not_called()
     assert result["count"] == 1
-    assert result["data"][0]["status"] == "trashed"
+    assert result["data"][0]["id"] == "email:m1"
 
 
-def test_trash_emails_folder_uses_folder_query_and_returns_count():
-    with patch("actions.email.trash_messages_by_query", return_value={"matched_count": 28, "trashed_count": 28}) as trash:
-        result = trash_emails(folder="social")
-    trash.assert_called_once_with("category:social")
+def test_trash_emails_uses_confirmed_snapshot_not_query():
+    with patch("actions.email.list_message_ids", return_value=["m1", "m2", "m3"]) as list_ids, patch(
+        "actions.email.trash_message",
+        side_effect=[
+            {"message_id": "m1", "thread_id": "t1"},
+            {"message_id": "m2", "thread_id": "t2"},
+            {"message_id": "m3", "thread_id": "t3"},
+        ],
+    ) as trash:
+        prepared = prepare_trash_emails(folder="social")
+        confirmation_id = prepared["meta"]["confirmation_id"]
+        result = trash_emails(confirmation_id=confirmation_id)
+
+    list_ids.assert_called_once_with("category:social")
+    assert [call.args[0] for call in trash.call_args_list] == ["m1", "m2", "m3"]
     assert result["status"] == "success"
-    assert result["count"] == 28
-    assert result["data"][0]["trashed_count"] == 28
+    assert result["count"] == 3
+    assert result["meta"]["returned_count"] == 3
+
+
+def test_trash_confirmation_does_not_requery_gmail():
+    with patch("actions.email.list_message_ids", return_value=["m1", "m2"]) as list_ids, patch(
+        "actions.email.trash_message",
+        side_effect=[
+            {"message_id": "m1", "thread_id": "t1"},
+            {"message_id": "m2", "thread_id": "t2"},
+        ],
+    ):
+        prepared = prepare_trash_emails(folder="social")
+        trash_emails(confirmation_id=prepared["meta"]["confirmation_id"])
+
+    assert list_ids.call_count == 1
+
+
+def test_trash_emails_confirmation_is_one_shot():
+    with patch("actions.email.list_message_ids", return_value=["m1"]), patch(
+        "actions.email.trash_message",
+        return_value={"message_id": "m1", "thread_id": "t1"},
+    ):
+        prepared = prepare_trash_emails(folder="spam")
+        confirmation_id = prepared["meta"]["confirmation_id"]
+        trash_emails(confirmation_id=confirmation_id)
+
+        try:
+            trash_emails(confirmation_id=confirmation_id)
+        except ValueError as exc:
+            assert "tapılmadı" in str(exc) or "istifadə olunub" in str(exc)
+        else:
+            raise AssertionError("İkinci confirmation istifadəsi rədd edilməlidir")
 
 
 def test_read_email_returns_body_structured():
@@ -172,12 +218,8 @@ def test_send_email_missing_draft_id_is_rejected():
 
 
 def test_prepare_email_deletion_requires_confirmation():
-    with patch(
-        "actions.email.list_draft_ids",
-        return_value=["d1", "d2"],
-    ):
+    with patch("actions.email.list_draft_ids", return_value=["d1", "d2"]):
         result = prepare_email_deletion("drafts")
-
     assert result["status"] == "success"
     assert result["data"][0]["scope"] == "drafts"
     assert result["data"][0]["target_count"] == 2
@@ -192,7 +234,6 @@ def test_prepare_email_deletion_requires_confirmation():
 def test_prepare_email_deletion_for_single_draft():
     with patch("actions.email.get_draft", return_value={"id": "d1"}) as get:
         result = prepare_email_deletion("draft", "d1")
-
     get.assert_called_once_with("d1")
     assert result["status"] == "success"
     assert result["data"][0]["scope"] == "draft"
@@ -201,65 +242,38 @@ def test_prepare_email_deletion_for_single_draft():
 
 
 def test_prepare_email_deletion_spam():
-    with patch(
-        "actions.email.list_message_ids",
-        return_value=["s1", "s2"],
-    ) as list_ids:
+    with patch("actions.email.list_message_ids", return_value=["s1", "s2"]) as list_ids:
         result = prepare_email_deletion("spam")
-
     list_ids.assert_called_once_with("in:spam", include_spam_trash=True)
     assert result["data"][0]["target_count"] == 2
 
 
 def test_prepare_email_deletion_trash():
-    with patch(
-        "actions.email.list_message_ids",
-        return_value=["t1"],
-    ) as list_ids:
+    with patch("actions.email.list_message_ids", return_value=["t1"]) as list_ids:
         result = prepare_email_deletion("trash")
-
     list_ids.assert_called_once_with("in:trash", include_spam_trash=True)
     assert result["data"][0]["target_count"] == 1
 
 
 def test_prepare_email_deletion_promotions():
-    with patch(
-        "actions.email.list_message_ids",
-        return_value=["p1", "p2", "p3"],
-    ) as list_ids:
+    with patch("actions.email.list_message_ids", return_value=["p1", "p2", "p3"]) as list_ids:
         result = prepare_email_deletion("promotions")
-
     list_ids.assert_called_once_with("category:promotions")
     assert result["data"][0]["target_count"] == 3
 
 
 def test_prepare_email_deletion_social():
-    with patch(
-        "actions.email.list_message_ids",
-        return_value=["s1", "s2", "s3", "s4"],
-    ) as list_ids:
+    with patch("actions.email.list_message_ids", return_value=["s1", "s2", "s3", "s4"]) as list_ids:
         result = prepare_email_deletion("social")
-
     list_ids.assert_called_once_with("category:social")
     assert result["data"][0]["target_count"] == 4
 
 
 def test_delete_email_executes_confirmed_plan_once():
-    with patch(
-        "actions.email.list_draft_ids",
-        return_value=["d1", "d2"],
-    ), patch(
-        "actions.email.delete_drafts",
-        return_value=2,
-    ) as delete_drafts_mock, patch(
-        "actions.email.batch_delete_messages",
-        return_value=0,
-    ) as batch_delete_mock:
+    with patch("actions.email.list_draft_ids", return_value=["d1", "d2"]), patch("actions.email.delete_drafts", return_value=2) as delete_drafts_mock, patch("actions.email.batch_delete_messages", return_value=0) as batch_delete_mock:
         prepared = prepare_email_deletion("drafts")
         confirmation_id = prepared["meta"]["confirmation_id"]
-
         result = delete_email(confirmation_id)
-
     delete_drafts_mock.assert_called_once_with(["d1", "d2"])
     batch_delete_mock.assert_called_once_with([])
     assert result["status"] == "success"
@@ -270,21 +284,10 @@ def test_delete_email_executes_confirmed_plan_once():
 
 
 def test_delete_email_confirmation_is_one_shot():
-    with patch(
-        "actions.email.list_message_ids",
-        return_value=["m1"],
-    ), patch(
-        "actions.email.delete_drafts",
-        return_value=0,
-    ), patch(
-        "actions.email.batch_delete_messages",
-        return_value=1,
-    ):
+    with patch("actions.email.list_message_ids", return_value=["m1"]), patch("actions.email.delete_drafts", return_value=0), patch("actions.email.batch_delete_messages", return_value=1):
         prepared = prepare_email_deletion("spam")
         confirmation_id = prepared["meta"]["confirmation_id"]
-
         delete_email(confirmation_id)
-
         try:
             delete_email(confirmation_id)
         except ValueError as exc:
