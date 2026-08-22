@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 import os
 from pathlib import Path
 import re
@@ -55,7 +56,9 @@ class WhatsAppWebBridge:
         try:
             from playwright.sync_api import sync_playwright
         except ImportError as exc:
-            raise RuntimeError("Playwright quraşdırılmayıb. requirements.txt-dən quraşdırın.") from exc
+            raise RuntimeError(
+                "Playwright quraşdırılmayıb. requirements.txt-dən quraşdırın."
+            ) from exc
 
         self._playwright = sync_playwright().start()
         cdp_url = self.cdp_url or "http://127.0.0.1:9223"
@@ -82,6 +85,8 @@ class WhatsAppWebBridge:
                 f"WhatsApp Web səhifəsi tapılmadı. CDP={cdp_url}. EVA üçün ayrılmış Chrome profili açılmalıdır."
             )
         self._page = whatsapp_pages[0]
+        if self._page.url in ("", "about:blank"):
+            self._page.goto("https://web.whatsapp.com", wait_until="domcontentloaded")
 
         try:
             self._page.wait_for_function(
@@ -117,6 +122,7 @@ class WhatsAppWebBridge:
                 print(f"[WhatsApp] {selector}: {page.locator(selector).count()}")
             except Exception as exc:
                 print(f"[WhatsApp] {selector}: diagnostic error: {exc}")
+
         try:
             snapshot = page.locator("body").inner_text(timeout=3000)
             print("[WhatsApp] BODY TEXT BEGIN")
@@ -130,6 +136,7 @@ class WhatsAppWebBridge:
         chrome = os.getenv("EVA_WHATSAPP_CHROME") or self._find_chrome()
         profile_dir = Path(self.user_data_dir).expanduser().resolve()
         profile_dir.mkdir(parents=True, exist_ok=True)
+
         args = [
             chrome,
             f"--remote-debugging-port={port}",
@@ -138,6 +145,7 @@ class WhatsAppWebBridge:
         ]
         if self.headless:
             args.insert(1, "--headless=new")
+
         self._chrome_process = subprocess.Popen(args)
 
     def _connect_cdp_with_retry(self, cdp_url: str) -> Browser:
@@ -179,6 +187,7 @@ class WhatsAppWebBridge:
         if not item_count:
             self._print_dom_diagnostics()
             return conversations
+
         for index, item in enumerate(items.all()):
             raw_title = self._text(item, '[data-testid="cell-frame-title"]')
             print(f"[WhatsApp] item {index}: raw_title={raw_title!r}")
@@ -189,19 +198,24 @@ class WhatsAppWebBridge:
                 except Exception as exc:
                     print(f"[WhatsApp] item {index}: diagnostic error: {exc}")
                 continue
+
             title, unread_count = self._parse_conversation_title(raw_title)
             conversation_id = item.get_attribute("data-id") or title
             last_message = self._text(item, '[data-testid="last-msg"]')
             timestamp = self._text(item, '[data-testid="last-msg-time"]')
-            conversations.append(WhatsAppVisibleConversation(
-                conversation_id=conversation_id,
-                title=title,
-                contact_name=title,
-                contact_phone="",
-                last_message=last_message,
-                last_message_timestamp=timestamp,
-                unread_count=unread_count,
-            ))
+
+            conversations.append(
+                WhatsAppVisibleConversation(
+                    conversation_id=conversation_id,
+                    title=title,
+                    contact_name=title,
+                    contact_phone="",
+                    last_message=last_message,
+                    last_message_timestamp=timestamp,
+                    unread_count=unread_count,
+                )
+            )
+
         if not conversations:
             self._print_dom_diagnostics()
         return conversations
@@ -212,9 +226,11 @@ class WhatsAppWebBridge:
         match = re.match(r"^\s*(?:Непрочитанные сообщения|Unread messages):\s*(\d+)\s*\n+(.+?)\s*$", text, re.IGNORECASE | re.DOTALL)
         if match:
             return match.group(2).strip(), int(match.group(1))
+
         match = re.match(r"^\s*(\d+)\s+непрочитанное(?:\s+сообщение|\s+сообщения|\s+сообщений)?\s*\n+(.+?)\s*$", text, re.IGNORECASE | re.DOTALL)
         if match:
             return match.group(2).strip(), int(match.group(1))
+
         return text, 0
 
     def get_visible_messages(self) -> list[WhatsAppVisibleMessage]:
@@ -222,6 +238,7 @@ class WhatsAppWebBridge:
         conversation_id = self._current_conversation_id(page)
         if not conversation_id:
             return []
+
         messages: list[WhatsAppVisibleMessage] = []
         for index, item in enumerate(page.locator('[data-testid="msg-container"]').all()):
             message_id = item.get_attribute("data-id") or ""
@@ -229,40 +246,50 @@ class WhatsAppWebBridge:
             sender = self._text(item, '[data-testid="author"]')
             timestamp = self._text(item, '[data-testid="msg-meta"]')
             direction = self._message_direction(item)
+
             if self._is_emoji_only(content):
                 content = "Emoji mesajı"
             elif not content:
                 content = self._message_media_label(item)
+
             if not message_id:
                 message_id = f"{conversation_id}:dom-{index}:{sender}:{timestamp}:{direction}"
-            messages.append(WhatsAppVisibleMessage(
-                message_id=message_id,
-                conversation_id=conversation_id,
-                sender=sender,
-                sender_phone="",
-                content=content,
-                timestamp=timestamp,
-                direction=direction,
-            ))
+
+            messages.append(
+                WhatsAppVisibleMessage(
+                    message_id=message_id,
+                    conversation_id=conversation_id,
+                    sender=sender,
+                    sender_phone="",
+                    content=content,
+                    timestamp=timestamp,
+                    direction=direction,
+                )
+            )
+
         return self._sort_messages(messages)
 
     @staticmethod
     def _message_direction(item: Any) -> str:
         if item.locator('[data-testid="msg-outgoing"]').count():
             return "outgoing"
+
         try:
-            markers = item.evaluate("""el => {
-                const values = [];
-                for (let node = el; node && node !== document.body; node = node.parentElement) {
-                    values.push(node.getAttribute('data-testid') || '');
-                    values.push(node.getAttribute('data-icon') || '');
-                    values.push(node.className && typeof node.className === 'string' ? node.className : '');
-                    if (values.length > 60) break;
-                }
-                return values.join(' ');
-            }""")
+            markers = item.evaluate(
+                """el => {
+                    const values = [];
+                    for (let node = el; node && node !== document.body; node = node.parentElement) {
+                        values.push(node.getAttribute('data-testid') || '');
+                        values.push(node.getAttribute('data-icon') || '');
+                        values.push(node.className && typeof node.className === 'string' ? node.className : '');
+                        if (values.length > 60) break;
+                    }
+                    return values.join(' ');
+                }"""
+            )
         except Exception:
             markers = ""
+
         if re.search(r"(?:^|[\s_-])message-out(?:[\s_-]|$)", str(markers)):
             return "outgoing"
         if re.search(r"(?:^|[\s_-])message-in(?:[\s_-]|$)", str(markers)):
@@ -286,9 +313,16 @@ class WhatsAppWebBridge:
         text = content.strip()
         if not text:
             return False
-        emoji_ranges = ((0x1F000, 0x1FAFF), (0x2600, 0x27BF), (0x2300, 0x23FF))
+        emoji_ranges = (
+            (0x1F000, 0x1FAFF),
+            (0x2600, 0x27BF),
+            (0x2300, 0x23FF),
+        )
         meaningful = [char for char in text if not char.isspace() and char not in "\uFE0F\u200D"]
-        return bool(meaningful) and all(any(start <= ord(char) <= end for start, end in emoji_ranges) for char in meaningful)
+        return bool(meaningful) and all(
+            any(start <= ord(char) <= end for start, end in emoji_ranges)
+            for char in meaningful
+        )
 
     @staticmethod
     def _sort_messages(messages: list[WhatsAppVisibleMessage]) -> list[WhatsAppVisibleMessage]:
@@ -298,7 +332,14 @@ class WhatsAppWebBridge:
                 return (1, 0)
             hour, minute = int(match.group(1)), int(match.group(2))
             return (0, hour * 60 + minute)
-        return [message for _, message in sorted(enumerate(messages), key=lambda pair: (*key(pair[1]), pair[0]))]
+
+        return [
+            message
+            for _, message in sorted(
+                enumerate(messages),
+                key=lambda pair: (*key(pair[1]), pair[0]),
+            )
+        ]
 
     def close(self) -> None:
         if self._playwright is not None:
