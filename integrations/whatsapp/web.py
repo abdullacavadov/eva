@@ -61,7 +61,7 @@ class WhatsAppWebBridge:
             ) from exc
 
         self._playwright = sync_playwright().start()
-        cdp_url = self.cdp_url or "http://127.0.0.1:9222"
+        cdp_url = self.cdp_url or "http://127.0.0.1:9223"
 
         if self.cdp_url is None and not self._cdp_available(cdp_url):
             self._start_eva_chrome(cdp_url)
@@ -80,7 +80,11 @@ class WhatsAppWebBridge:
                 print(f"[WhatsApp] Page {index}: diagnostic error: {exc}")
 
         whatsapp_pages = [page for page in pages if "web.whatsapp.com" in page.url]
-        self._page = whatsapp_pages[0] if whatsapp_pages else (pages[0] if pages else self._context.new_page())
+        if not whatsapp_pages:
+            raise RuntimeError(
+                f"WhatsApp Web səhifəsi tapılmadı. CDP={cdp_url}. EVA üçün ayrılmış Chrome profili açılmalıdır."
+            )
+        self._page = whatsapp_pages[0]
         if self._page.url in ("", "about:blank"):
             self._page.goto("https://web.whatsapp.com", wait_until="domcontentloaded")
 
