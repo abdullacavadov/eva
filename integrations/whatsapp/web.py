@@ -140,17 +140,28 @@ class WhatsAppWebBridge:
         args = [
             chrome,
             f"--remote-debugging-port={port}",
+            "--remote-debugging-address=127.0.0.1",
             f"--user-data-dir={profile_dir}",
+            "--no-first-run",
+            "--no-default-browser-check",
             "https://web.whatsapp.com",
         ]
         if self.headless:
             args.insert(1, "--headless=new")
 
+        print(f"[WhatsApp] Starting dedicated Chrome: {chrome}")
+        print(f"[WhatsApp] Chrome profile: {profile_dir}")
+        print(f"[WhatsApp] Chrome CDP: {cdp_url}")
         self._chrome_process = subprocess.Popen(args)
 
     def _connect_cdp_with_retry(self, cdp_url: str) -> Browser:
         last_exc: Exception | None = None
         for _ in range(60):
+            if self._chrome_process is not None and self._chrome_process.poll() is not None:
+                raise RuntimeError(
+                    f"WhatsApp Chrome process dayandı (exit={self._chrome_process.returncode}). "
+                    f"CDP={cdp_url}. Chrome profilinin başqa proses tərəfindən kilidlənmədiyini yoxlayın."
+                )
             try:
                 return self._playwright.chromium.connect_over_cdp(cdp_url)
             except Exception as exc:
