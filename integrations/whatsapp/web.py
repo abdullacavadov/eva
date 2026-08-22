@@ -71,7 +71,16 @@ class WhatsAppWebBridge:
         if not contexts:
             raise RuntimeError("WhatsApp Chrome-da browser context tapılmadı.")
         self._context = contexts[0]
-        self._page = self._context.pages[0] if self._context.pages else self._context.new_page()
+        pages = self._context.pages
+        print(f"[WhatsApp] Open pages: {len(pages)}")
+        for index, page in enumerate(pages):
+            try:
+                print(f"[WhatsApp] Page {index}: url={page.url!r} title={page.title()!r}")
+            except Exception as exc:
+                print(f"[WhatsApp] Page {index}: diagnostic error: {exc}")
+
+        whatsapp_pages = [page for page in pages if "web.whatsapp.com" in page.url]
+        self._page = whatsapp_pages[0] if whatsapp_pages else (pages[0] if pages else self._context.new_page())
         if self._page.url in ("", "about:blank"):
             self._page.goto("https://web.whatsapp.com", wait_until="domcontentloaded")
 
@@ -96,6 +105,9 @@ class WhatsAppWebBridge:
         print(f"[WhatsApp] Title: {page.title()!r}")
         selectors = (
             '[data-testid="cell-frame-container"]',
+            '[data-testid="cell-frame-title"]',
+            '[data-testid="last-msg"]',
+            '[data-testid="last-msg-time"]',
             '[data-testid="chat-list"]',
             '[data-testid="conversation-header"]',
             '[contenteditable="true"]',
@@ -166,13 +178,21 @@ class WhatsAppWebBridge:
         page = self._require_page()
         conversations: list[WhatsAppVisibleConversation] = []
         items = page.locator('[data-testid="cell-frame-container"]')
-        if not items.count():
+        item_count = items.count()
+        print(f"[WhatsApp] conversation items: {item_count}")
+        if not item_count:
             self._print_dom_diagnostics()
             return conversations
 
-        for item in items.all():
+        for index, item in enumerate(items.all()):
             raw_title = self._text(item, '[data-testid="cell-frame-title"]')
+            print(f"[WhatsApp] item {index}: raw_title={raw_title!r}")
             if not raw_title:
+                try:
+                    print(f"[WhatsApp] item {index}: text={item.inner_text()[:500]!r}")
+                    print(f"[WhatsApp] item {index}: html={item.evaluate('el => el.outerHTML')[:2000]!r}")
+                except Exception as exc:
+                    print(f"[WhatsApp] item {index}: diagnostic error: {exc}")
                 continue
 
             title, unread_count = self._parse_conversation_title(raw_title)
@@ -192,6 +212,8 @@ class WhatsAppWebBridge:
                 )
             )
 
+        if not conversations:
+            self._print_dom_diagnostics()
         return conversations
 
     @staticmethod
