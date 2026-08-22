@@ -87,17 +87,33 @@ class WhatsAppWebBridge:
             )
         except Exception as exc:
             print("[WhatsApp] UI render timeout")
-            print(f"[WhatsApp] URL: {self._page.url}")
-            print(f"[WhatsApp] Title: {self._page.title()!r}")
-            print(f"[WhatsApp] #app: {self._page.locator('#app').count() > 0}")
-            for selector in (
-                '[data-testid="cell-frame-container"]',
-                '[data-testid="conversation-header"]',
-                '[data-testid="chat-list"]',
-                '[contenteditable="true"]',
-            ):
-                print(f"[WhatsApp] {selector}: {self._page.locator(selector).count()}")
+            self._print_dom_diagnostics()
             raise RuntimeError("WhatsApp Web UI render timeout.") from exc
+
+    def _print_dom_diagnostics(self) -> None:
+        page = self._require_page()
+        print(f"[WhatsApp] URL: {page.url}")
+        print(f"[WhatsApp] Title: {page.title()!r}")
+        selectors = (
+            '[data-testid="cell-frame-container"]',
+            '[data-testid="chat-list"]',
+            '[data-testid="conversation-header"]',
+            '[contenteditable="true"]',
+            '[role="listitem"]',
+        )
+        for selector in selectors:
+            try:
+                print(f"[WhatsApp] {selector}: {page.locator(selector).count()}")
+            except Exception as exc:
+                print(f"[WhatsApp] {selector}: diagnostic error: {exc}")
+
+        try:
+            snapshot = page.locator("body").inner_text(timeout=3000)
+            print("[WhatsApp] BODY TEXT BEGIN")
+            print(snapshot[:5000])
+            print("[WhatsApp] BODY TEXT END")
+        except Exception as exc:
+            print(f"[WhatsApp] body diagnostic error: {exc}")
 
     def _start_eva_chrome(self, cdp_url: str) -> None:
         port = cdp_url.rsplit(":", 1)[-1]
@@ -149,8 +165,12 @@ class WhatsAppWebBridge:
     def get_visible_conversations(self) -> list[WhatsAppVisibleConversation]:
         page = self._require_page()
         conversations: list[WhatsAppVisibleConversation] = []
+        items = page.locator('[data-testid="cell-frame-container"]')
+        if not items.count():
+            self._print_dom_diagnostics()
+            return conversations
 
-        for item in page.locator('[data-testid="cell-frame-container"]').all():
+        for item in items.all():
             raw_title = self._text(item, '[data-testid="cell-frame-title"]')
             if not raw_title:
                 continue
