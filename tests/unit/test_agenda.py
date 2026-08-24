@@ -8,6 +8,7 @@ def test_add_agenda_item_requires_storage_choice():
     assert result["status"] == "needs_input"
     assert "Google Tasks" in result["meta"]["message"]
     assert "memory" in result["meta"]["choices"]
+    assert "microsoft_todo" not in result["meta"]["choices"]
 
 
 def test_add_memory_agenda_item():
@@ -21,14 +22,6 @@ def test_add_memory_agenda_item():
 def test_google_tasks_falls_back_to_memory_when_unavailable():
     with patch("actions.agenda.add_reminder", return_value={"status": "error", "meta": {"message": "OAuth unavailable"}}), patch("actions.agenda.update_memory"):
         result = add_agenda_item("Prepare report", storage="google_tasks")
-    assert result["status"] == "success"
-    assert result["data"][0]["source"] == "memory"
-    assert result["meta"]["fallback"] == "memory"
-
-
-def test_microsoft_todo_falls_back_to_memory():
-    with patch("actions.agenda.update_memory"):
-        result = add_agenda_item("Buy milk", storage="microsoft_todo")
     assert result["status"] == "success"
     assert result["data"][0]["source"] == "memory"
     assert result["meta"]["fallback"] == "memory"
