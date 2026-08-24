@@ -79,9 +79,11 @@ def delete_agenda_item(match_text: str = "", storage: str = "", confirm: bool = 
     needle = str(match_text or "").strip().casefold()
     storage = str(storage or "").strip().casefold()
     if not needle: return error("agenda_item", "Silinəcək task və ya qeyd göstərilməlidir.")
+    if storage not in {"google_tasks", "memory"}:
+        return {"type": "agenda_item", "status": "needs_input", "query": {"match_text": match_text}, "data": [], "count": 0, "selected": None, "meta": {"message": "Taskı haradan silim: Google Tasks, yoxsa EVA yaddaşından?", "choices": ["google_tasks", "memory"]}}
     candidates: list[dict[str, Any]] = []
-    if storage in {"", "memory"}: candidates.extend(item for item in _memory_items() if needle in item["title"].casefold() or needle in str(item.get("due", "")).casefold())
-    if storage in {"", "google_tasks"}:
+    if storage == "memory": candidates.extend(item for item in _memory_items() if needle in item["title"].casefold() or needle in str(item.get("due", "")).casefold())
+    if storage == "google_tasks":
         try: candidates.extend(get_reminders(needle, 100, "").get("data", []))
         except Exception: pass
     if not candidates: return empty("agenda_item", {"match_text": match_text, "storage": storage})
