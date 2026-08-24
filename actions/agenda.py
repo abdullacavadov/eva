@@ -30,7 +30,7 @@ def _today_memory(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def get_daily_agenda(limit: int = 20) -> dict:
     result_limit = max(1, min(int(limit or 20), 100))
-    sources: dict[str, list[dict[str, Any]]] = {"calendar": [], "tasks": [], "todo": [], "memory": []}
+    sources: dict[str, list[dict[str, Any]]] = {"calendar": [], "tasks": [], "memory": []}
     errors: dict[str, str] = {}
     try:
         result = get_calendar_events("today", result_limit)
@@ -43,9 +43,9 @@ def get_daily_agenda(limit: int = 20) -> dict:
         if result.get("status") == "error": errors["tasks"] = result.get("meta", {}).get("message", "Google Tasks xətası")
     except Exception as exc: errors["tasks"] = str(exc)
     sources["memory"] = _today_memory(_memory_items())
-    combined = sources["calendar"] + sources["tasks"] + sources["todo"] + sources["memory"]
+    combined = sources["calendar"] + sources["tasks"] + sources["memory"]
     date_text = datetime.now().astimezone().date().isoformat()
-    meta = {"date": date_text, "sources": ["calendar", "tasks", "todo", "memory"], "errors": errors, "groups": sources, "todo_connected": False}
+    meta = {"date": date_text, "sources": ["calendar", "tasks", "memory"], "errors": errors, "groups": sources}
     if not combined and errors: return error("daily_agenda", "Gündəlik məlumatların heç biri oxuna bilmədi.", {"date": date_text, "errors": errors})
     if not combined: return empty("daily_agenda", {"date": date_text, "sources": meta["sources"], "errors": errors}, meta=meta)
     return success("daily_agenda", combined, {"date": date_text, "sources": meta["sources"]}, meta=meta)
@@ -63,10 +63,9 @@ def add_agenda_item(title: str, item_type: str = "task", storage: str = "", due_
     storage = str(storage or "").strip().casefold()
     item_type = str(item_type or "task").strip().casefold()
     if not title: return error("agenda_item", "Başlıq boş ola bilməz.")
-    if storage not in {"google_tasks", "microsoft_todo", "memory"}:
-        return {"type": "agenda_item", "status": "needs_input", "query": {"title": title, "item_type": item_type, "due_iso": due_iso}, "data": [], "count": 0, "selected": None, "meta": {"message": "Bunu harada yadda saxlayım: Google Tasks, Microsoft To Do, yoxsa EVA yaddaşında?", "choices": ["google_tasks", "microsoft_todo", "memory"]}}
+    if storage not in {"google_tasks", "memory"}:
+        return {"type": "agenda_item", "status": "needs_input", "query": {"title": title, "item_type": item_type, "due_iso": due_iso}, "data": [], "count": 0, "selected": None, "meta": {"message": "Bunu harada yadda saxlayım: Google Tasks, yoxsa EVA yaddaşında?", "choices": ["google_tasks", "memory"]}}
     if storage == "memory": return _save_memory_item(title, item_type, due_iso, notes)
-    if storage == "microsoft_todo": return _save_memory_item(title, item_type, due_iso, notes) | {"meta": {"storage_requested": "microsoft_todo", "fallback": "memory", "message": "Microsoft To Do qoşulu deyil; EVA yaddaşında saxlanıldı."}}
     if item_type == "note": return _save_memory_item(title, item_type, due_iso, notes) | {"meta": {"storage_requested": "google_tasks", "fallback": "memory", "message": "Google Tasks qeyd üçün uyğun deyil; EVA yaddaşında saxlanıldı."}}
     result = add_reminder(title, due_iso, notes, storage="google_tasks")
     if result.get("status") == "error" or result.get("status") == "needs_input":
