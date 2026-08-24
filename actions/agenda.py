@@ -16,11 +16,7 @@ def _memory_items() -> list[dict[str, Any]]:
     bucket = memory.get("agenda", {})
     if not isinstance(bucket, dict):
         return []
-    return [
-        {"id": f"memory:{key}", "title": str(value.get("title", value.get("value", key))), "type": value.get("type", "note"), "due": value.get("due", ""), "notes": value.get("notes", ""), "completed": bool(value.get("completed", False)), "source": "memory"}
-        for key, value in bucket.items()
-        if isinstance(value, dict)
-    ]
+    return [{"id": f"memory:{key}", "title": str(value.get("title", value.get("value", key))), "type": value.get("type", "note"), "due": value.get("due", ""), "notes": value.get("notes", ""), "completed": bool(value.get("completed", False)), "source": "memory"} for key, value in bucket.items() if isinstance(value, dict)]
 
 
 def _memory_key(title: str) -> str:
@@ -44,7 +40,7 @@ def get_daily_agenda(limit: int = 20) -> dict:
     try:
         result = get_reminders("today", result_limit, "")
         sources["tasks"] = result.get("data", [])
-        if result.get("status") == "error": errors["tasks"] = result.get("meta", {}).get("message", "Tasks xətası")
+        if result.get("status") == "error": errors["tasks"] = result.get("meta", {}).get("message", "Google Tasks xətası")
     except Exception as exc: errors["tasks"] = str(exc)
     sources["memory"] = _today_memory(_memory_items())
     combined = sources["calendar"] + sources["tasks"] + sources["todo"] + sources["memory"]
@@ -70,11 +66,10 @@ def add_agenda_item(title: str, item_type: str = "task", storage: str = "", due_
     if storage not in {"google_tasks", "microsoft_todo", "memory"}:
         return {"type": "agenda_item", "status": "needs_input", "query": {"title": title, "item_type": item_type, "due_iso": due_iso}, "data": [], "count": 0, "selected": None, "meta": {"message": "Bunu harada yadda saxlayım: Google Tasks, Microsoft To Do, yoxsa EVA yaddaşında?", "choices": ["google_tasks", "microsoft_todo", "memory"]}}
     if storage == "memory": return _save_memory_item(title, item_type, due_iso, notes)
-    if storage == "microsoft_todo":
-        return _save_memory_item(title, item_type, due_iso, notes) | {"meta": {"storage_requested": "microsoft_todo", "fallback": "memory", "message": "Microsoft To Do qoşulu deyil; EVA yaddaşında saxlanıldı."}}
-    if item_type == "note": return error("agenda_item", "Google Tasks qeyd üçün nəzərdə tutulmayıb; qeyd üçün memory seç.")
-    result = add_reminder(title, due_iso, notes)
-    if result.get("status") == "error":
+    if storage == "microsoft_todo": return _save_memory_item(title, item_type, due_iso, notes) | {"meta": {"storage_requested": "microsoft_todo", "fallback": "memory", "message": "Microsoft To Do qoşulu deyil; EVA yaddaşında saxlanıldı."}}
+    if item_type == "note": return _save_memory_item(title, item_type, due_iso, notes) | {"meta": {"storage_requested": "google_tasks", "fallback": "memory", "message": "Google Tasks qeyd üçün uyğun deyil; EVA yaddaşında saxlanıldı."}}
+    result = add_reminder(title, due_iso, notes, storage="google_tasks")
+    if result.get("status") == "error" or result.get("status") == "needs_input":
         fallback = _save_memory_item(title, item_type, due_iso, notes)
         fallback["meta"] = {"storage_requested": "google_tasks", "fallback": "memory", "message": "Google Tasks əlçatan deyil; EVA yaddaşında saxlanıldı.", "provider_error": result.get("meta", {}).get("message", "")}
         return fallback
@@ -86,7 +81,7 @@ def delete_agenda_item(match_text: str = "", storage: str = "", confirm: bool = 
     storage = str(storage or "").strip().casefold()
     if not needle: return error("agenda_item", "Silinəcək task və ya qeyd göstərilməlidir.")
     candidates: list[dict[str, Any]] = []
-    if storage in {"", "memory"}: candidates.extend(item for item in _memory_items() if needle in item["title"].casefold())
+    if storage in {"", "memory"}: candidates.extend(item for item in _memory_items() if needle in item["title"].casefold() or needle in str(item.get("due", "")).casefold())
     if storage in {"", "google_tasks"}:
         try: candidates.extend(get_reminders(needle, 100, "").get("data", []))
         except Exception: pass
