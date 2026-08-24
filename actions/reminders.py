@@ -79,6 +79,9 @@ def add_reminder(title: str, due_iso: str = "", notes: str = "", list_name: str 
         return error("task", "Naməlum yaddaş provider-i.")
     try:
         due = _parse_due(due_iso, all_day=bool(all_day))
+    except ValueError as exc:
+        return error("task", str(exc))
+    try:
         task_list_id = resolve_task_list_id(list_name)
         task = create_task(title=title, due_iso=due, notes=str(notes or "").strip(), task_list_id=task_list_id)
         return success("task", [_structured_task(task, task_list_id)], {"storage": "google_tasks", "list_name": list_name, "task_list_id": task_list_id}, {"selected_id": f"task:{task.get('id', '')}"})
