@@ -69,12 +69,12 @@ def add_reminder(title: str, due_iso: str = "", notes: str = "", list_name: str 
     if not title:
         return error("task", "Task başlığı boş ola bilməz.")
     if not storage:
-        return {"type": "task", "status": "needs_input", "query": {"title": title, "due_iso": due_iso}, "data": [], "count": 0, "meta": {"message": "Bunu harada yadda saxlayım: Google Tasks, Microsoft To Do, yoxsa EVA yaddaşında?", "choices": ["google_tasks", "microsoft_todo", "memory"]}}
+        return {"type": "task", "status": "needs_input", "query": {"title": title, "due_iso": due_iso}, "data": [], "count": 0, "meta": {"message": "Bunu harada yadda saxlayım: Google Tasks, yoxsa EVA yaddaşında?", "choices": ["google_tasks", "memory"]}}
     if priority:
         return error("task", "Google Tasks priority sahəsini dəstəkləmir; priority göstərmədən yenidən cəhd et.")
-    if storage == "memory" or storage == "microsoft_todo":
+    if storage == "memory":
         item = _save_memory_task(title, due_iso, notes)
-        return success("task", [item], {"storage": "memory", "requested_storage": storage}, {"fallback": storage == "microsoft_todo", "reason": "microsoft_todo_unavailable" if storage == "microsoft_todo" else ""})
+        return success("task", [item], {"storage": "memory", "requested_storage": storage})
     if storage != "google_tasks":
         return error("task", "Naməlum yaddaş provider-i.")
     try:
