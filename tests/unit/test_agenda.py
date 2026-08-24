@@ -37,8 +37,16 @@ def test_daily_agenda_has_flat_structured_data_and_source_groups():
     assert "memory" in result["meta"]["groups"]
 
 
-def test_delete_requires_confirmation():
+def test_delete_requires_storage_choice():
+    result = delete_agenda_item("Delete this")
+    assert result["status"] == "needs_input"
+    assert result["meta"]["confirmation_required"] is False
+    assert result["meta"]["choices"] == ["google_tasks", "memory"]
+    assert "Taskı haradan silim" in result["meta"]["message"]
+
+
+def test_delete_requires_confirmation_after_storage_choice():
     with patch("actions.agenda._memory_items", return_value=[{"id": "memory:1", "title": "Delete this", "source": "memory"}]):
-        result = delete_agenda_item("Delete this")
+        result = delete_agenda_item("Delete this", storage="memory")
     assert result["status"] == "needs_confirmation"
     assert result["meta"]["confirmation_required"] is True
