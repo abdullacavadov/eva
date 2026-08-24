@@ -96,12 +96,63 @@ def create_task(
 
     return (
         service.tasks()
-        .insert(
+        .insert(tasklist=task_list_id, body=body)
+        .execute()
+    )
+
+
+def update_task(
+    task_id: str,
+    title: str = "",
+    due_iso: str = "",
+    notes: str = "",
+    task_list_id: str = "@default",
+) -> dict[str, Any]:
+    task_id = str(task_id or "").strip()
+    if not task_id:
+        raise ValueError("Task ID tələb olunur.")
+
+    service = get_tasks_service()
+    body: dict[str, Any] = {}
+    if title.strip():
+        body["title"] = title.strip()
+    if notes:
+        body["notes"] = notes
+    if due_iso:
+        body["due"] = _normalize_due(due_iso)
+
+    if not body:
+        raise ValueError("Yeniləmək üçün ən azı title, notes və ya due_iso verilməlidir.")
+
+    return (
+        service.tasks()
+        .patch(tasklist=task_list_id, task=task_id, body=body)
+        .execute()
+    )
+
+
+def complete_task(task_id: str, task_list_id: str = "@default") -> dict[str, Any]:
+    task_id = str(task_id or "").strip()
+    if not task_id:
+        raise ValueError("Task ID tələb olunur.")
+    service = get_tasks_service()
+    return (
+        service.tasks()
+        .patch(
             tasklist=task_list_id,
-            body=body,
+            task=task_id,
+            body={"status": "completed"},
         )
         .execute()
     )
+
+
+def delete_task(task_id: str, task_list_id: str = "@default") -> None:
+    task_id = str(task_id or "").strip()
+    if not task_id:
+        raise ValueError("Task ID tələb olunur.")
+    service = get_tasks_service()
+    service.tasks().delete(tasklist=task_list_id, task=task_id).execute()
 
 
 def _normalize_due(value: str) -> str:

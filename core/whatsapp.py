@@ -47,6 +47,7 @@ def _conversation_item(
     contact_phone: str = "",
     last_message: str = "",
     last_message_timestamp: str = "",
+    unread_count: int = 0,
 ) -> dict[str, Any]:
     conversation_id = str(conversation_id or "").strip()
 
@@ -61,6 +62,7 @@ def _conversation_item(
         "contact_phone": str(contact_phone or "").strip(),
         "last_message": str(last_message or ""),
         "last_message_timestamp": str(last_message_timestamp or "").strip(),
+        "unread_count": int(unread_count or 0),
     }
 
 
@@ -146,6 +148,7 @@ def conversation_result(
     contact_phone: str = "",
     last_message: str = "",
     last_message_timestamp: str = "",
+    unread_count: int = 0,
     query: dict[str, Any] | None = None,
     meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -157,6 +160,7 @@ def conversation_result(
             contact_phone=contact_phone,
             last_message=last_message,
             last_message_timestamp=last_message_timestamp,
+            unread_count=unread_count,
         )
         return success(
             "whatsapp_conversation",

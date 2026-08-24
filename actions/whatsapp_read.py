@@ -109,6 +109,7 @@ def read_visible_whatsapp_conversations(
             contact_phone=conversation.contact_phone,
             last_message=conversation.last_message,
             last_message_timestamp=conversation.last_message_timestamp,
+            unread_count=conversation.unread_count,
         )["data"][0]
         for conversation in conversations
     ]
