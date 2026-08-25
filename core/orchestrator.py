@@ -54,12 +54,27 @@ def _memory_items(search_text: str = "", period: str = "") -> list[dict[str, Any
     return list(unique.values())[:20]
 
 
-def _append_source(items: list[dict[str, Any]], source: str, result: Any, limit: int = 8) -> None:
+def _matches_search_terms(item: dict[str, Any], search_terms: tuple[str, ...]) -> bool:
+    if not search_terms:
+        return True
+    text = " ".join(
+        str(item.get(key, ""))
+        for key in ("title", "value", "notes", "due", "description", "name")
+    ).casefold()
+    return any(term.casefold() in text for term in search_terms)
+
+
+def _append_source(items: list[dict[str, Any]], source: str, result: Any, limit: int = 8, search_terms: tuple[str, ...] = ()) -> None:
     if not isinstance(result, dict):
         return
-    for raw in result.get("data", [])[:limit]:
-        if isinstance(raw, dict):
-            items.append(normalize_item(source, raw, result.get("type", "item")))
+    matched = 0
+    for raw in result.get("data", []):
+        if not isinstance(raw, dict) or not _matches_search_terms(raw, search_terms):
+            continue
+        items.append(normalize_item(source, raw, result.get("type", "item")))
+        matched += 1
+        if matched >= limit:
+            break
 
 
 def _execute_daily_report(limit: int) -> dict[str, Any]:
@@ -98,18 +113,19 @@ def execute_unified_query(query: str, limit: int = 8) -> dict[str, Any]:
         try:
             if source == "calendar":
                 result = get_calendar_events(plan.period or plan.search_text or "today", limit)
-                _append_source(items, source, result, limit)
+                _append_source(items, source, result, limit, plan.search_terms)
                 if result.get("status") == "error":
                     errors[source] = result.get("meta", {}).get("message", "Calendar xətası")
             elif source == "tasks":
                 from actions.reminders import get_reminders
                 task_query = plan.period or plan.search_text or "upcoming"
                 result = get_reminders(task_query, limit, "")
-                _append_source(items, source, result, limit)
+                _append_source(items, source, result, limit, plan.search_terms)
                 if result.get("status") == "error":
                     errors[source] = result.get("meta", {}).get("message", "Google Tasks xətası")
             elif source == "memory":
-                for raw in _memory_items(plan.search_text, plan.period)[:limit]:
+                memory_search_text = " ".join(plan.search_terms) if plan.search_terms else plan.search_text
+                for raw in _memory_items(memory_search_text, plan.period)[:limit]:
                     items.append(normalize_item(source, raw, "memory"))
             elif source == "gmail":
                 q = plan.search_text
@@ -132,4 +148,4 @@ def execute_unified_query(query: str, limit: int = 8) -> dict[str, Any]:
     for item in items:
         unique.setdefault(item["id"], item)
     ordered = list(unique.values())[: limit * max(1, len(plan.sources))]
-    return make_unified_result(query, plan.intent, list(plan.sources), ordered, errors, {"period": plan.period, "search_text": plan.search_text, "requires_confirmation": plan.needs_confirmation, "source_count": len(plan.sources)})
+    return make_unified_result(query, plan.intent, list(plan.sources), ordered, errors, {"period": plan.period, "search_text": plan.search_text, "search_terms": list(plan.search_terms), "requires_confirmation": plan.needs_confirmation, "source_count": len(plan.sources)})
