@@ -11,8 +11,8 @@ import './styles/responsive.css'
 
 const initialContext: EvaContext = { items: [] }
 
-const formatClock = (date: Date) => date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-const formatDate = (date: Date) => date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+const formatClock = (date: Date) => date.toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' })
+const formatDate = (date: Date) => date.toLocaleDateString('az-AZ', { day: '2-digit', month: 'short', year: 'numeric' })
 
 export default function App() {
   const [state, setState] = useState<EvaState>('IDLE')
@@ -47,14 +47,14 @@ export default function App() {
     return () => { cancelled = true }
   }, [])
 
-  const statusText = useMemo(() => state === 'IDLE' ? 'SYSTEM READY' : `EVA ${state.replace('_', ' ')}`, [state])
+  const statusText = useMemo(() => state === 'IDLE' ? 'SİSTEM HAZIRDIR' : `EVA ${state.replace('_', ' ')}`, [state])
 
   const handleSubmit = (text: string) => {
     applyEvent({ type: 'conversation.user', text })
-    applyEvent({ type: 'activity.created', activity: { id: crypto.randomUUID(), time: new Date().toLocaleTimeString('az-AZ'), text: 'Command queued', kind: 'user', detail: text } })
+    applyEvent({ type: 'activity.created', activity: { id: crypto.randomUUID(), time: new Date().toLocaleTimeString('az-AZ'), text: 'Komanda növbəyə əlavə edildi', kind: 'user', detail: text } })
     setState('THINKING')
     window.setTimeout(() => {
-      applyEvent({ type: 'activity.created', activity: { id: crypto.randomUUID(), time: new Date().toLocaleTimeString('az-AZ'), text: 'Mock transport ready', kind: 'action', detail: 'WebSocket gateway pending' } })
+      applyEvent({ type: 'activity.created', activity: { id: crypto.randomUUID(), time: new Date().toLocaleTimeString('az-AZ'), text: 'Test bağlantısı hazırdır', kind: 'action', detail: 'WebSocket keçidi gözlənilir' } })
       applyEvent({ type: 'conversation.assistant', text: 'Komanda qəbul edildi. Real backend bağlantısı Phase 6.5-də aktivləşdiriləcək.' })
       setState('SUCCESS')
       window.setTimeout(() => setState('IDLE'), 900)
@@ -67,28 +67,28 @@ export default function App() {
       <Sidebar />
       <main className="workspace">
         <header className="topbar">
-          <div><span className="eyebrow">E.V.A / PERSONAL AI</span><h1>Command Center</h1></div>
-          <div className="system-status"><span className={`online-dot ${online ? '' : 'offline'}`} />{statusText}<small>LOCAL CORE</small></div>
-          <div className="clock" aria-label={`Current time ${formatClock(now)}, ${formatDate(now)}`}><strong>{formatClock(now)}</strong><small>{formatDate(now)}</small></div>
+          <div><span className="eyebrow">E.V.A / ŞƏXSİ ASSİSTENT</span><h1>İdarə Mərkəzi</h1></div>
+          <div className="system-status"><span className={`online-dot ${online ? '' : 'offline'}`} />{statusText}<small>LOKAL NÜVƏ</small></div>
+          <div className="clock" aria-label={`Cari vaxt ${formatClock(now)}, ${formatDate(now)}`}><strong>{formatClock(now)}</strong><small>{formatDate(now)}</small></div>
         </header>
 
         <div className="dashboard-grid">
           <div className="left-stack">
             <section className="panel overview-panel">
-              <div className="panel-heading"><span>TODAY'S OVERVIEW</span><small>LIVE</small></div>
-              <div className="metric"><span>Calendar Events</span><strong>3</strong></div>
-              <div className="metric"><span>Tasks</span><strong>5</strong></div>
-              <div className="metric"><span>Reminders</span><strong>7</strong></div>
-              <div className="metric"><span>Unread Messages</span><strong>7</strong></div>
+              <div className="panel-heading"><span>BU GÜNÜN İCMALI</span><small>CANLI</small></div>
+              <div className="metric"><span>Təqvim tədbirləri</span><strong>3</strong></div>
+              <div className="metric"><span>Tapşırıqlar</span><strong>5</strong></div>
+              <div className="metric"><span>Xatırlatmalar</span><strong>7</strong></div>
+              <div className="metric"><span>Oxunmamış mesajlar</span><strong>7</strong></div>
             </section>
             <section className="panel system-panel">
-              <div className="panel-heading"><span>SYSTEM</span><small>LOCAL</small></div>
-              {['CPU', 'RAM', 'STORAGE', 'NETWORK'].map((name, index) => <div className="system-metric" key={name}><span>{name}</span><div><i style={{ width: `${32 + index * 14}%` }} /></div><strong>{[12, 45, 68, 32][index]}%</strong></div>)}
+              <div className="panel-heading"><span>SİSTEM</span><small>LOKAL</small></div>
+              {['CPU', 'RAM', 'YADDAŞ', 'ŞƏBƏKƏ'].map((name, index) => <div className="system-metric" key={name}><span>{name}</span><div><i style={{ width: `${32 + index * 14}%` }} /></div><strong>{[12, 45, 68, 32][index]}%</strong></div>)}
             </section>
           </div>
 
           <section className="core-column">
-            <div className="core-meta"><span>AI CORE / HOLOGRAPHIC INTERFACE</span><span>v6.1</span></div>
+            <div className="core-meta"><span>SÜNİ İNTELLEKT NÜVƏSİ / HOLOQRAFİK İNTERFEYS</span><span>v6.1</span></div>
             <EvaOrb state={state} />
             <ConversationPanel messages={messages} onSubmit={handleSubmit} />
           </section>
@@ -96,7 +96,7 @@ export default function App() {
           <div className="right-stack">
             <ContextPanel context={context} />
             <ActivityFeed items={activities} />
-            <section className="panel weather-panel"><div className="panel-heading"><span>ENVIRONMENT</span><small>BAKU, AZ</small></div><div className="weather-main"><strong>28°</strong><span>CLEAR SKY</span></div><div className="weather-meta"><span>H 31°</span><span>L 22°</span><span>24 km/h</span></div></section>
+            <section className="panel weather-panel"><div className="panel-heading"><span>MÜHİT</span><small>BAKI, AZ</small></div><div className="weather-main"><strong>28°</strong><span>AÇIQ SƏMA</span></div><div className="weather-meta"><span>Y 31°</span><span>A 22°</span><span>24 km/s</span></div></section>
           </div>
         </div>
       </main>
