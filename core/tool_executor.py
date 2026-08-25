@@ -77,7 +77,7 @@ def _email_reply_body(action: FollowUpAction) -> str:
     text = str(action.action_text or "").strip()
     match = re.search(r"(?:cavab\s+(?:yaz|ver)|cavabla|cavablandır|cavablandir)\s*(?::|-)?\s*(.+)$", text, re.IGNORECASE)
     if not match or not match.group(1).strip():
-        raise ResultResolutionError("Email cavabı üçün mətn tələb olunur")
+        raise ResultResolutionError("Email cavabı üçün mətni tələb olunur")
     return match.group(1).strip()
 
 
