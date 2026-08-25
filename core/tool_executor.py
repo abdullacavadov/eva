@@ -61,21 +61,56 @@ def _task_identity(item: dict) -> tuple[str, str]:
     return task_id, list_name
 
 
+def _email_identity(item: dict) -> str:
+    item_id = str(item.get("id", ""))
+    if not item_id.startswith("email:"):
+        raise ResultResolutionError("Follow-up email əməli üçün email nəticəsi tələb olunur")
+    message_id = str(item.get("gmail_message_id", ""))
+    if not message_id:
+        message_id = item_id.removeprefix("email:")
+    if not message_id or message_id.startswith("draft:") or message_id.startswith("delete:"):
+        raise ResultResolutionError("Follow-up email üçün Gmail message_id tapılmadı")
+    return message_id
+
+
+def _email_reply_body(action: FollowUpAction) -> str:
+    text = str(action.action_text or "").strip()
+    match = re.search(r"(?:cavab\s+(?:yaz|ver)|cavabla|cavablandır|cavablandir)\s*(?::|-)?\s*(.+)$", text, re.IGNORECASE)
+    if not match or not match.group(1).strip():
+        raise ResultResolutionError("Email cavabı üçün mətn tələb olunur")
+    return match.group(1).strip()
+
+
 def build_follow_up_dispatch(action: FollowUpAction) -> FollowUpDispatch:
     """FollowUpAction-ı təhlükəsiz tool dispatch planına çevirir."""
     item = action.item
+    item_id = str(item.get("id", ""))
+
     if action.action == "show":
+        if item_id.startswith("email:"):
+            return FollowUpDispatch("read_email", {"message_id": _email_identity(item)}, item)
         return FollowUpDispatch(None, {}, item)
+
+    if action.action == "reply":
+        message_id = _email_identity(item)
+        body = _email_reply_body(action)
+        return FollowUpDispatch("prepare_email_reply", {"message_id": message_id, "body": body}, item, True)
+
     if action.action == "complete":
         task_id, list_name = _task_identity(item)
         return FollowUpDispatch("complete_reminder", {"task_id": task_id, "list_name": list_name}, item)
+
     if action.action == "delete":
+        if item_id.startswith("email:"):
+            return FollowUpDispatch("prepare_trash_emails", {"message_id": _email_identity(item)}, item, True)
         task_id, list_name = _task_identity(item)
         return FollowUpDispatch("delete_reminder", {"task_id": task_id, "list_name": list_name}, item, True)
+
     if action.action == "update":
         task_id, list_name = _task_identity(item)
         mutation = build_follow_up_mutation(action)
         return FollowUpDispatch("update_reminder", {"task_id": task_id, "list_name": list_name, **mutation.fields}, item)
+
     raise ResultResolutionError("Follow-up üçün dəstəklənməyən əməl")
 
 
