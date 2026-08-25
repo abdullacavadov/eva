@@ -45,8 +45,6 @@ def _parse_datetime(value: Any) -> datetime | None:
         return None
     try:
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-        # Preserve an existing timezone. Converting to the host's local timezone
-        # makes UTC timestamps compare incorrectly on other hosts.
         return parsed
     except ValueError:
         pass
@@ -274,9 +272,6 @@ class ProactiveEngine:
                 snapshots[source] = current
             selected = self.policy.choose(pending, history, now)
             for event in selected:
-                key = str(event["key"])
-                history[key] = now.isoformat()
-                pending.pop(key, None)
                 event["title"] = _event_title(str(event.get("source", "")), event.get("item") or {})
                 event["text"] = _event_text(str(event.get("source", "")), event.get("item") or {})
             state["snapshots"] = snapshots
@@ -285,6 +280,21 @@ class ProactiveEngine:
             state["last_poll"] = now.isoformat()
             self._save(state)
             return selected
+
+    def acknowledge_notification(self, key: str, sent_at: datetime | None = None) -> bool:
+        """Uğurla çatdırılmış notification-u pending-dən silib history-yə yazır."""
+        with self._lock:
+            state = self._load()
+            pending = state["pending"]
+            if key not in pending:
+                return False
+            history = state["history"]
+            history[str(key)] = (sent_at or datetime.now().astimezone()).isoformat()
+            pending.pop(key, None)
+            state["pending"] = pending
+            state["history"] = history
+            self._save(state)
+            return True
 
 
 class ProactiveScheduler:
@@ -309,12 +319,17 @@ class ProactiveScheduler:
 
     def poll_once(self) -> list[dict[str, Any]]:
         events = self.engine.poll()
+        delivered: list[dict[str, Any]] = []
         for event in events:
             try:
-                self.on_notification(event)
+                result = self.on_notification(event)
+                if result is False:
+                    continue
+                if self.engine.acknowledge_notification(str(event["key"])):
+                    delivered.append(event)
             except Exception:
-                pass
-        return events
+                continue
+        return delivered
 
     def _run(self) -> None:
         while not self._stop.is_set():
