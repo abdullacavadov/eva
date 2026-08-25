@@ -1,8 +1,26 @@
-const items = ['İdarə paneli', 'Söhbətlər', 'Təqvim', 'Tapşırıqlar', 'E-poçt', 'Kontaktlar', 'Xatırlatmalar', 'WhatsApp']
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import {
+  faAddressBook,
+  faBell,
+  faCalendarDays,
+  faComments,
+  faEnvelope,
+  faGear,
+  faGaugeHigh,
+  faListCheck,
+} from '@fortawesome/free-solid-svg-icons'
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons'
 
-const icons: Record<string, string> = {
-  'İdarə paneli': '⌂', Söhbətlər: '◌', Təqvim: '□', Tapşırıqlar: '✓', 'E-poçt': '✉', Kontaktlar: '♙', Xatırlatmalar: '◔', WhatsApp: '◉',
-}
+const items = [
+  { label: 'İdarə paneli', icon: faGaugeHigh },
+  { label: 'Söhbətlər', icon: faComments },
+  { label: 'Təqvim', icon: faCalendarDays },
+  { label: 'Tapşırıqlar', icon: faListCheck },
+  { label: 'E-poçt', icon: faEnvelope },
+  { label: 'Kontaktlar', icon: faAddressBook },
+  { label: 'Xatırlatmalar', icon: faBell },
+  { label: 'WhatsApp', icon: faWhatsapp },
+]
 
 export function Sidebar() {
   return (
@@ -13,12 +31,12 @@ export function Sidebar() {
       </div>
       <nav>
         {items.map((item, index) => (
-          <button className={`nav-item ${index === 0 ? 'active' : ''}`} key={item}>
-            <span className="nav-icon">{icons[item]}</span>{item}
+          <button className={`nav-item ${index === 0 ? 'active' : ''}`} key={item.label}>
+            <span className="nav-icon"><FontAwesomeIcon icon={item.icon} /></span>{item.label}
           </button>
         ))}
       </nav>
-      <button className="nav-item settings"><span className="nav-icon">⚙</span>Parametrlər</button>
+      <button className="nav-item settings"><span className="nav-icon"><FontAwesomeIcon icon={faGear} /></span>Parametrlər</button>
       <div className="profile">
         <div className="avatar">A</div>
         <div><strong>Abdulla</strong><small>SAHİB</small></div>
