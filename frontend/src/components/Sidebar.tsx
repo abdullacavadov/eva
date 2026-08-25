@@ -8,6 +8,8 @@ import {
   faGear,
   faGaugeHigh,
   faListCheck,
+  faStar,
+  faChevronRight,
 } from '@fortawesome/free-solid-svg-icons'
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons'
 
@@ -26,7 +28,7 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-orb"><span>✦</span></div>
+        <div className="brand-orb"><span><FontAwesomeIcon icon={faStar} /></span></div>
         <div><strong>EVA</strong><small>ŞƏXSİ ASSİSTENT</small></div>
       </div>
       <nav>
@@ -40,7 +42,7 @@ export function Sidebar() {
       <div className="profile">
         <div className="avatar">A</div>
         <div><strong>Abdulla</strong><small>SAHİB</small></div>
-        <span>›</span>
+        <span><FontAwesomeIcon icon={faChevronRight} /></span>
       </div>
     </aside>
   )
