@@ -13,11 +13,11 @@ const activity = (text: string, kind: ActivityItem['kind'], detail?: string): Ac
 export async function* demoConversation(): AsyncGenerator<EvaEvent> {
   const context: EvaContext = {
     source: 'Google Calendar',
-    title: 'Active context',
+    title: 'Aktiv kontekst',
     items: [
-      { id: 'calendar-1', title: 'Project Meeting', subtitle: '26 Aug · 10:00', source: 'Calendar' },
-      { id: 'calendar-2', title: 'Gym', subtitle: '26 Aug · 18:00', source: 'Calendar' },
-      { id: 'calendar-3', title: 'Client Call', subtitle: '26 Aug · 14:30', source: 'Calendar' },
+      { id: 'calendar-1', title: 'Layihə görüşü', subtitle: '26 Avq · 10:00', source: 'Təqvim' },
+      { id: 'calendar-2', title: 'İdman zalı', subtitle: '26 Avq · 18:00', source: 'Təqvim' },
+      { id: 'calendar-3', title: 'Müştəri zəngi', subtitle: '26 Avq · 14:30', source: 'Təqvim' },
     ],
   }
 
@@ -26,14 +26,14 @@ export async function* demoConversation(): AsyncGenerator<EvaEvent> {
   yield emitState('LISTENING')
   await wait(700)
   yield { type: 'conversation.user', text: 'Sabah üçün təqvimdə nə var?' }
-  yield { type: 'activity.created', activity: activity('User command received', 'user', 'Calendar query') }
+  yield { type: 'activity.created', activity: activity('İstifadəçi komandası qəbul edildi', 'user', 'Təqvim sorğusu') }
   await wait(500)
   yield emitState('THINKING')
-  yield { type: 'activity.created', activity: activity('Resolving calendar context', 'action') }
+  yield { type: 'activity.created', activity: activity('Təqvim konteksti müəyyənləşdirilir', 'action') }
   await wait(700)
   yield { type: 'context.updated', context }
   yield emitState('EXECUTING')
-  yield { type: 'activity.created', activity: activity('Calendar data ready', 'success', '3 upcoming events') }
+  yield { type: 'activity.created', activity: activity('Təqvim məlumatları hazırdır', 'success', '3 qarşıdakı tədbir') }
   await wait(500)
   yield { type: 'conversation.assistant', text: 'Sabah təqvimində 3 tədbir görünür. İstəsən, onları sıralayıb göstərə bilərəm.' }
   yield emitState('SUCCESS')
