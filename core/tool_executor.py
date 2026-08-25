@@ -25,6 +25,7 @@ from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
 from core.result_store import ResultStore
 from core.result_resolver import ResultResolutionError, resolve_item
+from core.orchestrator import execute_unified_query
 
 import tool_defs as _tool_defs
 from core.contact_tool_defs import CONTACT_TOOL_DECLARATIONS
@@ -99,6 +100,7 @@ class ToolExecutor:
             elif name == "get_daily_agenda": result = await loop.run_in_executor(None, lambda: get_daily_agenda(int(args.get("limit", 20) or 20))) or "Bu gün üçün agenda alındı."
             elif name == "add_agenda_item": result = await loop.run_in_executor(None, lambda: add_agenda_item(args.get("title", ""), args.get("item_type", "task"), args.get("storage", ""), args.get("due_iso", ""), args.get("notes", ""))) or "Agenda elementi əlavə edildi."
             elif name == "delete_agenda_item": result = await loop.run_in_executor(None, lambda: delete_agenda_item(args.get("match_text", ""), args.get("storage", ""), bool(args.get("confirm", False)))) or "Agenda elementi silindi."
+            elif name == "query_unified_assistant": result = await loop.run_in_executor(None, lambda: execute_unified_query(args.get("query", ""), int(args.get("limit", 8) or 8))) or "Unified sorğu icra edildi."
             elif name == "open_app": result = await loop.run_in_executor(None, lambda: open_app(args.get("app_name", ""))) or f"{args.get('app_name')} açıldı."
             elif name == "sys_info": self.focus_ui_section(name, args); result = await loop.run_in_executor(None, lambda: sys_info(args.get("query", "all"))) or "Məlumat alındı."
             elif name == "get_weather": self.focus_ui_section(name, args); result = await loop.run_in_executor(None, lambda: get_weather_summary(args.get("location") or None)) or "Hava durumu məlumatı alındı."
