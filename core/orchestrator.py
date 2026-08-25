@@ -54,6 +54,17 @@ def _memory_items(search_text: str = "", period: str = "") -> list[dict[str, Any
     return list(unique.values())[:20]
 
 
+def _entity_matches(item: dict[str, Any], entity: str) -> bool:
+    if not entity:
+        return True
+    haystack = " ".join(str(value) for value in item.values() if value is not None).casefold()
+    normalized = str(entity).casefold().strip()
+    if normalized in haystack:
+        return True
+    tokens = [token for token in normalized.split() if len(token) >= 4]
+    return bool(tokens) and any(token in haystack for token in tokens)
+
+
 def _matches_search_terms(item: dict[str, Any], search_terms: tuple[str, ...]) -> bool:
     if not search_terms:
         return True
@@ -64,12 +75,23 @@ def _matches_search_terms(item: dict[str, Any], search_terms: tuple[str, ...]) -
     return any(term.casefold() in text for term in search_terms)
 
 
-def _append_source(items: list[dict[str, Any]], source: str, result: Any, limit: int = 8, search_terms: tuple[str, ...] = ()) -> None:
+def _append_source(
+    items: list[dict[str, Any]],
+    source: str,
+    result: Any,
+    limit: int = 8,
+    entity: str = "",
+    search_terms: tuple[str, ...] = (),
+) -> None:
     if not isinstance(result, dict):
         return
     matched = 0
     for raw in result.get("data", []):
-        if not isinstance(raw, dict) or not _matches_search_terms(raw, search_terms):
+        if not isinstance(raw, dict):
+            continue
+        if entity and not _entity_matches(raw, entity):
+            continue
+        if search_terms and not _matches_search_terms(raw, search_terms):
             continue
         items.append(normalize_item(source, raw, result.get("type", "item")))
         matched += 1
@@ -109,18 +131,19 @@ def execute_unified_query(query: str, limit: int = 8) -> dict[str, Any]:
 
     items: list[dict[str, Any]] = []
     errors: dict[str, str] = {}
+    entity = plan.metadata.get("entity", "")
     for source in plan.sources:
         try:
             if source == "calendar":
-                result = get_calendar_events(plan.period or plan.search_text or "today", limit)
-                _append_source(items, source, result, limit, plan.search_terms)
+                result = get_calendar_events(plan.period or plan.search_text or "today", max(limit, 20) if entity else limit)
+                _append_source(items, source, result, limit, entity, plan.search_terms)
                 if result.get("status") == "error":
                     errors[source] = result.get("meta", {}).get("message", "Calendar xətası")
             elif source == "tasks":
                 from actions.reminders import get_reminders
-                task_query = plan.period or plan.search_text or "upcoming"
-                result = get_reminders(task_query, limit, "")
-                _append_source(items, source, result, limit, plan.search_terms)
+                task_query = plan.period if plan.period else "upcoming"
+                result = get_reminders(task_query, max(limit, 20) if entity else limit, "")
+                _append_source(items, source, result, limit, entity, plan.search_terms)
                 if result.get("status") == "error":
                     errors[source] = result.get("meta", {}).get("message", "Google Tasks xətası")
             elif source == "memory":
@@ -134,12 +157,12 @@ def execute_unified_query(query: str, limit: int = 8) -> dict[str, Any]:
                     next_day = target + timedelta(days=1)
                     q = f"after:{target.strftime('%Y/%m/%d')} before:{next_day.strftime('%Y/%m/%d')}"
                 result = search_emails(q, limit)
-                _append_source(items, source, result, limit)
+                _append_source(items, source, result, limit, entity, plan.search_terms)
                 if result.get("status") == "error":
                     errors[source] = result.get("meta", {}).get("message", "Gmail xətası")
             elif source == "whatsapp":
                 result = read_whatsapp_messages(plan.search_text, deduplicate=True)
-                _append_source(items, source, result, limit)
+                _append_source(items, source, result, limit, entity, plan.search_terms)
                 if result.get("status") == "error":
                     errors[source] = result.get("meta", {}).get("message", "WhatsApp xətası")
         except Exception as exc:
@@ -148,4 +171,4 @@ def execute_unified_query(query: str, limit: int = 8) -> dict[str, Any]:
     for item in items:
         unique.setdefault(item["id"], item)
     ordered = list(unique.values())[: limit * max(1, len(plan.sources))]
-    return make_unified_result(query, plan.intent, list(plan.sources), ordered, errors, {"period": plan.period, "search_text": plan.search_text, "search_terms": list(plan.search_terms), "requires_confirmation": plan.needs_confirmation, "source_count": len(plan.sources)})
+    return make_unified_result(query, plan.intent, list(plan.sources), ordered, errors, {"period": plan.period, "search_text": plan.search_text, "search_terms": list(plan.search_terms), "requires_confirmation": plan.needs_confirmation, "source_count": len(plan.sources), "entity": entity})
