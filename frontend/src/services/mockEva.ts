@@ -15,9 +15,9 @@ export async function* demoConversation(): AsyncGenerator<EvaEvent> {
     source: 'Google Calendar',
     title: 'Active context',
     items: [
-      { id: 'calendar-1', title: 'Project Meeting', subtitle: '24 Aug · 10:00', source: 'Calendar' },
-      { id: 'calendar-2', title: 'Gym', subtitle: '24 Aug · 18:00', source: 'Calendar' },
-      { id: 'calendar-3', title: 'Client Call', subtitle: '25 Aug · 14:30', source: 'Calendar' },
+      { id: 'calendar-1', title: 'Project Meeting', subtitle: '26 Aug · 10:00', source: 'Calendar' },
+      { id: 'calendar-2', title: 'Gym', subtitle: '26 Aug · 18:00', source: 'Calendar' },
+      { id: 'calendar-3', title: 'Client Call', subtitle: '26 Aug · 14:30', source: 'Calendar' },
     ],
   }
 
