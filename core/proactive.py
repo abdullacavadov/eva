@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import threading
-import time
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -46,9 +45,7 @@ def _parse_datetime(value: Any) -> datetime | None:
         return None
     try:
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-        if parsed.tzinfo is None:
-            return parsed.astimezone()
-        return parsed.astimezone()
+        return parsed.astimezone() if parsed.tzinfo else parsed.astimezone()
     except ValueError:
         pass
     try:
@@ -112,13 +109,7 @@ def _quiet_now(now: datetime, start: str, end: str) -> bool:
 class NotificationPolicy:
     """Bildirişlərin nə vaxt və hansı tezlikdə istifadəçiyə göstəriləcəyini müəyyən edir."""
 
-    def __init__(
-        self,
-        rate_limit: int = DEFAULT_RATE_LIMIT,
-        cooldown_minutes: int = DEFAULT_COOLDOWN_MINUTES,
-        quiet_start: str = DEFAULT_QUIET_START,
-        quiet_end: str = DEFAULT_QUIET_END,
-    ) -> None:
+    def __init__(self, rate_limit: int = DEFAULT_RATE_LIMIT, cooldown_minutes: int = DEFAULT_COOLDOWN_MINUTES, quiet_start: str = DEFAULT_QUIET_START, quiet_end: str = DEFAULT_QUIET_END) -> None:
         self.rate_limit = max(1, int(rate_limit))
         self.cooldown = timedelta(minutes=max(0, int(cooldown_minutes)))
         self.quiet_start = quiet_start
@@ -129,30 +120,25 @@ class NotificationPolicy:
         item = event.get("item") or {}
         if source in {"gmail", "whatsapp"}:
             return True
-
         if source == "calendar":
             start = _parse_datetime(item.get("start") or item.get("date"))
             if start is None:
                 return bool(event.get("changed", False))
             return start <= now + timedelta(minutes=60) and start >= now - timedelta(minutes=15)
-
         if source == "tasks":
             due = _parse_datetime(item.get("due") or item.get("date"))
             if due is None:
                 return False
             return due <= now + timedelta(hours=24)
-
         if source == "memory":
             text = " ".join(str(item.get(key, "")) for key in ("title", "value", "notes", "due", "type")).casefold()
             return any(word in text for word in ("urgent", "vacib", "təcili", "deadline")) or bool(item.get("due"))
-
         return False
 
     def choose(self, pending: dict[str, dict[str, Any]], history: dict[str, str], now: datetime | None = None) -> list[dict[str, Any]]:
         now = now or datetime.now().astimezone()
         if _quiet_now(now, self.quiet_start, self.quiet_end):
             return []
-
         recent = 0
         for timestamp in history.values():
             parsed = _parse_datetime(timestamp)
@@ -160,7 +146,6 @@ class NotificationPolicy:
                 recent += 1
         if recent >= self.rate_limit:
             return []
-
         selected: list[dict[str, Any]] = []
         for key, event in pending.items():
             last_sent = _parse_datetime(str(history.get(key, "")))
@@ -212,10 +197,8 @@ class ProactiveEngine:
         items = result if isinstance(result, list) else []
         normalized: dict[str, dict[str, Any]] = {}
         for item in items:
-            if not isinstance(item, dict):
-                continue
-            item_id = _item_id(item, source)
-            normalized[item_id] = item
+            if isinstance(item, dict):
+                normalized[_item_id(item, source)] = item
         return {"items": normalized}
 
     def _collect(self) -> dict[str, Any]:
@@ -225,13 +208,11 @@ class ProactiveEngine:
             sources["gmail"] = result.get("data", []) if result.get("status") != "error" else []
         except Exception:
             sources["gmail"] = []
-
         try:
             result = read_whatsapp_conversations()
             sources["whatsapp"] = result.get("data", []) if result.get("status") != "error" else []
         except Exception:
             sources["whatsapp"] = []
-
         try:
             result = get_daily_agenda(limit=50, date_text=datetime.now().astimezone().date().isoformat())
             groups = result.get("meta", {}).get("groups", {}) if isinstance(result, dict) else {}
@@ -240,7 +221,6 @@ class ProactiveEngine:
         except Exception:
             sources["calendar"] = []
             sources["tasks"] = []
-
         try:
             sources["memory"] = load_memory()
         except Exception:
@@ -255,7 +235,6 @@ class ProactiveEngine:
             snapshots = state["snapshots"]
             pending = state["pending"]
             history = state["history"]
-
             for source, raw in sources.items():
                 current = self._source_snapshot(source, raw)
                 previous = snapshots.get(source)
@@ -269,17 +248,15 @@ class ProactiveEngine:
                         for item_id, item in current.get("items", {}).items():
                             old_item = old_items.get(item_id)
                             changed = old_item is None or _fingerprint(old_item) != _fingerprint(item)
+                            if source == "whatsapp":
+                                old_unread = int((old_item or {}).get("unread_count", 0) or 0)
+                                new_unread = int(item.get("unread_count", 0) or 0)
+                                changed = new_unread > old_unread
                             if not changed:
                                 continue
                             key = f"{item_id}:{_fingerprint(item)}"
-                            pending[key] = {
-                                "key": key,
-                                "source": source,
-                                "item": item,
-                                "changed": old_item is not None,
-                            }
+                            pending[key] = {"key": key, "source": source, "item": item, "changed": old_item is not None}
                 snapshots[source] = current
-
             selected = self.policy.choose(pending, history, now)
             for event in selected:
                 key = str(event["key"])
@@ -287,7 +264,6 @@ class ProactiveEngine:
                 pending.pop(key, None)
                 event["title"] = _event_title(str(event.get("source", "")), event.get("item") or {})
                 event["text"] = _event_text(str(event.get("source", "")), event.get("item") or {})
-
             state["snapshots"] = snapshots
             state["pending"] = pending
             state["history"] = history
@@ -299,12 +275,7 @@ class ProactiveEngine:
 class ProactiveScheduler:
     """ProactiveEngine-i daemon thread-də periodik icra edir."""
 
-    def __init__(
-        self,
-        engine: ProactiveEngine,
-        on_notification: Callable[[dict[str, Any]], None],
-        interval: int = DEFAULT_INTERVAL,
-    ) -> None:
+    def __init__(self, engine: ProactiveEngine, on_notification: Callable[[dict[str, Any]], None], interval: int = DEFAULT_INTERVAL) -> None:
         self.engine = engine
         self.on_notification = on_notification
         self.interval = max(10, int(interval))
