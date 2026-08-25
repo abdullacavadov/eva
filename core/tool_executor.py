@@ -24,7 +24,7 @@ from actions.weather import get_weather_summary
 from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
 from core.result_store import ResultStore
-from core.result_resolver import ResultResolutionError, resolve_item
+from core.result_resolver import ResultResolutionError, resolve_item, resolve_reference
 from core.orchestrator import execute_unified_query
 
 import tool_defs as _tool_defs
@@ -54,7 +54,8 @@ class ToolExecutor:
         context = self.result_store.current()
         if context is None:
             raise ResultResolutionError("Əvvəlki nəticə tapılmadı")
-        item = resolve_item(context, query)
+        selected = self.result_store.selected(context.result_id)
+        item = resolve_reference(context, query, selected_item=selected)
         self.result_store.select(context.result_id, item["id"])
         return item
 
