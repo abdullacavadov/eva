@@ -106,7 +106,26 @@ export default function App() {
           <div className="right-stack">
             <ContextPanel context={context} />
             <ActivityFeed items={activities} />
-            <section className="panel weather-panel"><div className="panel-heading"><span>MÜHİT</span><small>BAKI, AZ</small></div><div className="weather-main"><strong>28°</strong><span>AÇIQ SƏMA</span></div><div className="weather-meta"><span>Y 31°</span><span>A 22°</span><span>24 km/s</span></div></section>
+            <section className="panel weather-panel">
+              <div className="panel-heading">
+                <span>HAVA PROQNOZU</span>
+                <small>BAKI, AZ</small>
+              </div>
+              <div className="weather-main">
+                <strong>28°</strong>
+                <div className="weather-icon">
+                  <img src="https://cdn-icons-png.flaticon.com/512/1247/1247953.png" height="35" width="50"></img>
+                  <small>Qismən buludlu</small>
+                </div>
+                
+              </div>
+              <div className="weather-meta">
+                <span>Hiss edilən: 31°</span>
+                <span>Külək: 8 km/saat, Şimal-Cənub</span>
+                <span>Rütubət: 83%</span>
+                <span>Təzyiq: 1009.6 hPa</span>
+              </div>
+            </section>
           </div>
         </div>
       </main>

@@ -21,7 +21,7 @@ export function EvaOrb({ state }: { state: EvaState }) {
         <div className="orb-grid" />
         <div className="orb-particles particles-a" />
         <div className="orb-particles particles-b" />
-        <span className="orb-wordmark">EVA</span>
+        <span className="orb-wordmark">E.V.A</span>
       </div>
       <div className="orb-beam" />
       <div className="orb-platform">

@@ -41,7 +41,7 @@ export function Sidebar() {
       <button className="nav-item settings"><span className="nav-icon"><FontAwesomeIcon icon={faGear} /></span>Parametrlər</button>
       <div className="profile">
         <div className="avatar">A</div>
-        <div><strong>Abdulla</strong><small>SAHİB</small></div>
+        <div><strong>Abdulla</strong></div>
         <span><FontAwesomeIcon icon={faChevronRight} /></span>
       </div>
     </aside>
