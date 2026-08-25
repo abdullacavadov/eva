@@ -30,7 +30,7 @@ def read_whatsapp_conversations() -> dict:
         bridge.close()
 
 
-def read_whatsapp_messages(conversation: str = "") -> dict:
+def read_whatsapp_messages(conversation: str = "", deduplicate: bool = True) -> dict:
     bridge = _bridge()
     seen_file = os.getenv("EVA_WHATSAPP_SEEN_FILE") or str(DEFAULT_SEEN_FILE)
     try:
@@ -75,7 +75,7 @@ def read_whatsapp_messages(conversation: str = "") -> dict:
             ).first.click()
             page.wait_for_timeout(500)
 
-        return read_visible_whatsapp_messages(bridge, seen_file)
+        return read_visible_whatsapp_messages(bridge, seen_file, deduplicate=deduplicate)
     finally:
         bridge.close()
 
