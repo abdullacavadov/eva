@@ -184,10 +184,11 @@ class ProactiveEngine:
                 value.setdefault("pending", {})
                 value.setdefault("history", {})
                 value.setdefault("quiet_digest_sent", None)
+                value.setdefault("quiet_digest_offered_at", None)
                 return value
         except Exception:
             pass
-        return {"snapshots": {}, "pending": {}, "history": {}, "quiet_digest_sent": None}
+        return {"snapshots": {}, "pending": {}, "history": {}, "quiet_digest_sent": None, "quiet_digest_offered_at": None}
 
     def _save(self, state: dict[str, Any]) -> None:
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -279,13 +280,16 @@ class ProactiveEngine:
                             if key not in pending:
                                 pending[key] = {"key": key, "source": source, "item": item, "changed": old_item is not None}
                 snapshots[source] = current
-            if was_quiet and not is_quiet and len(pending) > 1 and not state.get("quiet_digest_sent"):
+            digest_offered_at = _parse_datetime(state.get("quiet_digest_offered_at"))
+            recent = sum(1 for timestamp in history.values() if (parsed := _parse_datetime(timestamp)) and now - parsed <= timedelta(hours=1))
+            if was_quiet and not is_quiet and len(pending) > 1 and recent < self.policy.rate_limit and not (digest_offered_at and now - digest_offered_at < timedelta(minutes=DEFAULT_RETRY_MINUTES)):
                 digest = build_notification_digest(pending)
                 if digest:
                     digest_key = f"digest:{_fingerprint(sorted(pending))}"
                     digest["key"] = digest_key
                     digest["_digest_keys"] = list(pending)
                     state["quiet_digest_sent"] = digest_key
+                    state["quiet_digest_offered_at"] = now.isoformat()
                     state["snapshots"] = snapshots
                     state["pending"] = pending
                     state["history"] = history
@@ -328,13 +332,13 @@ class ProactiveEngine:
             pending = state["pending"]
             history = state["history"]
             timestamp = (sent_at or datetime.now().astimezone()).isoformat()
-            digest_keys = pending.keys()
-            for child_key in list(digest_keys):
+            for child_key in list(pending):
                 history[str(child_key)] = timestamp
                 pending.pop(child_key, None)
             state["pending"] = pending
             state["history"] = history
             state["quiet_digest_sent"] = None
+            state["quiet_digest_offered_at"] = None
             self._save(state)
             return True
 
