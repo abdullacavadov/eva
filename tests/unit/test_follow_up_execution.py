@@ -30,6 +30,38 @@ def test_complete_dispatch_executes_target_and_saves_structured_result():
     assert result["data"][0]["status"] == "completed"
 
 
+def test_update_dispatch_executes_target_and_saves_structured_result():
+    result_store = Mock()
+    update = Mock(return_value={
+        "type": "task",
+        "status": "success",
+        "data": [{"id": "task:t2", "title": "İkinci", "due_iso": "2026-08-26T09:00:00+04:00"}],
+        "count": 1,
+    })
+    dispatch = FollowUpDispatch(
+        "update_reminder",
+        {
+            "task_id": "t2",
+            "list_name": "list1",
+            "due_iso": "2026-08-26T09:00:00+04:00",
+        },
+        {"id": "task:t2", "google_task_id": "t2"},
+    )
+
+    result = execute_follow_up_dispatch(
+        dispatch,
+        update_task=update,
+        delete_task=Mock(),
+        result_store=result_store,
+    )
+
+    update.assert_called_once_with(
+        "t2", "", "2026-08-26T09:00:00+04:00", "", "list1", False
+    )
+    result_store.save.assert_called_once_with(result)
+    assert result["data"][0]["due_iso"].endswith("+04:00")
+
+
 def test_delete_dispatch_never_bypasses_confirmation():
     delete = Mock()
     dispatch = FollowUpDispatch(
