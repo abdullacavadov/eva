@@ -1,7 +1,7 @@
-const items = ['Dashboard', 'Conversations', 'Calendar', 'Tasks', 'Email', 'Contacts', 'Reminders', 'WhatsApp']
+const items = ['İdarə paneli', 'Söhbətlər', 'Təqvim', 'Tapşırıqlar', 'E-poçt', 'Kontaktlar', 'Xatırlatmalar', 'WhatsApp']
 
 const icons: Record<string, string> = {
-  Dashboard: '⌂', Conversations: '◌', Calendar: '□', Tasks: '✓', Email: '✉', Contacts: '♙', Reminders: '◔', WhatsApp: '◉',
+  'İdarə paneli': '⌂', Söhbətlər: '◌', Təqvim: '□', Tapşırıqlar: '✓', 'E-poçt': '✉', Kontaktlar: '♙', Xatırlatmalar: '◔', WhatsApp: '◉',
 }
 
 export function Sidebar() {
@@ -9,7 +9,7 @@ export function Sidebar() {
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-orb"><span>✦</span></div>
-        <div><strong>EVA</strong><small>PERSONAL AI</small></div>
+        <div><strong>EVA</strong><small>ŞƏXSİ ASSİSTENT</small></div>
       </div>
       <nav>
         {items.map((item, index) => (
@@ -18,10 +18,10 @@ export function Sidebar() {
           </button>
         ))}
       </nav>
-      <button className="nav-item settings"><span className="nav-icon">⚙</span>Settings</button>
+      <button className="nav-item settings"><span className="nav-icon">⚙</span>Parametrlər</button>
       <div className="profile">
         <div className="avatar">A</div>
-        <div><strong>Abdulla</strong><small>OWNER</small></div>
+        <div><strong>Abdulla</strong><small>SAHİB</small></div>
         <span>›</span>
       </div>
     </aside>
