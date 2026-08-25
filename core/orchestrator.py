@@ -4,8 +4,10 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from actions.calendar import get_calendar_events
+from actions.daily_report import build_daily_report
 from actions.email import search_emails
 from actions.whatsapp_read_action import read_whatsapp_messages
+from actions.agenda import get_daily_agenda
 from memory.memory_manager import load_memory
 from core.query_planner import QueryPlan, plan_query
 from core.unified_results import make_unified_result, normalize_item
@@ -60,15 +62,38 @@ def _append_source(items: list[dict[str, Any]], source: str, result: Any, limit:
             items.append(normalize_item(source, raw, result.get("type", "item")))
 
 
+def _execute_daily_report(limit: int) -> dict[str, Any]:
+    target_date = datetime.now().astimezone().date().isoformat()
+    agenda = get_daily_agenda(limit=limit, date_text=target_date)
+    results: dict[str, dict[str, Any]] = {
+        "calendar": {"status": agenda.get("status"), "data": agenda.get("meta", {}).get("groups", {}).get("calendar", []), "meta": {"message": agenda.get("meta", {}).get("errors", {}).get("calendar", "")}},
+        "tasks": {"status": agenda.get("status"), "data": agenda.get("meta", {}).get("groups", {}).get("tasks", []), "meta": {"message": agenda.get("meta", {}).get("errors", {}).get("tasks", "")}},
+        "memory": {"status": agenda.get("status"), "data": agenda.get("meta", {}).get("groups", {}).get("memory", []), "meta": {"message": agenda.get("meta", {}).get("errors", {}).get("memory", "")}},
+    }
+    try:
+        results["gmail"] = search_emails(
+            f"after:{target_date.replace('-', '/')} before:{(datetime.fromisoformat(target_date) + timedelta(days=1)).strftime('%Y/%m/%d')}",
+            limit,
+        )
+    except Exception as exc:
+        results["gmail"] = {"status": "error", "data": [], "meta": {"message": str(exc)}}
+    try:
+        results["whatsapp"] = read_whatsapp_messages("", deduplicate=False)
+    except Exception as exc:
+        results["whatsapp"] = {"status": "error", "data": [], "meta": {"message": str(exc)}}
+    return build_daily_report(results, target_date)
+
+
 def execute_unified_query(query: str, limit: int = 8) -> dict[str, Any]:
     plan: QueryPlan = plan_query(query)
     if not plan.sources:
         return make_unified_result(query, plan.intent, [], [], meta={"reason": "No unified source matched; use the existing specialist tools."})
-
     limit = max(1, min(int(limit or 8), 20))
+    if plan.intent == "daily_report":
+        return _execute_daily_report(limit)
+
     items: list[dict[str, Any]] = []
     errors: dict[str, str] = {}
-
     for source in plan.sources:
         try:
             if source == "calendar":
@@ -97,30 +122,14 @@ def execute_unified_query(query: str, limit: int = 8) -> dict[str, Any]:
                 if result.get("status") == "error":
                     errors[source] = result.get("meta", {}).get("message", "Gmail xətası")
             elif source == "whatsapp":
-                result = read_whatsapp_messages(plan.search_text if plan.search_text else "")
+                result = read_whatsapp_messages(plan.search_text, deduplicate=True)
                 _append_source(items, source, result, limit)
                 if result.get("status") == "error":
-                    errors[source] = result.get("meta", {}).get("error", "WhatsApp xətası")
-            elif source == "contacts":
-                errors[source] = "Unified contacts query hələ read/search action-a qoşulmayıb."
+                    errors[source] = result.get("meta", {}).get("message", "WhatsApp xətası")
         except Exception as exc:
             errors[source] = str(exc)
-
     unique: dict[str, dict[str, Any]] = {}
     for item in items:
         unique.setdefault(item["id"], item)
-
     ordered = list(unique.values())[: limit * max(1, len(plan.sources))]
-    return make_unified_result(
-        query,
-        plan.intent,
-        list(plan.sources),
-        ordered,
-        errors,
-        {
-            "period": plan.period,
-            "search_text": plan.search_text,
-            "requires_confirmation": plan.needs_confirmation,
-            "source_count": len(plan.sources),
-        },
-    )
+    return make_unified_result(query, plan.intent, list(plan.sources), ordered, errors, {"period": plan.period, "search_text": plan.search_text, "requires_confirmation": plan.needs_confirmation, "source_count": len(plan.sources)})

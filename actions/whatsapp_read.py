@@ -51,24 +51,28 @@ def _save_seen(path: Path, values: Iterable[str]) -> None:
 def read_visible_whatsapp_messages(
     bridge: WhatsAppWebBridge,
     seen_path: str | Path,
+    deduplicate: bool = True,
 ) -> dict[str, Any]:
-    path = Path(seen_path)
-    seen = _load_seen(path)
-    seen_set = set(seen)
-    new_messages: list[WhatsAppVisibleMessage] = []
+    messages = list(bridge.get_visible_messages())
+    if deduplicate:
+        path = Path(seen_path)
+        seen = _load_seen(path)
+        seen_set = set(seen)
+        new_messages: list[WhatsAppVisibleMessage] = []
 
-    for message in bridge.get_visible_messages():
-        key = _message_key(message)
-        if key in seen_set:
-            continue
-        seen_set.add(key)
-        seen.append(key)
-        new_messages.append(message)
+        for message in messages:
+            key = _message_key(message)
+            if key in seen_set:
+                continue
+            seen_set.add(key)
+            seen.append(key)
+            new_messages.append(message)
 
-    _save_seen(path, seen)
+        _save_seen(path, seen)
+        messages = new_messages
 
-    if not new_messages:
-        return empty_messages(meta={"deduplicated": True})
+    if not messages:
+        return empty_messages(meta={"deduplicated": deduplicate})
 
     items = [
         message_result(
@@ -80,7 +84,7 @@ def read_visible_whatsapp_messages(
             timestamp=message.timestamp,
             direction=message.direction,
         )["data"][0]
-        for message in new_messages
+        for message in messages
     ]
 
     return {
@@ -90,7 +94,7 @@ def read_visible_whatsapp_messages(
         "data": items,
         "count": len(items),
         "selected": None,
-        "meta": {"deduplicated": True},
+        "meta": {"deduplicated": deduplicate},
     }
 
 

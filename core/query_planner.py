@@ -32,14 +32,9 @@ def plan_query(query: str) -> QueryPlan:
             sources.append("calendar")
         if any(word in q for word in ("yaddaş", "memory", "qeyd")):
             sources.append("memory")
-        return QueryPlan(
-            "deletion",
-            tuple(sources) or ("tasks", "calendar", "memory"),
-            needs_confirmation=True,
-            metadata={"ambiguous_source": "true" if not sources else "false"},
-        )
+        return QueryPlan("deletion", tuple(sources) or ("tasks", "calendar", "memory"), needs_confirmation=True, metadata={"ambiguous_source": "true" if not sources else "false"})
 
-    if any(phrase in q for phrase in ("bu gün nə baş verib", "bu gün nə baş verdi", "gündəlik report", "daily report", "günlük report", "günlük hesabat")):
+    if any(phrase in q for phrase in ("bu gün nə baş verib", "bu gün nə baş verdi", "bu gün üçün report", "bu gün üçün hesabat", "bugünkü report", "bugünkü hesabat", "gündəlik report", "daily report", "günlük report", "günlük hesabat")):
         return QueryPlan("daily_report", _REPORT, "today")
 
     if any(phrase in q for phrase in ("bu gün nə işim var", "bu gün nə etməliyəm", "bu gün nələr var", "bu gün planım", "bugün nə işim var")):
