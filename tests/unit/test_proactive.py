@@ -90,6 +90,21 @@ def test_engine_keeps_quiet_hour_event_pending(tmp_path, monkeypatch):
     assert len(events) == 1
 
 
+def test_whatsapp_read_state_does_not_trigger_notification(tmp_path, monkeypatch):
+    engine = ProactiveEngine(tmp_path / "state.json", NotificationPolicy(quiet_start="00:00", quiet_end="00:01"))
+    values = [
+        [{"conversation_id": "c1", "title": "Ali", "unread_count": 2}],
+        [{"conversation_id": "c1", "title": "Ali", "unread_count": 0}],
+        [{"conversation_id": "c1", "title": "Ali", "unread_count": 1}],
+    ]
+    monkeypatch.setattr(engine, "_collect", lambda: {"gmail": [], "whatsapp": values.pop(0), "calendar": [], "tasks": [], "memory": {}})
+    assert engine.poll(_now(12)) == []
+    assert engine.poll(_now(12)) == []
+    events = engine.poll(_now(12))
+    assert len(events) == 1
+    assert events[0]["source"] == "whatsapp"
+
+
 def test_scheduler_poll_once_forwards_notifications():
     received = []
 
