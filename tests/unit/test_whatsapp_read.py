@@ -62,6 +62,20 @@ def test_seen_messages_are_skipped_on_subsequent_reads(tmp_path: Path):
     assert second["count"] == 0
 
 
+def test_non_deduplicated_read_returns_seen_messages_without_updating_seen_state(tmp_path: Path):
+    seen_path = tmp_path / "seen.json"
+    bridge = FakeBridge(messages=[_message("m1")])
+
+    first = read_visible_whatsapp_messages(bridge, seen_path)
+    report_read = read_visible_whatsapp_messages(bridge, seen_path, deduplicate=False)
+    second = read_visible_whatsapp_messages(bridge, seen_path)
+
+    assert first["count"] == 1
+    assert report_read["count"] == 1
+    assert report_read["meta"]["deduplicated"] is False
+    assert second["status"] == "empty"
+
+
 def test_message_result_contains_structured_fields(tmp_path: Path):
     result = read_visible_whatsapp_messages(
         FakeBridge(messages=[_message("m1", "Test mesaj")]),
