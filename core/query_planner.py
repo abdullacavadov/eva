@@ -71,9 +71,9 @@ def plan_query(query: str) -> QueryPlan:
         if any(word in q for word in ("danış", "yazış", "mesaj", "son nə", "nə demiş")):
             return QueryPlan("contact_history", ("whatsapp", "memory"), "", text, ("Əhməd",), metadata={"entity": "Əhməd"})
         if any(word in q for word in ("görüş", "görüşüm", "görüş var")) and any(word in q for word in ("bu gün", "bugün")):
-            return QueryPlan("cross_source_search", ("calendar", "tasks", "memory"), "today", "Əhməd", ("Əhməd",), metadata={"entity": "Əhməd"})
+            return QueryPlan("cross_source_search", ("calendar", "whatsapp", "memory"), "today", "Əhməd", ("Əhməd",), metadata={"entity": "Əhməd"})
         if any(word in q for word in ("görüş", "görüşüm", "görüş var")) and "sabah" in q:
-            return QueryPlan("cross_source_search", ("calendar", "tasks", "memory"), "tomorrow", "Əhməd", ("Əhməd",), metadata={"entity": "Əhməd"})
+            return QueryPlan("cross_source_search", ("calendar", "whatsapp", "memory"), "tomorrow", "Əhməd", ("Əhməd",), metadata={"entity": "Əhməd"})
 
     entity = _cross_source_entity(text)
     if entity:
