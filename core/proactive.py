@@ -14,6 +14,7 @@ from typing import Any, Callable
 from actions.agenda import get_daily_agenda
 from actions.email import search_emails
 from actions.whatsapp_read_action import read_whatsapp_conversations
+from core.notification_digest import build_notification_digest
 from memory.memory_manager import load_memory
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -182,10 +183,11 @@ class ProactiveEngine:
                 value.setdefault("snapshots", {})
                 value.setdefault("pending", {})
                 value.setdefault("history", {})
+                value.setdefault("quiet_digest_sent", None)
                 return value
         except Exception:
             pass
-        return {"snapshots": {}, "pending": {}, "history": {}}
+        return {"snapshots": {}, "pending": {}, "history": {}, "quiet_digest_sent": None}
 
     def _save(self, state: dict[str, Any]) -> None:
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -249,6 +251,9 @@ class ProactiveEngine:
             snapshots = state["snapshots"]
             pending = state["pending"]
             history = state["history"]
+            previous_poll = _parse_datetime(state.get("last_poll"))
+            was_quiet = _quiet_now(previous_poll, self.policy.quiet_start, self.policy.quiet_end) if previous_poll else False
+            is_quiet = _quiet_now(now, self.policy.quiet_start, self.policy.quiet_end)
             for source, raw in sources.items():
                 if source in self._collection_failures or raw is None:
                     continue
@@ -258,7 +263,7 @@ class ProactiveEngine:
                     if source == "memory":
                         if previous.get("fingerprint") != current.get("fingerprint"):
                             key = f"memory:{current['fingerprint']}"
-                            pending[key] = {"key": key, "source": source, "item": {"value": "memory changed"}, "changed": True}
+                            pending.setdefault(key, {"key": key, "source": source, "item": {"value": "memory changed"}, "changed": True})
                     else:
                         old_items = previous.get("items", {})
                         for item_id, item in current.get("items", {}).items():
@@ -271,10 +276,22 @@ class ProactiveEngine:
                             if not changed:
                                 continue
                             key = f"{item_id}:{_fingerprint(item)}"
-                            existing = pending.get(key)
-                            if existing is None:
+                            if key not in pending:
                                 pending[key] = {"key": key, "source": source, "item": item, "changed": old_item is not None}
                 snapshots[source] = current
+            if was_quiet and not is_quiet and len(pending) > 1 and not state.get("quiet_digest_sent"):
+                digest = build_notification_digest(pending)
+                if digest:
+                    digest_key = f"digest:{_fingerprint(sorted(pending))}"
+                    digest["key"] = digest_key
+                    digest["_digest_keys"] = list(pending)
+                    state["quiet_digest_sent"] = digest_key
+                    state["snapshots"] = snapshots
+                    state["pending"] = pending
+                    state["history"] = history
+                    state["last_poll"] = now.isoformat()
+                    self._save(state)
+                    return [digest]
             selected = self.policy.choose(pending, history, now)
             for event in selected:
                 event["_offered_at"] = now.isoformat()
@@ -299,6 +316,25 @@ class ProactiveEngine:
             pending.pop(key, None)
             state["pending"] = pending
             state["history"] = history
+            self._save(state)
+            return True
+
+    def acknowledge_digest(self, key: str, sent_at: datetime | None = None) -> bool:
+        """Uğurla çatdırılmış digest-in bütün child event-lərini atomik ACK edir."""
+        with self._lock:
+            state = self._load()
+            if state.get("quiet_digest_sent") != key:
+                return False
+            pending = state["pending"]
+            history = state["history"]
+            timestamp = (sent_at or datetime.now().astimezone()).isoformat()
+            digest_keys = pending.keys()
+            for child_key in list(digest_keys):
+                history[str(child_key)] = timestamp
+                pending.pop(child_key, None)
+            state["pending"] = pending
+            state["history"] = history
+            state["quiet_digest_sent"] = None
             self._save(state)
             return True
 
@@ -327,15 +363,19 @@ class ProactiveScheduler:
         events = self.engine.poll()
         delivered: list[dict[str, Any]] = []
         acknowledge = getattr(self.engine, "acknowledge_notification", None)
+        acknowledge_digest = getattr(self.engine, "acknowledge_digest", None)
         for event in events:
             try:
                 result = self.on_notification(event)
                 if result is False:
                     continue
-                if acknowledge is None:
+                key = str(event["key"])
+                if key.startswith("digest:") and acknowledge_digest is not None:
+                    if acknowledge_digest(key):
+                        delivered.append(event)
+                elif acknowledge is None:
                     delivered.append(event)
-                    continue
-                if acknowledge(str(event["key"])):
+                elif acknowledge(key):
                     delivered.append(event)
             except Exception:
                 continue
