@@ -27,7 +27,7 @@ def test_google_tasks_falls_back_to_memory_when_unavailable():
 
 
 def test_daily_agenda_has_flat_structured_data_and_source_groups():
-    with patch("actions.agenda.get_calendar_events", return_value={"status": "success", "data": [{"id": "calendar_event:1", "title": "Meeting"}]}), patch("actions.agenda.get_reminders", return_value={"status": "success", "data": [{"id": "task:1", "title": "Call"}]}), patch("actions.agenda._memory_items", return_value=[{"id": "memory:1", "title": "Note", "due": "2026-08-24", "source": "memory"}]):
+    with patch("actions.agenda.get_calendar_events", return_value={"status": "success", "data": [{"id": "calendar_event:1", "title": "Meeting"}]}), patch("actions.agenda.get_reminders", return_value={"status": "success", "data": [{"id": "task:1", "title": "Call"}]}), patch("actions.agenda._today_memory", return_value=[{"id": "memory:1", "title": "Note", "due": "2026-08-24", "source": "memory"}]):
         result = get_daily_agenda()
     assert result["status"] == "success"
     assert {item["source"] for item in result["data"] if "source" in item} >= {"memory"}
