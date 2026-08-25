@@ -132,7 +132,11 @@ def execute_unified_query(query: str, limit: int = 8) -> dict[str, Any]:
     items: list[dict[str, Any]] = []
     errors: dict[str, str] = {}
     entity = plan.metadata.get("entity", "")
-    for source in plan.sources:
+    execution_sources = list(plan.sources)
+    if plan.intent == "cross_source_search" and entity and "tasks" not in execution_sources:
+        execution_sources.append("tasks")
+
+    for source in execution_sources:
         try:
             if source == "calendar":
                 result = get_calendar_events(plan.period or plan.search_text or "today", max(limit, 20) if entity else limit)
@@ -147,9 +151,14 @@ def execute_unified_query(query: str, limit: int = 8) -> dict[str, Any]:
                 if result.get("status") == "error":
                     errors[source] = result.get("meta", {}).get("message", "Google Tasks xətası")
             elif source == "memory":
-                memory_search_text = " ".join(plan.search_terms) if plan.search_terms else plan.search_text
-                for raw in _memory_items(memory_search_text, plan.period)[:limit]:
-                    items.append(normalize_item(source, raw, "memory"))
+                memory_items: dict[str, dict[str, Any]] = {}
+                memory_terms = plan.search_terms or (plan.search_text,)
+                for term in memory_terms:
+                    for raw in _memory_items(term, plan.period):
+                        memory_items.setdefault(raw["id"], raw)
+                for raw in list(memory_items.values())[:limit]:
+                    if not entity or _entity_matches(raw, entity) or _matches_search_terms(raw, plan.search_terms):
+                        items.append(normalize_item(source, raw, "memory"))
             elif source == "gmail":
                 q = plan.search_text
                 if plan.period:
