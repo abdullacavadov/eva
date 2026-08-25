@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-from actions.agenda import get_daily_agenda
 from actions.calendar import get_calendar_events
 from actions.email import search_emails
 from actions.whatsapp_read_action import read_whatsapp_messages
@@ -78,19 +77,14 @@ def execute_unified_query(query: str, limit: int = 8) -> dict[str, Any]:
                 if result.get("status") == "error":
                     errors[source] = result.get("meta", {}).get("message", "Calendar xətası")
             elif source == "tasks":
-                result = get_daily_agenda(limit) if plan.period in {"today", "tomorrow"} else None
-                if result is not None:
-                    group = result.get("meta", {}).get("groups", {}).get("tasks", [])
-                    for raw in group[:limit]:
-                        if isinstance(raw, dict):
-                            items.append(normalize_item(source, raw, "task"))
-                else:
-                    from actions.reminders import get_reminders
-                    result = get_reminders(plan.search_text or "upcoming", limit, "")
-                    _append_source(items, source, result, limit)
+                from actions.reminders import get_reminders
+                task_query = plan.period or plan.search_text or "upcoming"
+                result = get_reminders(task_query, limit, "")
+                _append_source(items, source, result, limit)
+                if result.get("status") == "error":
+                    errors[source] = result.get("meta", {}).get("message", "Google Tasks xətası")
             elif source == "memory":
-                memory_items = _memory_items(plan.search_text, plan.period)
-                for raw in memory_items[:limit]:
+                for raw in _memory_items(plan.search_text, plan.period)[:limit]:
                     items.append(normalize_item(source, raw, "memory"))
             elif source == "gmail":
                 q = plan.search_text
@@ -112,7 +106,6 @@ def execute_unified_query(query: str, limit: int = 8) -> dict[str, Any]:
         except Exception as exc:
             errors[source] = str(exc)
 
-    # De-duplicate the same item when agenda groups and direct sources overlap.
     unique: dict[str, dict[str, Any]] = {}
     for item in items:
         unique.setdefault(item["id"], item)
