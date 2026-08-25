@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from core.query_planner import plan_query
-from core.orchestrator import execute_unified_query
+from core.orchestrator import execute_unified_query, execute_unified_deletion
 
 
 def test_daily_agenda_query_selects_calendar_tasks_memory():
@@ -102,3 +102,77 @@ def test_unified_result_preserves_source_and_structured_shape():
     assert result["status"] == "success"
     assert {item["source"] for item in result["data"]} >= {"calendar", "tasks"}
     assert result["query"]["sources"] == ["calendar", "tasks", "memory"]
+
+
+def test_unified_deletion_requires_explicit_confirmation():
+    tasks = {
+        "status": "success",
+        "type": "task",
+        "data": [{"id": "google-1", "google_task_id": "google-1", "task_list_id": "list-1", "title": "Marketə get"}],
+    }
+    with patch("actions.reminders.get_reminders", return_value=tasks), patch("core.orchestrator.get_calendar_events", return_value={"status": "empty", "data": []}), patch("core.orchestrator.load_memory", return_value={"agenda": {}}), patch("actions.reminders.delete_reminder") as delete_mock:
+        result = execute_unified_deletion("Market taskını sil")
+
+    assert result["meta"]["requires_confirmation"] is True
+    assert result["meta"]["deletion_safe"] is True
+    assert result["meta"]["selected_id"] is None
+    delete_mock.assert_not_called()
+
+
+def test_unified_task_deletion_deletes_only_selected_candidate_after_confirmation():
+    tasks = {
+        "status": "success",
+        "type": "task",
+        "data": [
+            {"id": "google-1", "google_task_id": "google-1", "task_list_id": "list-1", "title": "Marketə get"},
+            {"id": "google-2", "google_task_id": "google-2", "task_list_id": "list-1", "title": "Marketdən süd al"},
+        ],
+    }
+    with patch("actions.reminders.get_reminders", return_value=tasks), patch("core.orchestrator.get_calendar_events", return_value={"status": "empty", "data": []}), patch("core.orchestrator.load_memory", return_value={"agenda": {}}), patch("actions.reminders.delete_reminder", return_value={"status": "success", "type": "task", "data": []}) as delete_mock:
+        candidates = execute_unified_deletion("Market taskını sil")
+        selected_id = candidates["data"][0]["id"]
+        result = execute_unified_deletion("Market taskını sil", selected_id=selected_id, confirmed=True)
+
+    assert result["meta"]["deleted"] is True
+    assert result["meta"]["selected_id"] == selected_id
+    delete_mock.assert_called_once_with("google-1", "list-1")
+
+
+def test_unified_memory_deletion_deletes_selected_memory_record_after_confirmation():
+    memory = {"agenda": {"market": {"title": "Market", "value": "Marketə get", "type": "task"}}}
+    with patch("core.orchestrator.load_memory", return_value=memory), patch("core.orchestrator.delete_memory", return_value="agenda/market yaddaşdan silindi.") as delete_mock, patch("core.orchestrator.get_calendar_events", return_value={"status": "empty", "data": []}), patch("actions.reminders.get_reminders", return_value={"status": "empty", "data": []}):
+        candidates = execute_unified_deletion("Market qeydini sil")
+        selected_id = candidates["data"][0]["id"]
+        result = execute_unified_deletion("Market qeydini sil", selected_id=selected_id, confirmed=True)
+
+    assert result["meta"]["deleted"] is True
+    delete_mock.assert_called_once_with(category="agenda", key="market")
+
+
+def test_unified_calendar_deletion_deletes_selected_event_after_confirmation():
+    calendar = {
+        "status": "success",
+        "type": "calendar_event",
+        "data": [{"id": "event-1", "title": "Market görüşü", "start": "2026-08-26T10:00"}],
+    }
+    with patch("core.orchestrator.get_calendar_events", return_value=calendar), patch("actions.reminders.get_reminders", return_value={"status": "empty", "data": []}), patch("core.orchestrator.load_memory", return_value={"agenda": {}}), patch("core.orchestrator.delete_calendar_event", return_value={"status": "success", "type": "calendar_event", "data": []}) as delete_mock:
+        candidates = execute_unified_deletion("Market görüşünü sil")
+        selected_id = candidates["data"][0]["id"]
+        result = execute_unified_deletion("Market görüşünü sil", selected_id=selected_id, confirmed=True)
+
+    assert result["meta"]["deleted"] is True
+    delete_mock.assert_called_once_with("Market görüşü", "2026-08-26T10:00")
+
+
+def test_unified_deletion_rejects_unselected_id_without_deleting():
+    tasks = {
+        "status": "success",
+        "type": "task",
+        "data": [{"id": "google-1", "google_task_id": "google-1", "task_list_id": "list-1", "title": "Marketə get"}],
+    }
+    with patch("actions.reminders.get_reminders", return_value=tasks), patch("core.orchestrator.get_calendar_events", return_value={"status": "empty", "data": []}), patch("core.orchestrator.load_memory", return_value={"agenda": {}}), patch("actions.reminders.delete_reminder") as delete_mock:
+        result = execute_unified_deletion("Market taskını sil", selected_id="task:does-not-exist", confirmed=True)
+
+    assert result["meta"]["deleted"] is not True
+    assert result["meta"]["requires_confirmation"] is True
+    delete_mock.assert_not_called()
