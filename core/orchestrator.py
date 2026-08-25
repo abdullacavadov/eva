@@ -78,7 +78,7 @@ def _execute_daily_report(limit: int) -> dict[str, Any]:
     except Exception as exc:
         results["gmail"] = {"status": "error", "data": [], "meta": {"message": str(exc)}}
     try:
-        results["whatsapp"] = read_whatsapp_messages("")
+        results["whatsapp"] = read_whatsapp_messages("", deduplicate=False)
     except Exception as exc:
         results["whatsapp"] = {"status": "error", "data": [], "meta": {"message": str(exc)}}
     return build_daily_report(results, target_date)
@@ -122,15 +122,12 @@ def execute_unified_query(query: str, limit: int = 8) -> dict[str, Any]:
                 if result.get("status") == "error":
                     errors[source] = result.get("meta", {}).get("message", "Gmail xətası")
             elif source == "whatsapp":
-                result = read_whatsapp_messages(plan.search_text if plan.search_text else "")
+                result = read_whatsapp_messages(plan.search_text, deduplicate=True)
                 _append_source(items, source, result, limit)
                 if result.get("status") == "error":
-                    errors[source] = result.get("meta", {}).get("error", "WhatsApp xətası")
-            elif source == "contacts":
-                errors[source] = "Unified contacts query hələ read/search action-a qoşulmayıb."
+                    errors[source] = result.get("meta", {}).get("message", "WhatsApp xətası")
         except Exception as exc:
             errors[source] = str(exc)
-
     unique: dict[str, dict[str, Any]] = {}
     for item in items:
         unique.setdefault(item["id"], item)
