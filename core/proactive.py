@@ -249,7 +249,7 @@ class ProactiveEngine:
             pending = state["pending"]
             history = state["history"]
             for source, raw in sources.items():
-                if source in self._collection_failures:
+                if source in self._collection_failures or raw is None:
                     continue
                 current = self._source_snapshot(source, raw)
                 previous = snapshots.get(source)
