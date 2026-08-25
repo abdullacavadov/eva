@@ -97,6 +97,8 @@ def _detect_follow_up_action(action_text: str) -> str:
         return "show"
     if re.search(r"\b(tamamla|bitir|yerinə yetir|yerine yetir)\b", normalized):
         return "complete"
+    if re.search(r"\b(cavab yaz|cavab ver|cavabla|cavablandır|cavablandir)\b", normalized):
+        return "reply"
     if re.search(r"\b(sil|poz|ləğv et|legv et)\b", normalized):
         return "delete"
     if re.search(r"\b(dəyiş|deyis|yenilə|yenile|keçir|kecir|köçür|koçur|təxirə sal|texire sal)\b", normalized):
