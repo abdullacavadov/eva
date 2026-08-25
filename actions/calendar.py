@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, timedelta, time
 
 from core.results import empty, error, success
-from integrations.google.calendar import create_event, delete_event, list_events, resolve_calendar_id
+from integrations.google.calendar import create_event, delete_event, list_events, resolve_calendar_id, update_event
 
 
 def _local_now() -> datetime:
@@ -17,9 +17,8 @@ def _parse_datetime(value: str) -> datetime:
     text = str(value or "").strip()
     if not text:
         raise ValueError("Tarix/saat boşdur.")
-    normalized = text.replace("Z", "+00:00")
     try:
-        result = datetime.fromisoformat(normalized)
+        result = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         result = datetime.strptime(text, "%Y-%m-%d %H:%M")
     if result.tzinfo is None:
@@ -81,6 +80,38 @@ def get_calendar_events(query: str = "today", limit: int = 6) -> dict:
         return error("calendar_event", str(exc), {"query": query, "limit": limit})
 
 
+def read_calendar_event(event_id: str, calendar_name: str = "") -> dict:
+    try:
+        calendar_id = resolve_calendar_id(calendar_name)
+        events = list_events(calendar_id=calendar_id, max_results=50, query=str(event_id or ""))
+        exact = [event for event in events if str(event.get("id", "")) == str(event_id)]
+        if not exact:
+            return empty("calendar_event", {"event_id": event_id, "calendar_name": calendar_name})
+        item = _structured_event(exact[0], calendar_id)
+        return success("calendar_event", [item], {"event_id": event_id, "calendar_name": calendar_name}, {"selected_id": item["id"]})
+    except Exception as exc:
+        return error("calendar_event", str(exc), {"event_id": event_id})
+
+
+def update_calendar_event_by_id(event_id: str, calendar_name: str = "", title: str | None = None, start_iso: str = "", end_iso: str = "", notes: str | None = None, location: str | None = None, all_day: bool | None = None) -> dict:
+    try:
+        calendar_id = resolve_calendar_id(calendar_name)
+        event = update_event(event_id=event_id, calendar_id=calendar_id, title=title, start_iso=start_iso, end_iso=end_iso, notes=notes, location=location, all_day=all_day)
+        item = _structured_event(event, calendar_id)
+        return success("calendar_event", [item], {"event_id": event_id, "calendar_name": calendar_name}, {"selected_id": item["id"]})
+    except Exception as exc:
+        return error("calendar_event", str(exc), {"event_id": event_id})
+
+
+def delete_calendar_event_by_id(event_id: str, calendar_name: str = "") -> dict:
+    try:
+        calendar_id = resolve_calendar_id(calendar_name)
+        delete_event(event_id=event_id, calendar_id=calendar_id)
+        return success("calendar_event", [{"id": f"calendar_event:{event_id}", "google_event_id": event_id, "action": "delete", "status": "deleted"}], {"event_id": event_id, "calendar_name": calendar_name})
+    except Exception as exc:
+        return error("calendar_event", str(exc), {"event_id": event_id})
+
+
 def add_calendar_event(title: str, start_iso: str, end_iso: str = "", notes: str = "", location: str = "", calendar_name: str = "", all_day: bool = False) -> dict:
     try:
         title = str(title or "").strip()
@@ -120,18 +151,7 @@ def delete_calendar_event(title: str, start_iso: str = "", calendar_name: str = 
         exact_matches = [e for e in events if str(e.get("summary", "")).strip().casefold() == title.casefold()]
         if start_iso:
             target = _parse_datetime(start_iso)
-            filtered = []
-            for event in exact_matches:
-                start = event.get("start", {})
-                if "dateTime" not in start:
-                    continue
-                try:
-                    event_start = _parse_datetime(start["dateTime"])
-                except Exception:
-                    continue
-                if abs((event_start - target).total_seconds()) <= 120:
-                    filtered.append(event)
-            exact_matches = filtered
+            exact_matches = [e for e in exact_matches if "dateTime" in e.get("start", {}) and abs((_parse_datetime(e["start"]["dateTime"]) - target).total_seconds()) <= 120]
         payload = {"title": title, "start_iso": start_iso, "calendar_name": calendar_name, "delete_all_matches": delete_all_matches}
         if not exact_matches:
             return empty("calendar_event", payload)
@@ -146,4 +166,4 @@ def delete_calendar_event(title: str, start_iso: str = "", calendar_name: str = 
                 deleted.append(_structured_event(event, calendar_id))
         return success("calendar_event", deleted, payload)
     except Exception as exc:
-        return error("calendar_event", str(exc))
+        return error("calendar_event", str(exc), {"title": title, "start_iso": start_iso})

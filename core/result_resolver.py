@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from core.result_context import ResultContext
@@ -10,19 +11,22 @@ class ResultResolutionError(ValueError):
     pass
 
 
+@dataclass(frozen=True)
+class FollowUpAction:
+    """Söhbət kontekstindən həll edilmiş follow-up əməlini təsvir edir."""
+
+    reference: str
+    action: str
+    item: dict[str, Any]
+    action_text: str = ""
+
+
 def _normalize(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "").casefold()).strip()
 
 
 def _search_text(item: dict[str, Any]) -> str:
-    fields = (
-        "summary",
-        "title",
-        "display_name",
-        "subject",
-        "name",
-        "snippet",
-    )
+    fields = ("summary", "title", "display_name", "subject", "name", "snippet")
     return " ".join(str(item.get(field, "")) for field in fields if item.get(field))
 
 
@@ -61,83 +65,89 @@ def _is_relative_reference(query: str) -> bool:
     if not normalized:
         return False
     ordinal_words = {
-        "birinci", "birincini", "birincisi",
-        "ikinci", "ikincini", "ikincisi",
-        "üçüncü", "üçüncünü", "üçüncüsü",
-        "dördüncü", "dördüncünü", "dördüncüsü",
-        "beşinci", "beşincini", "beşincisi",
-        "sonuncu", "sonuncunu", "sonuncusu",
+        "birinci", "birincini", "birincisi", "ikinci", "ikincini", "ikincisi",
+        "üçüncü", "üçüncünü", "üçüncüsü", "dördüncü", "dördüncünü", "dördüncüsü",
+        "beşinci", "beşincini", "beşincisi", "sonuncu", "sonuncunu", "sonuncusu",
     }
     if normalized.isdigit() or normalized in ordinal_words:
         return True
-    return bool(re.fullmatch(
-        r"(?:ona|onu|onun|o|bunu|buna|bunun|bu|həmin|həminini)"
-        r"(?:\s+(?:email|e-mail|mesaj|qeyd|tədbir|task))?",
-        normalized,
-    ))
+    return bool(re.fullmatch(r"(?:ona|onu|onun|o|bunu|buna|bunun|bu|həmin|həminini)(?:\s+(?:email|e-mail|mesaj|qeyd|tədbir|task))?", normalized))
 
 
-def resolve_reference(
-    context: ResultContext,
-    query: str,
-    selected_item: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Əvvəlki nəticədən nisbi istinadı konkret elementə çevirir."""
+def _extract_follow_up_reference(query: str) -> tuple[str, str]:
+    original = re.sub(r"\s+", " ", str(query or "")).strip()
+    if not original:
+        raise ResultResolutionError("Follow-up sorğusu boşdur")
+    reference_pattern = (
+        r"(?:birinci(?:ni|si)?|ikinci(?:ni|si)?|üçüncü(?:nü|sü)?|dördüncü(?:nü|sü)?|"
+        r"beşinci(?:ni|si)?|sonuncu(?:nu|su)?|\d+|ona|onu|onun|o|bunu|buna|bunun|bu|həmin|həminini)"
+        r"(?:\s+(?:email|e-mail|mesaj|qeyd|tədbir|task))?"
+    )
+    match = re.match(rf"^({reference_pattern})(?:\s+(.*))?$", original, re.IGNORECASE)
+    if not match:
+        raise ResultResolutionError("Follow-up sorğusunda nisbi istinad tapılmadı")
+    return _normalize(match.group(1)), (match.group(2) or "").strip()
+
+
+def _detect_follow_up_action(action_text: str) -> str:
+    normalized = _normalize(action_text)
+    if not normalized:
+        return "show"
+    if re.search(r"\b(göstər|goster|aç|ac|oxu|bax)\b", normalized):
+        return "show"
+    if re.search(r"\b(tamamla|bitir|yerinə yetir|yerine yetir)\b", normalized):
+        return "complete"
+    if re.search(r"\b(cavab yaz|cavab ver|cavabla|cavablandır|cavablandir)\b", normalized):
+        return "reply"
+    if re.search(r"\b(sil|poz|ləğv et|legv et)\b", normalized):
+        return "delete"
+    if re.search(r"\b(dəyiş|deyis|yenilə|yenile|keçir|kecir|köçür|koçur|təxirə sal|texire sal)\b", normalized):
+        return "update"
+    raise ResultResolutionError("Follow-up üçün tanınmayan əməl")
+
+
+def resolve_follow_up_action(context: ResultContext, query: str, selected_item: dict[str, Any] | None = None) -> FollowUpAction:
+    reference, action_text = _extract_follow_up_reference(query)
+    item = resolve_reference(context, reference, selected_item=selected_item)
+    action = _detect_follow_up_action(action_text)
+    return FollowUpAction(reference=reference, action=action, item=item, action_text=action_text)
+
+
+def resolve_reference(context: ResultContext, query: str, selected_item: dict[str, Any] | None = None) -> dict[str, Any]:
     if not context.data:
         raise ResultResolutionError("Nəticə siyahısı boşdur")
-
     normalized = _normalize(query)
     if not _is_relative_reference(normalized):
         return resolve_item(context, query)
-
     index = _ordinal_index(normalized, len(context.data))
     if index is not None:
         return context.data[index]
-
     if selected_item is not None:
         selected_id = selected_item.get("id")
         if selected_id:
             for item in context.data:
                 if item.get("id") == selected_id:
                     return item
-
     if len(context.data) == 1:
         return context.data[0]
-
     raise ResultResolutionError("Nisbi istinad üçün konkret nəticə seçilməyib")
 
 
 def resolve_item(context: ResultContext, query: str) -> dict[str, Any]:
     if not context.data:
         raise ResultResolutionError("Nəticə siyahısı boşdur")
-
     normalized_queries = _selection_queries(query)
     if not normalized_queries[0]:
         raise ResultResolutionError("Seçim üçün axtarış mətni boşdur")
-
     for normalized_query in normalized_queries:
-        exact = [
-            item
-            for item in context.data
-            if normalized_query == _normalize(_search_text(item))
-            or any(
-                normalized_query == _normalize(item.get(field))
-                for field in ("summary", "title", "display_name", "subject", "name")
-            )
-        ]
+        exact = [item for item in context.data if normalized_query == _normalize(_search_text(item)) or any(normalized_query == _normalize(item.get(field)) for field in ("summary", "title", "display_name", "subject", "name"))]
         if len(exact) == 1:
             return exact[0]
         if len(exact) > 1:
             raise ResultResolutionError("Bir neçə uyğun nəticə tapıldı")
-
-        matches = [
-            item
-            for item in context.data
-            if normalized_query in _normalize(_search_text(item))
-        ]
+        matches = [item for item in context.data if normalized_query in _normalize(_search_text(item))]
         if len(matches) == 1:
             return matches[0]
         if len(matches) > 1:
             raise ResultResolutionError("Bir neçə uyğun nəticə tapıldı")
-
     raise ResultResolutionError("Uyğun nəticə tapılmadı")

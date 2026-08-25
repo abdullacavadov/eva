@@ -3,6 +3,7 @@
 import asyncio
 import traceback
 import re
+from dataclasses import dataclass
 from typing import Callable
 
 from google.genai import types  # type: ignore[reportMissingImports]
@@ -24,7 +25,8 @@ from actions.weather import get_weather_summary
 from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
 from core.result_store import ResultStore
-from core.result_resolver import ResultResolutionError, resolve_item, resolve_reference
+from core.result_resolver import FollowUpAction, ResultResolutionError, resolve_item, resolve_reference
+from core.follow_up_mutation import build_follow_up_mutation
 from core.orchestrator import execute_unified_query
 
 import tool_defs as _tool_defs
@@ -36,6 +38,80 @@ from core.task_tool_defs import TASK_TOOL_DECLARATIONS
 for _declaration in [*EMAIL_TOOL_DECLARATIONS, *CONTACT_TOOL_DECLARATIONS, *WHATSAPP_TOOL_DECLARATIONS, *TASK_TOOL_DECLARATIONS]:
     if not any(item.get("name") == _declaration["name"] for item in _tool_defs.TOOL_DECLARATIONS):
         _tool_defs.TOOL_DECLARATIONS.append(_declaration)
+
+
+@dataclass(frozen=True)
+class FollowUpDispatch:
+    """Həll edilmiş follow-up üçün icra ediləcək alət və arqumentləri təsvir edir."""
+
+    tool_name: str | None
+    args: dict
+    item: dict
+    confirmation_required: bool = False
+
+
+def _task_identity(item: dict) -> tuple[str, str]:
+    item_id = str(item.get("id", ""))
+    if not item_id.startswith("task:"):
+        raise ResultResolutionError("Follow-up əməli üçün dəstəklənməyən entity")
+    task_id = str(item.get("google_task_id", "")) or item_id.removeprefix("task:")
+    list_name = str(item.get("task_list_id", ""))
+    if not task_id:
+        raise ResultResolutionError("Follow-up task identifikatoru tapılmadı")
+    return task_id, list_name
+
+
+def _email_identity(item: dict) -> str:
+    item_id = str(item.get("id", ""))
+    if not item_id.startswith("email:"):
+        raise ResultResolutionError("Follow-up email əməli üçün email nəticəsi tələb olunur")
+    message_id = str(item.get("gmail_message_id", ""))
+    if not message_id:
+        message_id = item_id.removeprefix("email:")
+    if not message_id or message_id.startswith("draft:") or message_id.startswith("delete:"):
+        raise ResultResolutionError("Follow-up email üçün Gmail message_id tapılmadı")
+    return message_id
+
+
+def _email_reply_body(action: FollowUpAction) -> str:
+    text = str(action.action_text or "").strip()
+    match = re.search(r"(?:cavab\s+(?:yaz|ver)|cavabla|cavablandır|cavablandir)\s*(?::|-)?\s*(.+)$", text, re.IGNORECASE)
+    if not match or not match.group(1).strip():
+        raise ResultResolutionError("Email cavabı üçün mətn tələb olunur")
+    return match.group(1).strip()
+
+
+def build_follow_up_dispatch(action: FollowUpAction) -> FollowUpDispatch:
+    """FollowUpAction-ı təhlükəsiz tool dispatch planına çevirir."""
+    item = action.item
+    item_id = str(item.get("id", ""))
+
+    if action.action == "show":
+        if item_id.startswith("email:"):
+            return FollowUpDispatch("read_email", {"message_id": _email_identity(item)}, item)
+        return FollowUpDispatch(None, {}, item)
+
+    if action.action == "reply":
+        message_id = _email_identity(item)
+        body = _email_reply_body(action)
+        return FollowUpDispatch("prepare_email_reply", {"message_id": message_id, "body": body}, item, True)
+
+    if action.action == "complete":
+        task_id, list_name = _task_identity(item)
+        return FollowUpDispatch("complete_reminder", {"task_id": task_id, "list_name": list_name}, item)
+
+    if action.action == "delete":
+        if item_id.startswith("email:"):
+            return FollowUpDispatch("prepare_trash_emails", {"message_id": _email_identity(item)}, item, True)
+        task_id, list_name = _task_identity(item)
+        return FollowUpDispatch("delete_reminder", {"task_id": task_id, "list_name": list_name}, item, True)
+
+    if action.action == "update":
+        task_id, list_name = _task_identity(item)
+        mutation = build_follow_up_mutation(action)
+        return FollowUpDispatch("update_reminder", {"task_id": task_id, "list_name": list_name, **mutation.fields}, item)
+
+    raise ResultResolutionError("Follow-up üçün dəstəklənməyən əməl")
 
 
 class ToolExecutor:
@@ -64,7 +140,7 @@ class ToolExecutor:
         text = str(result or "").strip().lower()
         if not text:
             return False
-        return any(marker in text for marker in ("hata", "error", "xəta", "alinamadi", "alınamadı", "bulunamadi", "bulunamadı", "acilamadi", "açılamadı", "tamamlanamadi", "tamamlanamadı", "gecersiz", "geçersiz", "izin gerekiyor", "izin gerekli", "baglanti", "bağlantı", "gerekli.", "mümkün olmadı"))
+        return any(marker in text for marker in ("hata", "error", "xəta", "alinamadi", "alınamadı", "bulunamadi", "bulunamadı", "acilamadi", "açılamadı", "tamamlanamadi", "tamamlanamadı", "gecersiz", "geçərsiz", "izin gerekiyor", "izin gerekli", "baglanti", "bağlantı", "gerekli.", "mümkün olmadı"))
 
     @staticmethod
     def should_play_success_sfx(tool_name: str, args: dict, result) -> bool:
@@ -134,10 +210,12 @@ class ToolExecutor:
                 action = str(args.get("action", "start")).strip().lower()
                 if action == "start":
                     status = self.webcam_streamer.start()
-                    if status == "ok": self.ui.set_webcam_active(True); result = "Webcam axını başladıldı. Artıq kameranı görürəm — istədiyin vaxt sual verə bilərsən."
+                    if status == "ok":
+                        self.ui.set_webcam_active(True); result = "Webcam axını başladıldı. Artıq kameranı görürəm — istədiyin vaxt sual verə bilərsən."
                     elif status == "already_active": result = "Webcam artıq açıqdır, görüntünü alıram."
                     else: result = "Webcam-i başlatmaq mümkün olmadı: opencv-python quraşdırılmayıb."
-                else: self.webcam_streamer.stop(); self.ui.set_webcam_active(False); result = "Webcam axını dayandırıldı."
+                else:
+                    self.webcam_streamer.stop(); self.ui.set_webcam_active(False); result = "Webcam axını dayandırıldı."
             else: result = f"Naməlum alət: {name}"
         except Exception as e:
             result = f"Xəta: {e}"; had_exception = True; traceback.print_exc(); self.speak_error(name, e); self.ui.set_state("ERROR")
