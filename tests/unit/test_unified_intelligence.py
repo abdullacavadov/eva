@@ -17,6 +17,13 @@ def test_daily_report_selects_all_report_sources():
     assert plan.sources == ("gmail", "whatsapp", "calendar", "tasks", "memory")
 
 
+def test_daily_report_accepts_report_request_phrase():
+    plan = plan_query("Bu gün üçün report ver")
+    assert plan.intent == "daily_report"
+    assert plan.period == "today"
+    assert plan.sources == ("gmail", "whatsapp", "calendar", "tasks", "memory")
+
+
 def test_cross_source_search_selects_calendar_tasks_memory():
     plan = plan_query("Marketə getməyi nə vaxt planlaşdırmışdım?")
     assert plan.intent == "cross_source_search"
