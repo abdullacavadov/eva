@@ -1,3 +1,6 @@
+import { faPaperPlane } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+
 export interface Message { id: string; role: 'user' | 'assistant'; text: string }
 
 export function ConversationPanel({ messages, onSubmit }: { messages: Message[]; onSubmit: (text: string) => void }) {
@@ -15,7 +18,7 @@ export function ConversationPanel({ messages, onSubmit }: { messages: Message[];
       </div>
       <form className="command-input" onSubmit={(event) => { event.preventDefault(); const input = event.currentTarget.elements.namedItem('command') as HTMLInputElement; const text = input.value.trim(); if (text) { onSubmit(text); input.value = '' } }}>
         <input name="command" autoComplete="off" placeholder="EVA-ya istənilən sualı ver..." aria-label="EVA-ya sual ver" />
-        <button type="submit" aria-label="Komandanı göndər">↗</button>
+        <button type="submit" aria-label="Komandanı göndər"><FontAwesomeIcon icon={faPaperPlane} /></button>
       </form>
     </section>
   )
