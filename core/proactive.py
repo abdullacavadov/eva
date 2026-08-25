@@ -1,4 +1,4 @@
-"""EVA-nın proaktiv yoxlama, dəyişiklik aşkarlama və bildiriş siyasəti."""
+"""EVA-nın proaktiv monitorinq, dəyişiklik aşkarlama və bildiriş siyasəti."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import threading
+from collections import Counter
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -14,8 +15,8 @@ from typing import Any, Callable
 from actions.agenda import get_daily_agenda
 from actions.email import search_emails
 from actions.whatsapp_read_action import read_whatsapp_conversations
-from core.notification_digest import build_notification_digest
 from memory.memory_manager import load_memory
+from core.notification_digest import build_notification_digest
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_STATE_FILE = BASE_DIR / ".eva" / "proactive-state.json"
@@ -89,7 +90,9 @@ def _event_text(source: str, item: dict[str, Any]) -> str:
     return "Yaddaşda dəyişiklik aşkarlandı."
 
 
-def _quiet_now(now: datetime, start: str, end: str) -> bool:
+def _quiet_now(now: datetime | None, start: str, end: str) -> bool:
+    if now is None:
+        return False
     try:
         start_h, start_m = (int(x) for x in start.split(":", 1))
         end_h, end_m = (int(x) for x in end.split(":", 1))
@@ -106,8 +109,6 @@ def _quiet_now(now: datetime, start: str, end: str) -> bool:
 
 
 class NotificationPolicy:
-    """Bildirişlərin nə vaxt və hansı tezlikdə istifadəçiyə göstəriləcəyini müəyyən edir."""
-
     def __init__(self, rate_limit: int = DEFAULT_RATE_LIMIT, cooldown_minutes: int = DEFAULT_COOLDOWN_MINUTES, quiet_start: str = DEFAULT_QUIET_START, quiet_end: str = DEFAULT_QUIET_END) -> None:
         self.rate_limit = max(1, int(rate_limit))
         self.cooldown = timedelta(minutes=max(0, int(cooldown_minutes)))
@@ -126,9 +127,7 @@ class NotificationPolicy:
             return start <= now + timedelta(minutes=60) and start >= now - timedelta(minutes=15)
         if source == "tasks":
             due = _parse_datetime(item.get("due") or item.get("date"))
-            if due is None:
-                return False
-            return due <= now + timedelta(hours=24)
+            return due is not None and due <= now + timedelta(hours=24)
         if source == "memory":
             text = " ".join(str(item.get(key, "")) for key in ("title", "value", "notes", "due", "type")).casefold()
             return any(word in text for word in ("urgent", "vacib", "təcili", "deadline")) or bool(item.get("due"))
@@ -138,17 +137,13 @@ class NotificationPolicy:
         now = now or datetime.now().astimezone()
         if _quiet_now(now, self.quiet_start, self.quiet_end):
             return []
-        recent = 0
-        for timestamp in history.values():
-            parsed = _parse_datetime(timestamp)
-            if parsed and now - parsed <= timedelta(hours=1):
-                recent += 1
+        recent = sum(1 for timestamp in history.values() if (parsed := _parse_datetime(timestamp)) and now - parsed <= timedelta(hours=1))
         if recent >= self.rate_limit:
             return []
         selected: list[dict[str, Any]] = []
         retry_window = timedelta(minutes=DEFAULT_RETRY_MINUTES)
-        for key, event in pending.items():
-            last_sent = _parse_datetime(str(history.get(key, "")))
+        for event in pending.values():
+            last_sent = _parse_datetime(str(history.get(event.get("key"), "")))
             if last_sent and now - last_sent < self.cooldown:
                 continue
             offered_at = _parse_datetime(event.get("_offered_at"))
@@ -163,8 +158,6 @@ class NotificationPolicy:
 
 
 class ProactiveEngine:
-    """Mənbə snapshot-larını müqayisə edir və pending proaktiv hadisələri saxlayır."""
-
     def __init__(self, state_file: str | Path | None = None, policy: NotificationPolicy | None = None) -> None:
         self.state_file = Path(state_file or os.getenv("EVA_PROACTIVE_STATE_FILE") or DEFAULT_STATE_FILE)
         self.policy = policy or NotificationPolicy(
@@ -184,11 +177,10 @@ class ProactiveEngine:
                 value.setdefault("pending", {})
                 value.setdefault("history", {})
                 value.setdefault("quiet_digest_sent", None)
-                value.setdefault("quiet_digest_offered_at", None)
                 return value
         except Exception:
             pass
-        return {"snapshots": {}, "pending": {}, "history": {}, "quiet_digest_sent": None, "quiet_digest_offered_at": None}
+        return {"snapshots": {}, "pending": {}, "history": {}, "quiet_digest_sent": None}
 
     def _save(self, state: dict[str, Any]) -> None:
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -200,9 +192,8 @@ class ProactiveEngine:
     def _source_snapshot(source: str, result: Any) -> dict[str, Any]:
         if source == "memory":
             return {"fingerprint": _fingerprint(result)}
-        items = result if isinstance(result, list) else []
         normalized: dict[str, dict[str, Any]] = {}
-        for item in items:
+        for item in result if isinstance(result, list) else []:
             if isinstance(item, dict):
                 normalized[_item_id(item, source)] = item
         return {"items": normalized}
@@ -213,23 +204,20 @@ class ProactiveEngine:
         try:
             result = search_emails("in:inbox is:unread", 20)
             sources["gmail"] = result.get("data", []) if result.get("status") != "error" else []
-            if result.get("status") == "error":
-                self._collection_failures.add("gmail")
+            if result.get("status") == "error": self._collection_failures.add("gmail")
         except Exception:
             sources["gmail"] = []
             self._collection_failures.add("gmail")
         try:
             result = read_whatsapp_conversations()
             sources["whatsapp"] = result.get("data", []) if result.get("status") != "error" else []
-            if result.get("status") == "error":
-                self._collection_failures.add("whatsapp")
+            if result.get("status") == "error": self._collection_failures.add("whatsapp")
         except Exception:
             sources["whatsapp"] = []
             self._collection_failures.add("whatsapp")
         try:
             result = get_daily_agenda(limit=50, date_text=datetime.now().astimezone().date().isoformat())
-            if isinstance(result, dict) and result.get("status") == "error":
-                raise RuntimeError("agenda source error")
+            if isinstance(result, dict) and result.get("status") == "error": raise RuntimeError("agenda source error")
             groups = result.get("meta", {}).get("groups", {}) if isinstance(result, dict) else {}
             sources["calendar"] = groups.get("calendar", [])
             sources["tasks"] = groups.get("tasks", [])
@@ -253,8 +241,11 @@ class ProactiveEngine:
             pending = state["pending"]
             history = state["history"]
             previous_poll = _parse_datetime(state.get("last_poll"))
-            was_quiet = _quiet_now(previous_poll, self.policy.quiet_start, self.policy.quiet_end) if previous_poll else False
-            is_quiet = _quiet_now(now, self.policy.quiet_start, self.policy.quiet_end)
+            quiet_start = getattr(self.policy, "quiet_start", DEFAULT_QUIET_START)
+            quiet_end = getattr(self.policy, "quiet_end", DEFAULT_QUIET_END)
+            rate_limit = max(1, int(getattr(self.policy, "rate_limit", DEFAULT_RATE_LIMIT)))
+            was_quiet = _quiet_now(previous_poll, quiet_start, quiet_end) if previous_poll else False
+            is_quiet = _quiet_now(now, quiet_start, quiet_end)
             for source, raw in sources.items():
                 if source in self._collection_failures or raw is None:
                     continue
@@ -282,7 +273,7 @@ class ProactiveEngine:
                 snapshots[source] = current
             digest_offered_at = _parse_datetime(state.get("quiet_digest_offered_at"))
             recent = sum(1 for timestamp in history.values() if (parsed := _parse_datetime(timestamp)) and now - parsed <= timedelta(hours=1))
-            if was_quiet and not is_quiet and len(pending) > 1 and recent < self.policy.rate_limit and not (digest_offered_at and now - digest_offered_at < timedelta(minutes=DEFAULT_RETRY_MINUTES)):
+            if was_quiet and not is_quiet and len(pending) > 1 and recent < rate_limit and not (digest_offered_at and now - digest_offered_at < timedelta(minutes=DEFAULT_RETRY_MINUTES)):
                 digest = build_notification_digest(pending)
                 if digest:
                     digest_key = f"digest:{_fingerprint(sorted(pending))}"
@@ -344,9 +335,7 @@ class ProactiveEngine:
 
 
 class ProactiveScheduler:
-    """ProactiveEngine-i daemon thread-də periodik icra edir."""
-
-    def __init__(self, engine: ProactiveEngine, on_notification: Callable[[dict[str, Any]], None], interval: int = DEFAULT_INTERVAL) -> None:
+    def __init__(self, engine: ProactiveEngine, on_notification: Callable[[dict[str, Any]], Any], interval: int = DEFAULT_INTERVAL) -> None:
         self.engine = engine
         self.on_notification = on_notification
         self.interval = max(10, int(interval))
@@ -366,21 +355,20 @@ class ProactiveScheduler:
     def poll_once(self) -> list[dict[str, Any]]:
         events = self.engine.poll()
         delivered: list[dict[str, Any]] = []
-        acknowledge = getattr(self.engine, "acknowledge_notification", None)
-        acknowledge_digest = getattr(self.engine, "acknowledge_digest", None)
         for event in events:
             try:
                 result = self.on_notification(event)
                 if result is False:
                     continue
-                key = str(event["key"])
-                if key.startswith("digest:") and acknowledge_digest is not None:
-                    if acknowledge_digest(key):
+                key = str(event.get("key", ""))
+                if key.startswith("digest:"):
+                    acknowledged = getattr(self.engine, "acknowledge_digest", None)
+                    if acknowledged is None or acknowledged(key):
                         delivered.append(event)
-                elif acknowledge is None:
-                    delivered.append(event)
-                elif acknowledge(key):
-                    delivered.append(event)
+                else:
+                    acknowledged = getattr(self.engine, "acknowledge_notification", None)
+                    if acknowledged is None or acknowledged(key):
+                        delivered.append(event)
             except Exception:
                 continue
         return delivered
