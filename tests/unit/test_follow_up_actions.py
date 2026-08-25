@@ -19,6 +19,20 @@ def _context(items):
     )
 
 
+def _email_context(items):
+    return ResultContext.from_result(
+        "email-r1",
+        {
+            "type": "email",
+            "status": "success",
+            "query": {},
+            "data": items,
+            "count": len(items),
+        },
+        1800,
+    )
+
+
 def test_follow_up_show_resolves_ordinal_reference():
     result = resolve_follow_up_action(_context([
         {"id": "task:t1", "title": "Birinci"},
@@ -70,6 +84,51 @@ def test_follow_up_update_builds_dispatch():
     assert dispatch.args["task_id"] == "t1"
     assert dispatch.args["list_name"] == "list1"
     assert dispatch.args["due_iso"].endswith("+00:00") or "+" in dispatch.args["due_iso"]
+
+
+def test_email_show_builds_read_dispatch():
+    context = _email_context([
+        {"id": "email:m1", "gmail_message_id": "m1", "subject": "Birinci"},
+        {"id": "email:m2", "gmail_message_id": "m2", "subject": "İkinci"},
+    ])
+    action = resolve_follow_up_action(context, "ikincini göstər")
+    dispatch = build_follow_up_dispatch(action)
+    assert dispatch.tool_name == "read_email"
+    assert dispatch.args == {"message_id": "m2"}
+    assert dispatch.item["id"] == "email:m2"
+    assert dispatch.confirmation_required is False
+
+
+def test_email_reply_builds_confirmation_dispatch():
+    context = _email_context([
+        {"id": "email:m1", "gmail_message_id": "m1", "subject": "Salam"},
+    ])
+    action = resolve_follow_up_action(context, "buna cavab yaz: Salam, sabah görüşərik")
+    dispatch = build_follow_up_dispatch(action)
+    assert action.action == "reply"
+    assert dispatch.tool_name == "prepare_email_reply"
+    assert dispatch.args == {"message_id": "m1", "body": "Salam, sabah görüşərik"}
+    assert dispatch.confirmation_required is True
+
+
+def test_email_delete_builds_confirmation_dispatch():
+    context = _email_context([
+        {"id": "email:m1", "gmail_message_id": "m1", "subject": "Silinəcək"},
+    ])
+    action = resolve_follow_up_action(context, "onu sil", selected_item=context.data[0])
+    dispatch = build_follow_up_dispatch(action)
+    assert dispatch.tool_name == "prepare_trash_emails"
+    assert dispatch.args == {"message_id": "m1"}
+    assert dispatch.confirmation_required is True
+
+
+def test_email_reply_requires_body():
+    context = _email_context([
+        {"id": "email:m1", "gmail_message_id": "m1", "subject": "Salam"},
+    ])
+    action = resolve_follow_up_action(context, "buna cavab yaz")
+    with pytest.raises(ResultResolutionError, match="mətni tələb olunur"):
+        build_follow_up_dispatch(action)
 
 
 def test_follow_up_rejects_unknown_action():
