@@ -3,6 +3,7 @@
 import asyncio
 import traceback
 import re
+from dataclasses import dataclass
 from typing import Callable
 
 from google.genai import types  # type: ignore[reportMissingImports]
@@ -24,7 +25,7 @@ from actions.weather import get_weather_summary
 from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
 from core.result_store import ResultStore
-from core.result_resolver import ResultResolutionError, resolve_item, resolve_reference
+from core.result_resolver import FollowUpAction, ResultResolutionError, resolve_item, resolve_reference
 from core.orchestrator import execute_unified_query
 
 import tool_defs as _tool_defs
@@ -36,6 +37,47 @@ from core.task_tool_defs import TASK_TOOL_DECLARATIONS
 for _declaration in [*EMAIL_TOOL_DECLARATIONS, *CONTACT_TOOL_DECLARATIONS, *WHATSAPP_TOOL_DECLARATIONS, *TASK_TOOL_DECLARATIONS]:
     if not any(item.get("name") == _declaration["name"] for item in _tool_defs.TOOL_DECLARATIONS):
         _tool_defs.TOOL_DECLARATIONS.append(_declaration)
+
+
+@dataclass(frozen=True)
+class FollowUpDispatch:
+    """Həll edilmiş follow-up üçün icra ediləcək alət və arqumentləri təsvir edir."""
+
+    tool_name: str | None
+    args: dict
+    item: dict
+    confirmation_required: bool = False
+
+
+def _task_identity(item: dict) -> tuple[str, str]:
+    item_id = str(item.get("id", ""))
+    if not item_id.startswith("task:"):
+        raise ResultResolutionError("Follow-up əməli üçün dəstəklənməyən entity")
+    task_id = str(item.get("google_task_id", "")) or item_id.removeprefix("task:")
+    list_name = str(item.get("task_list_id", ""))
+    if not task_id:
+        raise ResultResolutionError("Follow-up task identifikatoru tapılmadı")
+    return task_id, list_name
+
+
+def build_follow_up_dispatch(action: FollowUpAction) -> FollowUpDispatch:
+    """FollowUpAction-ı təhlükəsiz tool dispatch planına çevirir."""
+    item = action.item
+    if action.action == "show":
+        return FollowUpDispatch(None, {}, item)
+
+    if action.action == "complete":
+        task_id, list_name = _task_identity(item)
+        return FollowUpDispatch("complete_reminder", {"task_id": task_id, "list_name": list_name}, item)
+
+    if action.action == "delete":
+        task_id, list_name = _task_identity(item)
+        return FollowUpDispatch("delete_reminder", {"task_id": task_id, "list_name": list_name}, item, True)
+
+    if action.action == "update":
+        raise ResultResolutionError("Follow-up yeniləmə üçün konkret dəyişiklik məlumatı tələb olunur")
+
+    raise ResultResolutionError("Follow-up üçün dəstəklənməyən əməl")
 
 
 class ToolExecutor:
@@ -64,7 +106,7 @@ class ToolExecutor:
         text = str(result or "").strip().lower()
         if not text:
             return False
-        return any(marker in text for marker in ("hata", "error", "xəta", "alinamadi", "alınamadı", "bulunamadi", "bulunamadı", "acilamadi", "açılamadı", "tamamlanamadi", "tamamlanamadı", "gecersiz", "geçersiz", "izin gerekiyor", "izin gerekli", "baglanti", "bağlantı", "gerekli.", "mümkün olmadı"))
+        return any(marker in text for marker in ("hata", "error", "xəta", "alinamadi", "alınamadı", "bulunamadi", "bulunamadı", "acilamadi", "açılamadı", "tamamlanamadi", "tamamlanamadı", "gecersiz", "geçərsiz", "izin gerekiyor", "izin gerekli", "baglanti", "bağlantı", "gerekli.", "mümkün olmadı"))
 
     @staticmethod
     def should_play_success_sfx(tool_name: str, args: dict, result) -> bool:
