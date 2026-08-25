@@ -75,18 +75,18 @@ def _is_relative_reference(query: str) -> bool:
 
 
 def _extract_follow_up_reference(query: str) -> tuple[str, str]:
-    normalized = _normalize(query)
-    if not normalized:
+    original = re.sub(r"\s+", " ", str(query or "")).strip()
+    if not original:
         raise ResultResolutionError("Follow-up sorğusu boşdur")
     reference_pattern = (
         r"(?:birinci(?:ni|si)?|ikinci(?:ni|si)?|üçüncü(?:nü|sü)?|dördüncü(?:nü|sü)?|"
         r"beşinci(?:ni|si)?|sonuncu(?:nu|su)?|\d+|ona|onu|onun|o|bunu|buna|bunun|bu|həmin|həminini)"
         r"(?:\s+(?:email|e-mail|mesaj|qeyd|tədbir|task))?"
     )
-    match = re.match(rf"^({reference_pattern})(?:\s+(.*))?$", normalized)
+    match = re.match(rf"^({reference_pattern})(?:\s+(.*))?$", original, re.IGNORECASE)
     if not match:
         raise ResultResolutionError("Follow-up sorğusunda nisbi istinad tapılmadı")
-    return match.group(1).strip(), (match.group(2) or "").strip()
+    return _normalize(match.group(1)), (match.group(2) or "").strip()
 
 
 def _detect_follow_up_action(action_text: str) -> str:
