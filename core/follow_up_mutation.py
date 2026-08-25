@@ -29,8 +29,9 @@ def build_follow_up_mutation(action: FollowUpAction, *, now: datetime | None = N
     if not str(action.item.get("id", "")).startswith("task:"):
         raise ResultResolutionError("Follow-up yeniləmə yalnız task üçün dəstəklənir")
 
-    text = str(action.item.get("_follow_up_action_text", ""))
-    normalized = text.casefold().strip()
+    # Action mətni FollowUpAction-da ayrıca saxlanılır. Target item-ə daxili
+    # metadata yazmaqla conversation nəticəsini mutasiya etmək lazım deyil.
+    normalized = str(action.action_text or "").casefold().strip()
     if "sabah" not in normalized:
         raise ResultResolutionError("Follow-up yeniləmə üçün dəstəklənən dəyişiklik tapılmadı")
 
