@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 
@@ -16,6 +17,17 @@ class QueryPlan:
 
 _DAILY = ("calendar", "tasks", "memory")
 _REPORT = ("gmail", "whatsapp", "calendar", "tasks", "memory")
+
+
+def _cross_source_entity(text: str) -> str:
+    match = re.search(
+        r"^(.+?)\s+(?:nə vaxt|nə zaman)\s+(?:planlaşdırmışdım|planlaşdırmışam|planlamışdım|planlamışam)\??$",
+        text.strip(),
+        re.IGNORECASE,
+    )
+    if match:
+        return match.group(1).strip()
+    return ""
 
 
 def plan_query(query: str) -> QueryPlan:
@@ -46,7 +58,16 @@ def plan_query(query: str) -> QueryPlan:
 
     if "əhməd" in q or "ahmed" in q:
         if any(word in q for word in ("danış", "yazış", "mesaj", "son nə", "nə demiş")):
-            return QueryPlan("contact_history", ("whatsapp", "memory"), "", text, ("Əhməd",))
+            return QueryPlan("contact_history", ("whatsapp", "memory"), "", text, ("Əhməd",), metadata={"entity": "Əhməd"})
+        if any(word in q for word in ("görüş", "görüşüm", "görüş var")) and any(word in q for word in ("bu gün", "bugün")):
+            return QueryPlan("cross_source_search", ("calendar", "tasks", "memory"), "today", "Əhməd", ("Əhməd",), metadata={"entity": "Əhməd"})
+        if any(word in q for word in ("görüş", "görüşüm", "görüş var")) and "sabah" in q:
+            return QueryPlan("cross_source_search", ("calendar", "tasks", "memory"), "tomorrow", "Əhməd", ("Əhməd",), metadata={"entity": "Əhməd"})
+
+    entity = _cross_source_entity(text)
+    if entity:
+        terms = tuple(token for token in re.findall(r"[\wƏəÖöÜüĞğÇçŞşİı]+", entity) if len(token) >= 4)
+        return QueryPlan("cross_source_search", ("calendar", "tasks", "memory"), "", entity, terms or (entity,), metadata={"entity": entity})
 
     if any(word in q for word in ("market", "mağaza", "almalı", "getməyi nə vaxt", "planlaşdırmışdım")):
         terms = []
@@ -56,7 +77,7 @@ def plan_query(query: str) -> QueryPlan:
             terms.append("mağaza")
         if "almalı" in q:
             terms.append("almalı")
-        return QueryPlan("cross_source_search", ("calendar", "tasks", "memory"), "", text, tuple(terms))
+        return QueryPlan("cross_source_search", ("calendar", "tasks", "memory"), "", text, tuple(terms), metadata={"entity": " ".join(terms)})
 
     if any(word in q for word in ("email", "gmail", "poçt", "məktub")):
         return QueryPlan("gmail_query", ("gmail",), "", text)
