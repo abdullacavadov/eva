@@ -11,6 +11,16 @@ import './styles/responsive.css'
 
 const initialContext: EvaContext = { items: [] }
 
+const stateStatusLabel: Record<EvaState, string> = {
+  IDLE: 'SİSTEM HAZIRDIR',
+  LISTENING: 'EVA DİNLƏYİR',
+  THINKING: 'EVA DÜŞÜNÜR',
+  EXECUTING: 'EVA İCRA EDİR',
+  WAITING_CONFIRMATION: 'TƏSDİQ GÖZLƏNİLİR',
+  SUCCESS: 'ƏMƏLİYYAT TAMAMLANDI',
+  ERROR: 'SİSTEM XƏTASI',
+}
+
 const formatClock = (date: Date) => date.toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' })
 const formatDate = (date: Date) => date.toLocaleDateString('az-AZ', { day: '2-digit', month: 'short', year: 'numeric' })
 
@@ -47,7 +57,7 @@ export default function App() {
     return () => { cancelled = true }
   }, [])
 
-  const statusText = useMemo(() => state === 'IDLE' ? 'SİSTEM HAZIRDIR' : `EVA ${state.replace('_', ' ')}`, [state])
+  const statusText = useMemo(() => stateStatusLabel[state], [state])
 
   const handleSubmit = (text: string) => {
     applyEvent({ type: 'conversation.user', text })
