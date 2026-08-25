@@ -30,6 +30,17 @@ def _cross_source_entity(text: str) -> str:
     return ""
 
 
+def _entity_terms(entity: str) -> tuple[str, ...]:
+    terms: list[str] = []
+    for token in re.findall(r"[\wƏəÖöÜüĞğÇçŞşİı]+", entity):
+        if len(token) < 4:
+            continue
+        terms.append(token)
+        if len(token) >= 5:
+            terms.append(token[:5])
+    return tuple(dict.fromkeys(terms))
+
+
 def plan_query(query: str) -> QueryPlan:
     text = str(query or "").strip()
     q = text.casefold()
@@ -66,8 +77,7 @@ def plan_query(query: str) -> QueryPlan:
 
     entity = _cross_source_entity(text)
     if entity:
-        terms = tuple(token for token in re.findall(r"[\wƏəÖöÜüĞğÇçŞşİı]+", entity) if len(token) >= 4)
-        return QueryPlan("cross_source_search", ("calendar", "tasks", "memory"), "", entity, terms or (entity,), metadata={"entity": entity})
+        return QueryPlan("cross_source_search", ("calendar", "tasks", "memory"), "", entity, _entity_terms(entity), metadata={"entity": entity})
 
     if any(word in q for word in ("market", "mağaza", "almalı", "getməyi nə vaxt", "planlaşdırmışdım")):
         terms = []
