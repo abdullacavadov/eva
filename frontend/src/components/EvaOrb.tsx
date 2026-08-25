@@ -1,13 +1,13 @@
 import type { EvaState } from '../types/eva'
 
 const stateLabel: Record<EvaState, string> = {
-  IDLE: 'READY',
-  LISTENING: 'LISTENING',
-  THINKING: 'THINKING',
-  EXECUTING: 'EXECUTING',
-  WAITING_CONFIRMATION: 'CONFIRMATION REQUIRED',
-  SUCCESS: 'COMPLETE',
-  ERROR: 'SYSTEM ERROR',
+  IDLE: 'HAZIRDIR',
+  LISTENING: 'DİNLƏYİR',
+  THINKING: 'DÜŞÜNÜR',
+  EXECUTING: 'İCRA EDİR',
+  WAITING_CONFIRMATION: 'TƏSDİQ TƏLƏB OLUNUR',
+  SUCCESS: 'TAMAMLANDI',
+  ERROR: 'SİSTEM XƏTASI',
 }
 
 export function EvaOrb({ state }: { state: EvaState }) {
