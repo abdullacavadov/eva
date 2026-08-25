@@ -66,20 +66,16 @@ def build_follow_up_dispatch(action: FollowUpAction) -> FollowUpDispatch:
     item = action.item
     if action.action == "show":
         return FollowUpDispatch(None, {}, item)
-
     if action.action == "complete":
         task_id, list_name = _task_identity(item)
         return FollowUpDispatch("complete_reminder", {"task_id": task_id, "list_name": list_name}, item)
-
     if action.action == "delete":
         task_id, list_name = _task_identity(item)
         return FollowUpDispatch("delete_reminder", {"task_id": task_id, "list_name": list_name}, item, True)
-
     if action.action == "update":
         task_id, list_name = _task_identity(item)
         mutation = build_follow_up_mutation(action)
         return FollowUpDispatch("update_reminder", {"task_id": task_id, "list_name": list_name, **mutation.fields}, item)
-
     raise ResultResolutionError("Follow-up üçün dəstəklənməyən əməl")
 
 
@@ -175,24 +171,25 @@ class ToolExecutor:
             elif name == "save_whatsapp_contact": result = await loop.run_in_executor(None, lambda: save_whatsapp_contact(args.get("display_name", ""), args.get("phone_number", ""), args.get("aliases", ""))) or "WhatsApp kontaktı yadda saxlanıldı."
             elif name == "read_whatsapp_conversations": result = await loop.run_in_executor(None, read_whatsapp_conversations) or "WhatsApp söhbətləri oxundu."
             elif name == "read_whatsapp_messages": result = await loop.run_in_executor(None, lambda: read_whatsapp_messages(args.get("conversation", ""))) or "WhatsApp mesajları oxundu."
-            else:
-                result = f"Naməlum alət: {name}"
-        except Exception as exc:
-            had_exception = True
-            result = f"Xəta: {exc}"
-            print(f"[E.V.A] ❌ {name}: {exc}")
-            traceback.print_exc()
+            elif name == "toggle_webcam":
+                action = str(args.get("action", "start")).strip().lower()
+                if action == "start":
+                    status = self.webcam_streamer.start()
+                    if status == "ok":
+                        self.ui.set_webcam_active(True); result = "Webcam axını başladıldı. Artıq kameranı görürəm — istədiyin vaxt sual verə bilərsən."
+                    elif status == "already_active": result = "Webcam artıq açıqdır, görüntünü alıram."
+                    else: result = "Webcam-i başlatmaq mümkün olmadı: opencv-python quraşdırılmayıb."
+                else:
+                    self.webcam_streamer.stop(); self.ui.set_webcam_active(False); result = "Webcam axını dayandırıldı."
+            else: result = f"Naməlum alət: {name}"
+        except Exception as e:
+            result = f"Xəta: {e}"; had_exception = True; traceback.print_exc(); self.speak_error(name, e); self.ui.set_state("ERROR")
 
-        if isinstance(result, dict) and {"type", "status", "data"}.issubset(result):
-            self.result_store.save(result)
-
-        if not had_exception and self.should_play_success_sfx(name, args, result):
-            try:
-                self.ui.play_success_sound()
-            except Exception:
-                pass
-
-        if had_exception or self.result_looks_like_error(result):
-            self.speak_error(str(result), name)
-
-        return types.FunctionResponse(name=name, response={"result": result})
+        tool_failed = self.result_looks_like_error(result)
+        if tool_failed:
+            if not had_exception: self.ui.set_state("ERROR")
+        elif self.should_play_success_sfx(name, args, result): self.ui.play_success_sfx()
+        if isinstance(result, dict) and "type" in result and "status" in result and "data" in result: self.result_store.save(result)
+        if not tool_failed and not self.ui.muted: self.ui.set_state("LISTENING")
+        print(f"[E.V.A] 📤 {name} → {str(result)[:80]}...")
+        return types.FunctionResponse(id=fc.id, name=fc.name, response={"result": result})
