@@ -8,7 +8,7 @@ from actions.daily_report import build_daily_report
 from actions.email import search_emails
 from actions.whatsapp_read_action import read_whatsapp_messages
 from actions.agenda import get_daily_agenda
-from memory.memory_manager import load_memory
+from memory.memory_manager import load_memory, delete_memory
 from core.query_planner import QueryPlan, plan_query
 from core.unified_results import make_unified_result, normalize_item
 
@@ -121,6 +121,55 @@ def _deletion_candidates(plan: QueryPlan, limit: int) -> tuple[list[dict[str, An
 
     unique: dict[str, dict[str, Any]] = {item["id"]: item for item in candidates}
     return list(unique.values())[:10], errors
+
+
+def execute_unified_deletion(query: str, selected_id: str = "", confirmed: bool = False, limit: int = 8) -> dict[str, Any]:
+    """Resolve a safe deletion candidate and delete only after explicit confirmation."""
+    plan = plan_query(query)
+    if plan.intent != "deletion":
+        return make_unified_result(query, "deletion", [], [], meta={"deletion_safe": True, "message": "Bu sorğu silmə əmri deyil."})
+
+    candidates, errors = _deletion_candidates(plan, max(1, min(int(limit or 8), 20)))
+    if not candidates:
+        return make_unified_result(query, "deletion", list(plan.sources), [], errors, {"requires_confirmation": True, "deletion_safe": True, "message": "Silinəcək uyğun qeyd tapılmadı."})
+
+    if not confirmed or not selected_id:
+        return make_unified_result(query, "deletion", list(plan.sources), candidates, errors, {"requires_confirmation": True, "deletion_safe": True, "selected_id": None, "message": "Silmək üçün konkret qeydi seç və açıq təsdiq ver."})
+
+    matches = [item for item in candidates if item.get("id") == str(selected_id)]
+    if len(matches) != 1:
+        return make_unified_result(query, "deletion", list(plan.sources), candidates, errors, {"requires_confirmation": True, "deletion_safe": True, "selected_id": None, "message": "Seçilmiş qeyd bu sorğunun namizədləri arasında deyil; heç nə silinmədi."})
+
+    item = matches[0]
+    source = item.get("source", "")
+    payload = item.get("payload", {}) or {}
+    try:
+        if source == "tasks":
+            from actions.reminders import delete_reminder
+            task_id = str(payload.get("google_task_id", ""))
+            if not task_id:
+                return make_unified_result(query, "deletion", list(plan.sources), [item], errors, {"requires_confirmation": True, "deletion_safe": True, "message": "Task üçün təhlükəsiz silmə ID-si tapılmadı."})
+            result = delete_reminder(task_id, str(payload.get("task_list_id", "")))
+        elif source == "calendar":
+            title = str(payload.get("title", ""))
+            start = str(payload.get("start", ""))
+            result = delete_calendar_event(title, start)
+        elif source == "memory":
+            parts = str(item.get("id", "")).split(":", 2)
+            if len(parts) != 3:
+                return make_unified_result(query, "deletion", list(plan.sources), [item], errors, {"requires_confirmation": True, "deletion_safe": True, "message": "Memory qeydi üçün təhlükəsiz silmə yolu tapılmadı."})
+            result_text = delete_memory(category=parts[1], key=parts[2])
+            result = {"status": "success" if "silindi" in result_text.casefold() else "error", "type": "memory", "data": [], "meta": {"message": result_text, "deleted_id": item["id"]}}
+        else:
+            return make_unified_result(query, "deletion", list(plan.sources), [item], errors, {"requires_confirmation": True, "deletion_safe": True, "message": f"{source} üçün unified silmə dəstəyi yoxdur."})
+    except Exception as exc:
+        result = {"status": "error", "type": "deletion", "data": [], "meta": {"message": str(exc)}}
+
+    if result.get("status") != "success":
+        errors[source] = result.get("meta", {}).get("message", "Silmə əməliyyatı uğursuz oldu.")
+        return make_unified_result(query, "deletion", list(plan.sources), [item], errors, {"requires_confirmation": True, "deletion_safe": True, "selected_id": item["id"], "message": errors[source]})
+
+    return make_unified_result(query, "deletion", [source], [], {}, {"requires_confirmation": False, "deletion_safe": True, "selected_id": item["id"], "deleted": True, "message": "Seçilmiş qeyd silindi."})
 
 
 def _execute_daily_report(limit: int) -> dict[str, Any]:
