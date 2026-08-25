@@ -45,12 +45,13 @@ def _parse_datetime(value: Any) -> datetime | None:
         return None
     try:
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-        return parsed.astimezone() if parsed.tzinfo else parsed.astimezone()
+        # Preserve an existing timezone. Converting to the host's local timezone
+        # makes UTC timestamps compare incorrectly on other hosts.
+        return parsed
     except ValueError:
         pass
     try:
-        parsed = parsedate_to_datetime(text)
-        return parsed.astimezone() if parsed.tzinfo else parsed
+        return parsedate_to_datetime(text)
     except (TypeError, ValueError, IndexError):
         return None
 
