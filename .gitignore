@@ -20,3 +20,7 @@ config/google_token.json
 
 #Whatsapp
 .eva/
+
+# React frontend
+frontend/node_modules/
+frontend/dist/
