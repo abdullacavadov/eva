@@ -60,7 +60,15 @@ def _is_relative_reference(query: str) -> bool:
     normalized = _normalize(query)
     if not normalized:
         return False
-    if _ordinal_index(normalized, 1) is not None:
+    ordinal_words = {
+        "birinci", "birincini", "birincisi",
+        "ikinci", "ikincini", "ikincisi",
+        "üçüncü", "üçüncünü", "üçüncüsü",
+        "dördüncü", "dördüncünü", "dördüncüsü",
+        "beşinci", "beşincini", "beşincisi",
+        "sonuncu", "sonuncunu", "sonuncusu",
+    }
+    if normalized.isdigit() or normalized in ordinal_words:
         return True
     return bool(re.fullmatch(
         r"(?:ona|onu|onun|o|bunu|buna|bunun|bu|həmin|həminini)"
