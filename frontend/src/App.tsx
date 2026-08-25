@@ -7,8 +7,12 @@ import { Sidebar } from './components/Sidebar'
 import { demoConversation } from './services/mockEva'
 import type { ActivityItem, EvaContext, EvaEvent, EvaState } from './types/eva'
 import './styles/globals.css'
+import './styles/responsive.css'
 
 const initialContext: EvaContext = { items: [] }
+
+const formatClock = (date: Date) => date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+const formatDate = (date: Date) => date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 
 export default function App() {
   const [state, setState] = useState<EvaState>('IDLE')
@@ -16,6 +20,7 @@ export default function App() {
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [context, setContext] = useState<EvaContext>(initialContext)
   const [online, setOnline] = useState(true)
+  const [now, setNow] = useState(() => new Date())
 
   const applyEvent = (event: EvaEvent) => {
     if (event.type === 'state.changed' && event.state) setState(event.state)
@@ -24,6 +29,11 @@ export default function App() {
     if (event.type === 'activity.created' && event.activity) setActivities((items) => [...items, event.activity!])
     if (event.type === 'context.updated' && event.context) setContext(event.context)
   }
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -59,7 +69,7 @@ export default function App() {
         <header className="topbar">
           <div><span className="eyebrow">E.V.A / PERSONAL AI</span><h1>Command Center</h1></div>
           <div className="system-status"><span className={`online-dot ${online ? '' : 'offline'}`} />{statusText}<small>LOCAL CORE</small></div>
-          <div className="clock"><strong>{new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</strong><small>{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</small></div>
+          <div className="clock" aria-label={`Current time ${formatClock(now)}, ${formatDate(now)}`}><strong>{formatClock(now)}</strong><small>{formatDate(now)}</small></div>
         </header>
 
         <div className="dashboard-grid">
