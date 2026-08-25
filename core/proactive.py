@@ -16,7 +16,6 @@ from actions.email import search_emails
 from actions.whatsapp_read_action import read_whatsapp_conversations
 from memory.memory_manager import load_memory
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_STATE_FILE = BASE_DIR / ".eva" / "proactive-state.json"
 DEFAULT_INTERVAL = 120
@@ -24,6 +23,7 @@ DEFAULT_RATE_LIMIT = 3
 DEFAULT_COOLDOWN_MINUTES = 360
 DEFAULT_QUIET_START = "23:00"
 DEFAULT_QUIET_END = "07:00"
+DEFAULT_RETRY_MINUTES = 1
 
 
 def _fingerprint(value: Any) -> str:
@@ -44,8 +44,7 @@ def _parse_datetime(value: Any) -> datetime | None:
     if not text:
         return None
     try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-        return parsed
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         pass
     try:
@@ -146,9 +145,13 @@ class NotificationPolicy:
         if recent >= self.rate_limit:
             return []
         selected: list[dict[str, Any]] = []
+        retry_window = timedelta(minutes=DEFAULT_RETRY_MINUTES)
         for key, event in pending.items():
             last_sent = _parse_datetime(str(history.get(key, "")))
             if last_sent and now - last_sent < self.cooldown:
+                continue
+            offered_at = _parse_datetime(event.get("_offered_at"))
+            if offered_at and now - offered_at < retry_window:
                 continue
             if not self._eligible(event, now):
                 continue
@@ -268,10 +271,13 @@ class ProactiveEngine:
                             if not changed:
                                 continue
                             key = f"{item_id}:{_fingerprint(item)}"
-                            pending[key] = {"key": key, "source": source, "item": item, "changed": old_item is not None}
+                            existing = pending.get(key)
+                            if existing is None:
+                                pending[key] = {"key": key, "source": source, "item": item, "changed": old_item is not None}
                 snapshots[source] = current
             selected = self.policy.choose(pending, history, now)
             for event in selected:
+                event["_offered_at"] = now.isoformat()
                 event["title"] = _event_title(str(event.get("source", "")), event.get("item") or {})
                 event["text"] = _event_text(str(event.get("source", "")), event.get("item") or {})
             state["snapshots"] = snapshots
@@ -320,12 +326,16 @@ class ProactiveScheduler:
     def poll_once(self) -> list[dict[str, Any]]:
         events = self.engine.poll()
         delivered: list[dict[str, Any]] = []
+        acknowledge = getattr(self.engine, "acknowledge_notification", None)
         for event in events:
             try:
                 result = self.on_notification(event)
                 if result is False:
                     continue
-                if self.engine.acknowledge_notification(str(event["key"])):
+                if acknowledge is None:
+                    delivered.append(event)
+                    continue
+                if acknowledge(str(event["key"])):
                     delivered.append(event)
             except Exception:
                 continue
