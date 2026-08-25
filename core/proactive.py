@@ -172,6 +172,7 @@ class ProactiveEngine:
             quiet_end=os.getenv("EVA_PROACTIVE_QUIET_END", DEFAULT_QUIET_END),
         )
         self._lock = threading.Lock()
+        self._collection_failures: set[str] = set()
 
     def _load(self) -> dict[str, Any]:
         try:
@@ -204,28 +205,39 @@ class ProactiveEngine:
 
     def _collect(self) -> dict[str, Any]:
         sources: dict[str, Any] = {}
+        self._collection_failures = set()
         try:
             result = search_emails("in:inbox is:unread", 20)
             sources["gmail"] = result.get("data", []) if result.get("status") != "error" else []
+            if result.get("status") == "error":
+                self._collection_failures.add("gmail")
         except Exception:
             sources["gmail"] = []
+            self._collection_failures.add("gmail")
         try:
             result = read_whatsapp_conversations()
             sources["whatsapp"] = result.get("data", []) if result.get("status") != "error" else []
+            if result.get("status") == "error":
+                self._collection_failures.add("whatsapp")
         except Exception:
             sources["whatsapp"] = []
+            self._collection_failures.add("whatsapp")
         try:
             result = get_daily_agenda(limit=50, date_text=datetime.now().astimezone().date().isoformat())
+            if isinstance(result, dict) and result.get("status") == "error":
+                raise RuntimeError("agenda source error")
             groups = result.get("meta", {}).get("groups", {}) if isinstance(result, dict) else {}
             sources["calendar"] = groups.get("calendar", [])
             sources["tasks"] = groups.get("tasks", [])
         except Exception:
             sources["calendar"] = []
             sources["tasks"] = []
+            self._collection_failures.update({"calendar", "tasks"})
         try:
             sources["memory"] = load_memory()
         except Exception:
             sources["memory"] = {}
+            self._collection_failures.add("memory")
         return sources
 
     def poll(self, now: datetime | None = None) -> list[dict[str, Any]]:
@@ -237,6 +249,8 @@ class ProactiveEngine:
             pending = state["pending"]
             history = state["history"]
             for source, raw in sources.items():
+                if source in self._collection_failures:
+                    continue
                 current = self._source_snapshot(source, raw)
                 previous = snapshots.get(source)
                 if previous is not None:
