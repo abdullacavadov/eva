@@ -9,6 +9,7 @@ class QueryPlan:
     sources: tuple[str, ...]
     period: str = ""
     search_text: str = ""
+    search_terms: tuple[str, ...] = ()
     needs_confirmation: bool = False
     metadata: dict[str, str] = field(default_factory=dict)
 
@@ -45,10 +46,17 @@ def plan_query(query: str) -> QueryPlan:
 
     if "əhməd" in q or "ahmed" in q:
         if any(word in q for word in ("danış", "yazış", "mesaj", "son nə", "nə demiş")):
-            return QueryPlan("contact_history", ("whatsapp", "memory"), "", "Əhməd")
+            return QueryPlan("contact_history", ("whatsapp", "memory"), "", text, ("Əhməd",))
 
     if any(word in q for word in ("market", "mağaza", "almalı", "getməyi nə vaxt", "planlaşdırmışdım")):
-        return QueryPlan("cross_source_search", ("calendar", "tasks", "memory"), "", text)
+        terms = []
+        if "market" in q:
+            terms.append("market")
+        if "mağaza" in q:
+            terms.append("mağaza")
+        if "almalı" in q:
+            terms.append("almalı")
+        return QueryPlan("cross_source_search", ("calendar", "tasks", "memory"), "", text, tuple(terms))
 
     if any(word in q for word in ("email", "gmail", "poçt", "məktub")):
         return QueryPlan("gmail_query", ("gmail",), "", text)
