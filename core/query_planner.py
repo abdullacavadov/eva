@@ -20,14 +20,8 @@ _REPORT = ("gmail", "whatsapp", "calendar", "tasks", "memory")
 
 
 def _cross_source_entity(text: str) -> str:
-    match = re.search(
-        r"^(.+?)\s+(?:nə vaxt|nə zaman)\s+(?:planlaşdırmışdım|planlaşdırmışam|planlamışdım|planlamışam)\??$",
-        text.strip(),
-        re.IGNORECASE,
-    )
-    if match:
-        return match.group(1).strip()
-    return ""
+    match = re.search(r"^(.+?)\s+(?:nə vaxt|nə zaman)\s+(?:planlaşdırmışdım|planlaşdırmışam|planlamışdım|planlamışam)\??$", text.strip(), re.IGNORECASE)
+    return match.group(1).strip() if match else ""
 
 
 def _entity_terms(entity: str) -> tuple[str, ...]:
@@ -41,29 +35,35 @@ def _entity_terms(entity: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(terms))
 
 
+def _deletion_entity(text: str) -> str:
+    cleaned = str(text or "").casefold()
+    cleaned = re.sub(r"\b(sil|silə|silin|delete|poz|ləğv et|ləğv elə|çıxar)\b", " ", cleaned)
+    cleaned = re.sub(r"\b(taskı|taski|tapşırığı|qeydi|qeydini|görüşü|eventi|tədbiri)\b", " ", cleaned)
+    return re.sub(r"\s+", " ", cleaned).strip(" ?.!,-")
+
+
 def plan_query(query: str) -> QueryPlan:
     text = str(query or "").strip()
     q = text.casefold()
     if not text:
         return QueryPlan("unknown", tuple(), metadata={"reason": "empty_query"})
 
-    deletion = any(word in q for word in ("sil", "silə", "silin", "delete", "poz"))
+    deletion = any(word in q for word in ("sil", "silə", "silin", "delete", "poz", "ləğv et", "ləğv elə", "çıxar"))
     if deletion:
-        sources = []
+        sources: list[str] = []
         if any(word in q for word in ("task", "tapşır", "xatırlat")):
             sources.append("tasks")
-        if any(word in q for word in ("təqvim", "calendar", "görüş", "tədbir")):
+        if any(word in q for word in ("təqvim", "calendar", "görüş", "tədbir", "event")):
             sources.append("calendar")
         if any(word in q for word in ("yaddaş", "memory", "qeyd")):
             sources.append("memory")
-        return QueryPlan("deletion", tuple(sources) or ("tasks", "calendar", "memory"), needs_confirmation=True, metadata={"ambiguous_source": "true" if not sources else "false"})
+        entity = _deletion_entity(text)
+        return QueryPlan("deletion", tuple(sources) or ("tasks", "calendar", "memory"), "", entity, _entity_terms(entity), True, {"ambiguous_source": "true" if not sources else "false", "entity": entity})
 
     if any(phrase in q for phrase in ("bu gün nə baş verib", "bu gün nə baş verdi", "bu gün üçün report", "bu gün üçün hesabat", "bugünkü report", "bugünkü hesabat", "gündəlik report", "daily report", "günlük report", "günlük hesabat")):
         return QueryPlan("daily_report", _REPORT, "today")
-
     if any(phrase in q for phrase in ("bu gün nə işim var", "bu gün nə etməliyəm", "bu gün nələr var", "bu gün planım", "bugün nə işim var")):
         return QueryPlan("agenda_query", _DAILY, "today")
-
     if any(phrase in q for phrase in ("sabah nə etməliyəm", "sabah nə işim var", "sabah nələr var", "sabah planım")):
         return QueryPlan("agenda_query", _DAILY, "tomorrow")
 
@@ -78,15 +78,8 @@ def plan_query(query: str) -> QueryPlan:
     entity = _cross_source_entity(text)
     if entity:
         return QueryPlan("cross_source_search", ("calendar", "tasks", "memory"), "", entity, _entity_terms(entity), metadata={"entity": entity})
-
     if any(word in q for word in ("market", "mağaza", "almalı", "getməyi nə vaxt", "planlaşdırmışdım")):
-        terms = []
-        if "market" in q:
-            terms.append("market")
-        if "mağaza" in q:
-            terms.append("mağaza")
-        if "almalı" in q:
-            terms.append("almalı")
+        terms = [word for word in ("market", "mağaza", "almalı") if word in q]
         return QueryPlan("cross_source_search", ("calendar", "tasks", "memory"), "", text, tuple(terms), metadata={"entity": " ".join(terms)})
 
     if any(word in q for word in ("email", "gmail", "poçt", "məktub")):
@@ -101,5 +94,4 @@ def plan_query(query: str) -> QueryPlan:
         return QueryPlan("tasks_query", ("tasks",), "", text)
     if any(word in q for word in ("yaddaş", "memory", "qeyd")):
         return QueryPlan("memory_query", ("memory",), "", text)
-
     return QueryPlan("information", tuple(), "", text)
