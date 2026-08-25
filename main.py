@@ -95,8 +95,11 @@ class JarvisLive:
     def _on_proactive_notification(self, event: dict):
         text = str(event.get("text") or event.get("title") or "Proaktiv bildiriş").strip()
         if text:
-            self.ui.write_log(f"E.V.A 🔔: {text}")
-            self.ui.write_debug(f"Proactive: {text}", level="INFO")
+            self.ui.root.after(0, self._apply_proactive_notification, text)
+
+    def _apply_proactive_notification(self, text: str):
+        self.ui.write_log(f"E.V.A 🔔: {text}")
+        self.ui.write_debug(f"Proactive: {text}", level="INFO")
 
     def _focus_ui_section_for_tool(self, tool_name: str, args: dict):
         if tool_name == "sys_info":
@@ -424,7 +427,7 @@ def main():
                 interval=int(os.getenv("EVA_PROACTIVE_INTERVAL", "120")),
             )
             proactive_scheduler.start()
-            ui.write_log("SYS: Proaktiv monitor aktivdir.")
+            ui.root.after(0, ui.write_log, "SYS: Proaktiv monitor aktivdir.")
         try:
             asyncio.run(jarvis.run())
         except KeyboardInterrupt:
