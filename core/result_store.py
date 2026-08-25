@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from core.result_context import ResultContext
@@ -22,7 +22,7 @@ class ConversationState:
         if self.updated_at is None:
             return True
         current = now or datetime.now(timezone.utc)
-        return current - self.updated_at >= __import__("datetime").timedelta(seconds=ttl_seconds)
+        return current - self.updated_at >= timedelta(seconds=ttl_seconds)
 
 
 class ResultStore:
