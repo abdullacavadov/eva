@@ -143,7 +143,7 @@ class NotificationPolicy:
         recent = 0
         for timestamp in history.values():
             parsed = _parse_datetime(timestamp)
-            if parsed and now - parsed < timedelta(hours=1):
+            if parsed and now - parsed <= timedelta(hours=1):
                 recent += 1
         if recent >= self.rate_limit:
             return []
