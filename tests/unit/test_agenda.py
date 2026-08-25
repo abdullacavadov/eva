@@ -7,7 +7,7 @@ def test_add_agenda_item_requires_storage_choice():
     result = add_agenda_item("Call Ahmed")
     assert result["status"] == "needs_input"
     assert "Google Tasks" in result["meta"]["message"]
-    assert "memory" in result["meta"]["choices"]
+    assert result["meta"]["choices"] == ["google_tasks", "memory"]
 
 
 def test_add_memory_agenda_item():
@@ -26,16 +26,8 @@ def test_google_tasks_falls_back_to_memory_when_unavailable():
     assert result["meta"]["fallback"] == "memory"
 
 
-def test_microsoft_todo_falls_back_to_memory():
-    with patch("actions.agenda.update_memory"):
-        result = add_agenda_item("Buy milk", storage="microsoft_todo")
-    assert result["status"] == "success"
-    assert result["data"][0]["source"] == "memory"
-    assert result["meta"]["fallback"] == "memory"
-
-
 def test_daily_agenda_has_flat_structured_data_and_source_groups():
-    with patch("actions.agenda.get_calendar_events", return_value={"status": "success", "data": [{"id": "calendar_event:1", "title": "Meeting"}]}), patch("actions.agenda.get_reminders", return_value={"status": "success", "data": [{"id": "task:1", "title": "Call"}]}), patch("actions.agenda._memory_items", return_value=[{"id": "memory:1", "title": "Note", "due": "2026-08-24", "source": "memory"}]):
+    with patch("actions.agenda.get_calendar_events", return_value={"status": "success", "data": [{"id": "calendar_event:1", "title": "Meeting"}]}), patch("actions.agenda.get_reminders", return_value={"status": "success", "data": [{"id": "task:1", "title": "Call"}]}), patch("actions.agenda._today_memory", return_value=[{"id": "memory:1", "title": "Note", "due": "2026-08-24", "source": "memory"}]):
         result = get_daily_agenda()
     assert result["status"] == "success"
     assert {item["source"] for item in result["data"] if "source" in item} >= {"memory"}

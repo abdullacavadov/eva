@@ -21,17 +21,22 @@ TASK_TOOL_DECLARATIONS = [
     },
     {
         "name": "get_daily_agenda",
-        "description": "Bu gün üçün Google Calendar, Google Tasks və EVA memory-də saxlanmış agenda qeydlərini vahid nəticədə oxuyur. Microsoft To Do qoşulduqda həmin provider də nəticəyə əlavə ediləcək.",
+        "description": "Bu gün üçün Google Calendar, Google Tasks və EVA memory-də saxlanmış agenda qeydlərini vahid nəticədə oxuyur.",
         "parameters": {"type": "OBJECT", "properties": {"limit": {"type": "NUMBER", "description": "Maksimum nəticə sayı"}}},
     },
     {
         "name": "add_agenda_item",
-        "description": "Task və ya qeyd əlavə edir. İstifadəçi harada yadda saxlanacağını deməyibsə əvvəlcə seçim soruş: Google Tasks, Microsoft To Do və ya EVA yaddaşı. Google Tasks və Microsoft To Do qoşulu deyilsə avtomatik EVA yaddaşına fallback et.",
-        "parameters": {"type": "OBJECT", "properties": {"title": {"type": "STRING", "description": "Task və ya qeydin başlığı"}, "item_type": {"type": "STRING", "description": "task | note"}, "storage": {"type": "STRING", "description": "google_tasks | microsoft_todo | memory; istifadəçi seçim etməyibsə boş saxla"}, "due_iso": {"type": "STRING", "description": "İxtiyari son tarix/saat, ISO formatında"}, "notes": {"type": "STRING", "description": "İxtiyari qeyd"}}, "required": ["title"]},
+        "description": "Task və ya qeyd əlavə edir. İstifadəçi harada yadda saxlanacağını deməyibsə əvvəlcə seçim soruş: Google Tasks və ya EVA yaddaşı. Google Tasks qoşulu deyilsə avtomatik EVA yaddaşına fallback et.",
+        "parameters": {"type": "OBJECT", "properties": {"title": {"type": "STRING", "description": "Task və ya qeydin başlığı"}, "item_type": {"type": "STRING", "description": "task | note"}, "storage": {"type": "STRING", "description": "google_tasks | memory; istifadəçi seçim etməyibsə boş saxla"}, "due_iso": {"type": "STRING", "description": "İxtiyari son tarix/saat, ISO formatında"}, "notes": {"type": "STRING", "description": "İxtiyari qeyd"}}, "required": ["title"]},
     },
     {
         "name": "delete_agenda_item",
-        "description": "Task və ya qeydi silir. İstifadəçi yalnız memory deyirsə yalnız memory-də axtar. Tarix/saat verilibsə uyğun qeydi seç. Bir neçə uyğunluqda silmə etmir; istifadəçidən dəqiq seçim və açıq təsdiq tələb edir.",
-        "parameters": {"type": "OBJECT", "properties": {"match_text": {"type": "STRING", "description": "Silinəcək task və ya qeyd"}, "storage": {"type": "STRING", "description": "google_tasks | microsoft_todo | memory; boş olarsa bütün aktiv provider-lərdə axtar"}, "confirm": {"type": "BOOLEAN", "description": "İstifadəçi açıq şəkildə təsdiq edibsə true"}}, "required": ["match_text"]},
+        "description": "Task və ya qeydi silir. İstifadəçi yalnız memory deyirsə yalnız memory-də axtar. Storage verilməyibsə aktiv agenda mənbələrində axtar. Bir neçə uyğunluqda silmə etmir; istifadəçidən dəqiq seçim və açıq təsdiq tələb edir.",
+        "parameters": {"type": "OBJECT", "properties": {"match_text": {"type": "STRING", "description": "Silinəcək task və ya qeyd"}, "storage": {"type": "STRING", "description": "google_tasks | memory; boş olarsa bütün aktiv agenda provider-lərində axtar"}, "confirm": {"type": "BOOLEAN", "description": "İstifadəçi açıq şəkildə təsdiq edibsə true"}}, "required": ["match_text"]},
+    },
+    {
+        "name": "query_unified_assistant",
+        "description": "Təbii dildə cross-source məlumat sorğusunu vahid şəkildə planlayır və lazım olan Calendar, Google Tasks, Memory, Gmail və WhatsApp mənbələrini birlikdə yoxlayır. 'Bu gün nə işim var?', 'Sabah nə etməliyəm?', 'Bu gün nə baş verib?', 'Əhmədlə bağlı son nə danışmışıq?', 'Marketə getməyi nə vaxt planlaşdırmışdım?' kimi sorğularda istifadə et. Nəticələri sadəcə dump etmə; mənbələrdən gələn nəticələri vahid cavab üçün istifadə et.",
+        "parameters": {"type": "OBJECT", "properties": {"query": {"type": "STRING", "description": "İstifadəçinin tam təbii dil sorğusu"}, "limit": {"type": "NUMBER", "description": "Hər mənbədən maksimum nəticə sayı"}}, "required": ["query"]},
     },
 ]
