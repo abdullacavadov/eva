@@ -5,6 +5,7 @@ import {
   faWind,
   faDroplet,
   faGaugeHigh,
+  faCloudSun,
   faCalendarDays,
   faListCheck,
   faBell,
@@ -109,8 +110,8 @@ export default function App() {
               </div>
               <div className="weather-main">
                 <strong>28°</strong>
-                <div className="weather-icon">
-                  <img src="https://cdn-icons-png.flaticon.com/512/1247/1247953.png" height="35" width="50"></img>
+                <div className="weather-icon" aria-label="Qismən buludlu">
+                  <FontAwesomeIcon icon={faCloudSun} aria-hidden="true" />
                   <small>Qismən buludlu</small>
                 </div>
               </div>
@@ -137,7 +138,6 @@ export default function App() {
           <div className="right-stack">
             <ContextPanel context={context} />
             <ActivityFeed items={activities} />
-
           </div>
         </div>
       </main>
