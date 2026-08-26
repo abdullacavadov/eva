@@ -10,19 +10,29 @@ import {
   faCalendarDays,
   faListCheck,
   faBell,
-  faEnvelope
+  faEnvelope,
 } from '@fortawesome/free-solid-svg-icons'
 import { ActivityFeed } from './components/ActivityFeed'
 import { ContextPanel } from './components/ContextPanel'
 import { ConversationPanel, type Message } from './components/ConversationPanel'
 import { EvaOrb } from './components/EvaOrb'
 import { Sidebar } from './components/Sidebar'
+import { fetchDashboard } from './services/dashboard'
 import { demoConversation } from './services/mockEva'
+import type { DashboardData } from './types/dashboard'
 import type { ActivityItem, EvaContext, EvaEvent, EvaState } from './types/eva'
 import './styles/globals.css'
 import './styles/responsive.css'
 
 const initialContext: EvaContext = { items: [] }
+
+const emptyDashboard: DashboardData = {
+  ok: false,
+  overview: { calendar_events: null, tasks_today: null, reminders: null, unread_messages: null },
+  weather: { success: false },
+  system: { cpu_percent: null, memory_percent: null, disk_percent: null, network: null },
+  context: initialContext,
+}
 
 const stateStatusLabel: Record<EvaState, string> = {
   IDLE: 'SİSTEM HAZIRDIR',
@@ -36,13 +46,15 @@ const stateStatusLabel: Record<EvaState, string> = {
 
 const formatClock = (date: Date) => date.toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' })
 const formatDate = (date: Date) => date.toLocaleDateString('az-AZ', { day: '2-digit', month: 'short', year: 'numeric' })
+const displayValue = (value: number | null | undefined, suffix = '') => value == null ? '—' : `${Math.round(value)}${suffix}`
 
 export default function App() {
   const [state, setState] = useState<EvaState>('IDLE')
   const [messages, setMessages] = useState<Message[]>([])
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [context, setContext] = useState<EvaContext>(initialContext)
-  const [online, setOnline] = useState(true)
+  const [online, setOnline] = useState(false)
+  const [dashboard, setDashboard] = useState<DashboardData>(emptyDashboard)
   const [now, setNow] = useState(() => new Date())
 
   const applyEvent = (event: EvaEvent) => {
@@ -60,17 +72,35 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false
+    const load = async () => {
+      const data = await fetchDashboard()
+      if (cancelled) return
+      setDashboard(data)
+      setOnline(data.ok)
+      if (data.context.items.length > 0) setContext(data.context)
+    }
+    void load()
+    const timer = window.setInterval(() => void load(), 15000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
     const run = async () => {
       for await (const event of demoConversation()) {
         if (cancelled) return
         applyEvent(event)
       }
     }
-    run().catch(() => { setOnline(false); setState('ERROR') })
+    run().catch(() => setState('ERROR'))
     return () => { cancelled = true }
   }, [])
 
   const statusText = useMemo(() => stateStatusLabel[state], [state])
+  const { overview, weather, system } = dashboard
 
   const handleSubmit = (text: string) => {
     applyEvent({ type: 'conversation.user', text })
@@ -84,6 +114,13 @@ export default function App() {
     }, 650)
   }
 
+  const systemRows: Array<[string, number | null, string]> = [
+    ['CPU', system.cpu_percent, '%'],
+    ['RAM', system.memory_percent, '%'],
+    ['YADDAŞ', system.disk_percent, '%'],
+    ['ŞƏBƏKƏ', system.network === 'ONLAYN' ? 100 : system.network === 'OFFLAYN' ? 0 : null, system.network || '—'],
+  ]
+
   return (
     <div className="app-shell">
       <div className="ambient ambient-a" /><div className="ambient ambient-b" />
@@ -91,7 +128,7 @@ export default function App() {
       <main className="workspace">
         <header className="topbar">
           <div><span className="eyebrow">E.V.A / ŞƏXSİ ASSİSTENT</span><h1>İdarə Mərkəzi</h1></div>
-          <div className="system-status"><span className={`online-dot ${online ? '' : 'offline'}`} />{statusText}<small>LOKAL NÜVƏ</small></div>
+          <div className="system-status"><span className={`online-dot ${online ? '' : 'offline'}`} />{statusText}<small>{online ? 'LOKAL NÜVƏ' : 'MƏLUMAT KANALI GÖZLƏNİLİR'}</small></div>
           <div className="clock" aria-label={`Cari vaxt ${formatClock(now)}, ${formatDate(now)}`}><strong>{formatClock(now)}</strong><small>{formatDate(now)}</small></div>
         </header>
 
@@ -99,34 +136,29 @@ export default function App() {
           <div className="left-stack">
             <section className="panel overview-panel">
               <div className="panel-heading"><span>BU GÜNÜN İCMALI</span><small>CANLI</small></div>
-              <div className="metric"><span><i><FontAwesomeIcon icon={faCalendarDays} /></i> Təqvim tədbirləri</span><strong>3</strong></div>
-              <div className="metric"><span><i><FontAwesomeIcon icon={faListCheck} /></i> Tapşırıqlar</span><strong>5</strong></div>
-              <div className="metric"><span><i><FontAwesomeIcon icon={faBell} /></i> Xatırlatmalar</span><strong>7</strong></div>
-              <div className="metric"><span><i><FontAwesomeIcon icon={faEnvelope} /></i> Oxunmamış mesajlar</span><strong>7</strong></div>
+              <div className="metric"><span><i><FontAwesomeIcon icon={faCalendarDays} /></i> Təqvim tədbirləri</span><strong>{displayValue(overview.calendar_events)}</strong></div>
+              <div className="metric"><span><i><FontAwesomeIcon icon={faListCheck} /></i> Tapşırıqlar</span><strong>{displayValue(overview.tasks_today)}</strong></div>
+              <div className="metric"><span><i><FontAwesomeIcon icon={faBell} /></i> Xatırlatmalar</span><strong>{displayValue(overview.reminders)}</strong></div>
+              <div className="metric"><span><i><FontAwesomeIcon icon={faEnvelope} /></i> Oxunmamış mesajlar</span><strong>{displayValue(overview.unread_messages)}</strong></div>
             </section>
+
             <section className="panel weather-panel">
-              <div className="panel-heading">
-                <span>HAVA PROQNOZU</span>
-                <small>BAKI, AZ</small>
-              </div>
+              <div className="panel-heading"><span>HAVA PROQNOZU</span><small>{weather.city ? `${weather.city.toUpperCase()}, AZ` : 'BAKI, AZ'}</small></div>
               <div className="weather-main">
-                <strong>28°</strong>
-                <div className="weather-icon" aria-label="Qismən buludlu">
-                  <FontAwesomeIcon icon={faCloudSun} aria-hidden="true" />
-                  <small>Qismən buludlu</small>
-                </div>
+                <strong>{displayValue(weather.temperature, '°')}</strong>
+                <div className="weather-icon" aria-label={weather.condition || 'Hava məlumatı yoxdur'}><FontAwesomeIcon icon={faCloudSun} aria-hidden="true" /><small>{weather.condition || 'Məlumat yoxdur'}</small></div>
               </div>
               <div className="weather-meta">
-                <span><i><FontAwesomeIcon icon={faTemperatureLow} /></i> Hiss edilən: 31°</span>
-                <span><i><FontAwesomeIcon icon={faWind} /></i> Külək: 8 km/saat, Şimal-Cənub</span>
-                <span><i><FontAwesomeIcon icon={faDroplet} /></i> Rütubət: 83%</span>
-                <span><i><FontAwesomeIcon icon={faGaugeHigh} /></i> Təzyiq: 1009.6 hPa</span>
+                <span><i><FontAwesomeIcon icon={faTemperatureLow} /></i> Hiss edilən: {displayValue(weather.feels_like, '°')}</span>
+                <span><i><FontAwesomeIcon icon={faWind} /></i> Külək: {displayValue(weather.wind_speed, ' km/saat')}, {weather.wind_direction || '—'}</span>
+                <span><i><FontAwesomeIcon icon={faDroplet} /></i> Rütubət: {displayValue(weather.humidity, '%')}</span>
+                <span><i><FontAwesomeIcon icon={faGaugeHigh} /></i> Təzyiq: {displayValue(weather.pressure, ' hPa')}</span>
               </div>
             </section>
 
             <section className="panel system-panel">
               <div className="panel-heading"><span><FontAwesomeIcon icon={faMicrochip} /> SİSTEM</span><small>LOKAL</small></div>
-              {['CPU', 'RAM', 'YADDAŞ', 'ŞƏBƏKƏ'].map((name, index) => <div className="system-metric" key={name}><span>{name}</span><div><i style={{ width: `${32 + index * 14}%` }} /></div><strong>{[12, 45, 68, 32][index]}%</strong></div>)}
+              {systemRows.map(([name, percent, label]) => <div className="system-metric" key={name}><span>{name}</span><div><i style={{ width: `${percent ?? 0}%` }} /></div><strong>{name === 'ŞƏBƏKƏ' ? label : displayValue(percent, '%')}</strong></div>)}
             </section>
           </div>
 
