@@ -9,14 +9,14 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from websockets.sync.server import Server, ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
+from websockets.sync.server import Server, ServerConnection, broadcast, serve
 
 
 class UiBridge:
     """Mövcud desktop EVA runtime-ını lokal React UI-a bağlayır."""
 
-    def __init__(self, ui):
+    def __init__(self, ui, tool_executor=None):
         self.ui = ui
         self.host = os.getenv("EVA_UI_WS_HOST", "127.0.0.1")
         self.port = int(os.getenv("EVA_UI_WS_PORT", "8765"))
@@ -26,6 +26,8 @@ class UiBridge:
         self._thread: threading.Thread | None = None
         self._last_state: str | None = None
         self._install_ui_hooks()
+        if tool_executor is not None:
+            self._install_tool_hook(tool_executor)
         self._start_server()
 
     def _install_ui_hooks(self) -> None:
@@ -45,6 +47,30 @@ class UiBridge:
             self._emit_log_event(text)
 
         self.ui.write_log = write_log
+
+    def _install_tool_hook(self, tool_executor) -> None:
+        if getattr(tool_executor, "_eva_ui_bridge_wrapped", False):
+            return
+        original_execute = tool_executor.execute
+
+        async def execute(fc):
+            name = str(getattr(fc, "name", "") or "")
+            args = dict(getattr(fc, "args", {}) or {})
+            self.emit("tool.started", tool=name, args=args)
+            try:
+                result = await original_execute(fc)
+                response = getattr(result, "response", {}) or {}
+                value = response.get("result") if isinstance(response, dict) else str(response)
+                text = str(value or "")
+                failed = any(marker in text.lower() for marker in ("xəta", "error", "mümkün olmadı", "alınmadı"))
+                self.emit("tool.completed", tool=name, success=not failed, result=text[:500])
+                return result
+            except Exception as exc:
+                self.emit("tool.completed", tool=name, success=False, result=str(exc)[:500])
+                raise
+
+        tool_executor.execute = execute
+        tool_executor._eva_ui_bridge_wrapped = True
 
     @staticmethod
     def _normalize_state(state: str) -> str:
@@ -78,23 +104,15 @@ class UiBridge:
         self.emit("activity.created", activity=activity)
 
     def emit(self, event_type: str, **payload: Any) -> None:
-        """Hadisəni WebSocket client-lərinə thread-safe şəkildə yayımlayır."""
+        """Hadisəni bütün WebSocket client-lərinə thread-safe yayımlayır."""
         event = {"type": event_type, **payload}
         if event_type == "state.changed":
             self._last_state = str(payload.get("state") or "") or None
         message = json.dumps(event, ensure_ascii=False)
         with self._clients_lock:
             clients = tuple(self._clients)
-        stale: list[ServerConnection] = []
-        for client in clients:
-            try:
-                client.send(message)
-            except (ConnectionClosed, OSError):
-                stale.append(client)
-        if stale:
-            with self._clients_lock:
-                for client in stale:
-                    self._clients.discard(client)
+        if clients:
+            broadcast(clients, message)
 
     def _start_server(self) -> None:
         def run():
