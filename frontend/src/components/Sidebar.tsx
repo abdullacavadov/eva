@@ -1,6 +1,5 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faGaugeHigh, faComments, faCalendarDays, faListCheck, faEnvelope, faAddressBook, faBell, faGear, faStar, faChevronRight } from '@fortawesome/free-solid-svg-icons'
-import { faWhatsapp } from '@fortawesome/free-brands-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 
 const items: Array<[string, IconDefinition]> = [
@@ -11,7 +10,7 @@ const items: Array<[string, IconDefinition]> = [
   ['E-poçt', faEnvelope],
   ['Kontaktlar', faAddressBook],
   ['Xatırlatmalar', faBell],
-  ['WhatsApp', faWhatsapp],
+  ['WhatsApp', faComments],
 ]
 
 export function Sidebar() {
