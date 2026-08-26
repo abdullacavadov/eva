@@ -10,6 +10,7 @@ __pycache__/
 #memory
 memory/memory.json
 memory/phone_book.json
+memory/reminders.json
 
 # Google credentials
 config/google_credentials.json
