@@ -1,18 +1,20 @@
 # EVA — Runtime dependencies
 # Install: python -m pip install -r requirements.txt
 
-google-genai                              # Gemini Live API (ses + araç çağrıları)
-pyaudio                                   # Mikrofon / hoparlör (gerçek zamanlı səs)
+google-genai                              # Gemini Live API (ses + araç çağırışları)
+pyaudio                                   # Mikrofon / hoparlör (real-time səs)
 psutil                                    # Sistem məlumatları (pil, CPU, RAM, disk)
 Pillow                                    # Görüntü işləmə (ekran + webcam analizi)
 requests                                  # Hava durumu, YouTube API, YouTube axtarış
 mss                                       # Ekran görüntüsü (analyze_screen)
 opencv-python                             # Webcam canlı axını (toggle_webcam)
 pyperclip                                 # Pano kopyalama (WhatsApp avtomatlaşdırması)
-pyautogui                                 # WhatsApp Web avtomatik göndərim (Enter)
+pyautogui                                 # WhatsApp avtomatlaşdırması (Enter)
 pygetwindow                               # WhatsApp pəncərəsini önə gətirmək
 playwright                                # WhatsApp Web read-only browser bridge
 websockets>=15,<18                        # React UI üçün lokal WebSocket bridge
+pycaw                                     # Windows master səs səviyyəsi
+comtypes                                  # Windows Core Audio COM interfeysi
 
 google-api-python-client                  # Google Calendar API
 google-auth-httplib2                      # Google API auth transport

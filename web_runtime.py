@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""EVA runtime-u React UI ilə birlikdə başladan giriş nöqtəsi."""
+"""EVA runtime-u React UI ilə birlikdə başladan vahid giriş nöqtəsi."""
 
 import asyncio
 import json
 import os
+import subprocess
 import threading
+import time
 import tkinter as tk
+import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 from core.dashboard_api import get_dashboard_data
 from core.proactive import ProactiveEngine, ProactiveScheduler
@@ -71,14 +75,50 @@ def _start_dashboard_api() -> ThreadingHTTPServer:
     port = int(os.getenv("EVA_UI_HTTP_PORT", "8766"))
     server = ThreadingHTTPServer((host, port), DashboardRequestHandler)
     threading.Thread(target=server.serve_forever, name="eva-dashboard-http", daemon=True).start()
-    print(f"[E.V.A] 📊 Dashboard API: http://{host}:{port}/api/dashboard")
+    print(f"[E.V.A] 📊 Dashboard API: http://{host}:{port}/api/dashboard", flush=True)
     return server
+
+
+def _start_react_frontend() -> subprocess.Popen | None:
+    """React development serverini eyni terminal prosesinə qoşur."""
+    frontend_dir = Path(__file__).resolve().parent / "frontend"
+    if not (frontend_dir / "package.json").exists():
+        print("[E.V.A] ⚠️ frontend/package.json tapılmadı; React serveri başladılmadı.", flush=True)
+        return None
+
+    npm = "npm.cmd" if os.name == "nt" else "npm"
+    print("[E.V.A] ⚛️ React UI başladılır...", flush=True)
+    try:
+        process = subprocess.Popen(
+            [npm, "run", "dev", "--", "--host", "127.0.0.1"],
+            cwd=str(frontend_dir),
+            stdin=None,
+            stdout=None,
+            stderr=None,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
+        )
+    except OSError as exc:
+        print(f"[E.V.A] ❌ React UI başlatılmadı: {exc}", flush=True)
+        return None
+
+    def open_browser():
+        time.sleep(2.0)
+        url = "http://127.0.0.1:5173"
+        print(f"[E.V.A] 🌐 React UI: {url}", flush=True)
+        try:
+            webbrowser.open(url)
+        except Exception as exc:
+            print(f"[E.V.A] ⚠️ Browser avtomatik açıla bilmədi: {exc}", flush=True)
+
+    threading.Thread(target=open_browser, name="eva-open-browser", daemon=True).start()
+    return process
 
 
 def main():
     ui = _create_hidden_ui()
     bridge = None
     dashboard_server = _start_dashboard_api()
+    frontend_process = _start_react_frontend()
 
     def runner():
         nonlocal bridge
@@ -100,13 +140,15 @@ def main():
         try:
             asyncio.run(jarvis.run())
         except KeyboardInterrupt:
-            print("\n🔴 Ayrılır...")
+            print("\n🔴 Ayrılır...", flush=True)
         finally:
             if proactive_scheduler:
                 proactive_scheduler.stop()
             dashboard_server.shutdown()
             if bridge and bridge._server:
                 bridge._server.shutdown()
+            if frontend_process and frontend_process.poll() is None:
+                frontend_process.terminate()
 
     threading.Thread(target=runner, daemon=True).start()
     ui.root.mainloop()

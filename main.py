@@ -60,6 +60,8 @@ class JarvisLive:
         self._music_proc = None
         self._webcam_streamer = WebcamStreamer()
         self._audio = create_audio()
+        self._pending_text_commands: list[str] = []
+        self._pending_text_lock = threading.Lock()
         self._tool_executor = ToolExecutor(
             ui=self.ui,
             webcam_streamer=self._webcam_streamer,
@@ -91,7 +93,6 @@ class JarvisLive:
             self.ui.set_webcam_active(False)
 
     def _on_proactive_notification(self, event: dict) -> bool:
-        """Notification-u Tk UI queue-suna qəbul edir; qəbul uğurludursa ACK edilir."""
         text = str(event.get("text") or event.get("title") or "Proaktiv bildiriş").strip()
         if not text:
             return False
@@ -125,17 +126,53 @@ class JarvisLive:
     def _on_text_command(self, text: str):
         if self._paused:
             return
-        self.ui.write_log(f"Siz: {text}")
-        if not self._loop or not self.session:
-            self.ui.write_log("ERR: E.V.A bağlantısı hələ hazır deyil.")
+        clean = str(text or "").strip()
+        if not clean:
             return
-        asyncio.run_coroutine_threadsafe(
-            self.session.send_client_content(
-                turns={"parts": [{"text": text}]},
-                turn_complete=True,
-            ),
-            self._loop,
-        )
+        self.ui.write_log(f"Siz: {clean}")
+        with self._pending_text_lock:
+            if not self._loop or not self.session:
+                self._pending_text_commands.append(clean)
+                self.ui.write_log("SYS: Əmr növbəyə əlavə edildi; E.V.A bağlantısı hazır olan kimi icra olunacaq.")
+                return
+        self._send_text_to_session(clean)
+
+    def _send_text_to_session(self, text: str) -> bool:
+        loop = self._loop
+        session = self.session
+        if not loop or not session:
+            return False
+        try:
+            future = asyncio.run_coroutine_threadsafe(
+                session.send_client_content(
+                    turns={"parts": [{"text": text}]},
+                    turn_complete=True,
+                ),
+                loop,
+            )
+            future.add_done_callback(self._log_text_send_error)
+            return True
+        except Exception as exc:
+            self.ui.write_log(f"ERR: Əmr göndərilə bilmədi — {exc}")
+            return False
+
+    def _log_text_send_error(self, future):
+        try:
+            future.result()
+        except Exception as exc:
+            self.ui.write_log(f"ERR: Əmr göndərilməsi uğursuz oldu — {exc}")
+
+    async def _flush_pending_text_commands(self):
+        with self._pending_text_lock:
+            pending = self._pending_text_commands[:]
+            self._pending_text_commands.clear()
+        for text in pending:
+            if self._send_text_to_session(text):
+                await asyncio.sleep(0.05)
+            else:
+                with self._pending_text_lock:
+                    self._pending_text_commands.insert(0, text)
+                break
 
     def _interrupt_audio(self):
         pass
@@ -365,6 +402,7 @@ class JarvisLive:
                     connect_attempts = 0
                     self.ui.set_state("LISTENING")
                     self.ui.write_log("SYS: E.V.A hazırdır. Eşidirəm...")
+                    await self._flush_pending_text_commands()
                     tg.create_task(self._send_realtime())
                     tg.create_task(self._listen_audio())
                     tg.create_task(self._receive_audio())
@@ -375,6 +413,8 @@ class JarvisLive:
                 print(f"[E.V.A] ⚠️ {e}")
                 traceback.print_exc()
                 self.set_speaking(False)
+                self.session = None
+                self._loop = None
                 if self._webcam_streamer.is_active:
                     self._webcam_streamer.stop()
                     self.ui.set_webcam_active(False)
@@ -384,7 +424,7 @@ class JarvisLive:
                     print(f"[E.V.A] 🔄 Yenidən qoşulmağa cəhd edir ({connect_attempts}/3)...")
                     await asyncio.sleep(2)
                 else:
-                    self.ui.write_log(f"ERR: E.V.A qoşula bilmir — API açarını və internet bağlantısını yoxla. ({e})")
+                    self.ui.write_log(f"ERR: E.V.A qoşula bilmir — API açarını və internet bağlantını yoxla. ({e})")
                     self.ui.set_state("ERROR")
                     print("[E.V.A] 🔄 5 saniyə ərzində yenidən qoşulacaq...")
                     await asyncio.sleep(5)
