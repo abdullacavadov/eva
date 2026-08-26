@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from websockets.exceptions import ConnectionClosed
-from websockets.sync.server import Server, ServerConnection, broadcast, serve
+from websockets.sync.server import Server, ServerConnection, serve
 
 
 class UiBridge:
@@ -31,7 +31,6 @@ class UiBridge:
         self._start_server()
 
     def _install_ui_hooks(self) -> None:
-        """Mövcud JarvisUI metodlarını dəyişmədən event adapteri əlavə edir."""
         self.ui.emit_event = self.emit  # type: ignore[attr-defined]
         original_set_state = self.ui.set_state
 
@@ -111,8 +110,16 @@ class UiBridge:
         message = json.dumps(event, ensure_ascii=False)
         with self._clients_lock:
             clients = tuple(self._clients)
-        if clients:
-            broadcast(clients, message)
+        stale: list[ServerConnection] = []
+        for client in clients:
+            try:
+                client.send(message)
+            except (ConnectionClosed, OSError):
+                stale.append(client)
+        if stale:
+            with self._clients_lock:
+                for client in stale:
+                    self._clients.discard(client)
 
     def _start_server(self) -> None:
         def run():
