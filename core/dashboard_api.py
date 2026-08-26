@@ -20,6 +20,12 @@ def _percent_from_sys_info(text: str, prefix: str) -> float | None:
     return None
 
 
+def _battery_percent_from_sys_info(text: str) -> float | None:
+    """sys_info('all') nəticəsindən batareya faizini çıxarır."""
+    match = re.search(r"Pil:\s*%\s*([0-9]+(?:\.[0-9]+)?)", str(text or ""), re.IGNORECASE)
+    return float(match.group(1)) if match else None
+
+
 def _network_status(text: str) -> str:
     value = str(text or "").casefold()
     if "bağlı" in value or "ip " in value:
@@ -43,6 +49,7 @@ def get_dashboard_data() -> dict[str, Any]:
             "memory_percent": None,
             "disk_percent": None,
             "network": None,
+            "battery_percent": None,
         },
         "context": {
             "source": "Google Calendar",
@@ -94,6 +101,7 @@ def get_dashboard_data() -> dict[str, Any]:
             "memory_percent": _percent_from_sys_info(system_text, "RAM"),
             "disk_percent": None,
             "network": _network_status(system_text),
+            "battery_percent": _battery_percent_from_sys_info(system_text),
         }
         try:
             import psutil
