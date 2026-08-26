@@ -15,6 +15,7 @@ const fallbackData: DashboardData = {
     disk_percent: null,
     network: null,
     battery_percent: null,
+    volume_percent: null,
   },
   context: {
     source: 'Google Calendar',
