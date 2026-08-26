@@ -212,7 +212,10 @@ export default function App() {
     <div className="app-shell">
       <div className="ambient ambient-a" />
       <div className="ambient ambient-b" />
-      <Sidebar />
+      <aside>
+        <ActivityFeed items={activities} />
+        <ContextPanel context={context} />
+      </aside>
       <main className="workspace">
         <header className="topbar">
           <div>
