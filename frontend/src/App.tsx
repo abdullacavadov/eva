@@ -1,4 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import {
+  faTemperatureLow,
+  faWind,
+  faDroplet,
+  faGaugeHigh,
+  faCalendarDays,
+  faListCheck,
+  faBell,
+  faEnvelope
+} from '@fortawesome/free-solid-svg-icons'
 import { ActivityFeed } from './components/ActivityFeed'
 import { ContextPanel } from './components/ContextPanel'
 import { ConversationPanel, type Message } from './components/ConversationPanel'
@@ -86,10 +97,10 @@ export default function App() {
           <div className="left-stack">
             <section className="panel overview-panel">
               <div className="panel-heading"><span>BU GÜNÜN İCMALI</span><small>CANLI</small></div>
-              <div className="metric"><span>Təqvim tədbirləri</span><strong>3</strong></div>
-              <div className="metric"><span>Tapşırıqlar</span><strong>5</strong></div>
-              <div className="metric"><span>Xatırlatmalar</span><strong>7</strong></div>
-              <div className="metric"><span>Oxunmamış mesajlar</span><strong>7</strong></div>
+              <div className="metric"><span><i><FontAwesomeIcon icon={faCalendarDays} /></i> Təqvim tədbirləri</span><strong>3</strong></div>
+              <div className="metric"><span><i><FontAwesomeIcon icon={faListCheck} /></i> Tapşırıqlar</span><strong>5</strong></div>
+              <div className="metric"><span><i><FontAwesomeIcon icon={faBell} /></i> Xatırlatmalar</span><strong>7</strong></div>
+              <div className="metric"><span><i><FontAwesomeIcon icon={faEnvelope} /></i> Oxunmamış mesajlar</span><strong>7</strong></div>
             </section>
             <section className="panel weather-panel">
               <div className="panel-heading">
@@ -104,11 +115,16 @@ export default function App() {
                 </div>
               </div>
               <div className="weather-meta">
-                <span>Hiss edilən: 31°</span>
-                <span>Külək: 8 km/saat, Şimal-Cənub</span>
-                <span>Rütubət: 83%</span>
-                <span>Təzyiq: 1009.6 hPa</span>
+                <span><i><FontAwesomeIcon icon={faTemperatureLow} /></i> Hiss edilən: 31°</span>
+                <span><i><FontAwesomeIcon icon={faWind} /></i> Külək: 8 km/saat, Şimal-Cənub</span>
+                <span><i><FontAwesomeIcon icon={faDroplet} /></i> Rütubət: 83%</span>
+                <span><i><FontAwesomeIcon icon={faGaugeHigh} /></i> Təzyiq: 1009.6 hPa</span>
               </div>
+            </section>
+
+            <section className="panel system-panel">
+              <div className="panel-heading"><span>SİSTEM</span><small>LOKAL</small></div>
+              {['CPU', 'RAM', 'YADDAŞ', 'ŞƏBƏKƏ'].map((name, index) => <div className="system-metric" key={name}><span>{name}</span><div><i style={{ width: `${32 + index * 14}%` }} /></div><strong>{[12, 45, 68, 32][index]}%</strong></div>)}
             </section>
           </div>
 
@@ -121,10 +137,7 @@ export default function App() {
           <div className="right-stack">
             <ContextPanel context={context} />
             <ActivityFeed items={activities} />
-            <section className="panel system-panel">
-              <div className="panel-heading"><span>SİSTEM</span><small>LOKAL</small></div>
-              {['CPU', 'RAM', 'YADDAŞ', 'ŞƏBƏKƏ'].map((name, index) => <div className="system-metric" key={name}><span>{name}</span><div><i style={{ width: `${32 + index * 14}%` }} /></div><strong>{[12, 45, 68, 32][index]}%</strong></div>)}
-            </section>
+
           </div>
         </div>
       </main>

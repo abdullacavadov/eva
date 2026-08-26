@@ -16,6 +16,7 @@
   --green: #43e6aa;
   --amber: #ffc857;
   --red: #ff596a;
+  --yellow: rgb(232, 232, 196);
 }
 
 * {
@@ -354,13 +355,18 @@ nav {
 }
 
 .panel-heading small {
-  color: #4f6975;
+  color: #b1c6cf;
   font-size: 7px;
   letter-spacing: .13em;
 }
 
 .overview-panel {
   padding-bottom: 8px;
+  min-height: fit-content !important;
+}
+
+.overview-panel i{
+  color: var(--yellow);
 }
 
 .metric {
@@ -382,6 +388,7 @@ nav {
 
 .system-panel {
   padding-bottom: 14px;
+  height: fit-content !important;
 }
 
 .system-metric {
@@ -903,7 +910,7 @@ nav {
 }
 
 .weather-panel {
-  min-height: 148px;
+  min-height: fit-content !important;
 }
 
 .weather-main {
@@ -943,8 +950,12 @@ nav {
   gap: 16px;
   padding: 10px 15px;
   border-top: 1px solid var(--line);
-  color: #55717d;
+  color: #9c9f9f;
   font-size: 9px;
+}
+
+.weather-meta i{
+  color: var(--yellow);
 }
 
 @keyframes breathe {
