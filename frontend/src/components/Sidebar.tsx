@@ -1,28 +1,38 @@
-const items = ['İdarə paneli', 'Söhbətlər', 'Təqvim', 'Tapşırıqlar', 'E-poçt', 'Kontaktlar', 'Xatırlatmalar', 'WhatsApp']
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faGaugeHigh, faComments, faCalendarDays, faListCheck, faEnvelope, faAddressBook, faBell, faGear, faStar, faChevronRight } from '@fortawesome/free-solid-svg-icons'
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons'
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 
-const icons: Record<string, string> = {
-  'İdarə paneli': '⌂', Söhbətlər: '◌', Təqvim: '□', Tapşırıqlar: '✓', 'E-poçt': '✉', Kontaktlar: '♙', Xatırlatmalar: '◔', WhatsApp: '◉',
-}
+const items: Array<[string, IconDefinition]> = [
+  ['İdarə paneli', faGaugeHigh],
+  ['Söhbətlər', faComments],
+  ['Təqvim', faCalendarDays],
+  ['Tapşırıqlar', faListCheck],
+  ['E-poçt', faEnvelope],
+  ['Kontaktlar', faAddressBook],
+  ['Xatırlatmalar', faBell],
+  ['WhatsApp', faWhatsapp],
+]
 
 export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-orb"><span>✦</span></div>
+        <div className="brand-orb"><FontAwesomeIcon icon={faStar} /></div>
         <div><strong>EVA</strong><small>ŞƏXSİ ASSİSTENT</small></div>
       </div>
       <nav>
-        {items.map((item, index) => (
+        {items.map(([item, icon], index) => (
           <button className={`nav-item ${index === 0 ? 'active' : ''}`} key={item}>
-            <span className="nav-icon">{icons[item]}</span>{item}
+            <span className="nav-icon"><FontAwesomeIcon icon={icon} /></span>{item}
           </button>
         ))}
       </nav>
-      <button className="nav-item settings"><span className="nav-icon">⚙</span>Parametrlər</button>
+      <button className="nav-item settings"><span className="nav-icon"><FontAwesomeIcon icon={faGear} /></span>Parametrlər</button>
       <div className="profile">
         <div className="avatar">A</div>
         <div><strong>Abdulla</strong><small>SAHİB</small></div>
-        <span>›</span>
+        <span><FontAwesomeIcon icon={faChevronRight} /></span>
       </div>
     </aside>
   )
