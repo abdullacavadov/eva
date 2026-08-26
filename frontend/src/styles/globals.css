@@ -251,12 +251,21 @@ nav {
 }
 .topbar {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   align-items: center;
   gap: 34px;
   height: 74px;
   padding: 0 4px 15px;
   border-bottom: 1px solid var(--line);
+}
+a.settings{
+  display: flex;
+  align-items: center;
+  background-color: transparent;
+  color: var(--text);
+  border: none;
+  font-size: 45px;
+  cursor: pointer;
 }
 .eyebrow {
   color: var(--cyan);

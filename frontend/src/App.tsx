@@ -15,7 +15,8 @@ import {
   faBatteryHalf,
   faHardDrive,
   faWifi,
-  faVolumeHigh
+  faVolumeHigh,
+  faGear
 } from '@fortawesome/free-solid-svg-icons';
 import { ActivityFeed } from './components/ActivityFeed';
 import { ContextPanel } from './components/ContextPanel';
@@ -226,9 +227,13 @@ export default function App() {
           <div
             className="clock"
             aria-label={`Cari vaxt ${formatClock(now)}, ${formatDate(now)}`}
-          >
+            >
             <strong>{formatClock(now)}</strong>
             <small>{formatDate(now)}</small>
+          </div>
+
+          <div className="settings">
+            <a className="settings"><FontAwesomeIcon icon={faGear} /></a>
           </div>
         </header>
         <div className="dashboard-grid">

@@ -27,15 +27,13 @@ def _battery_percent_from_sys_info(text: str) -> float | None:
 
 
 def _volume_percent() -> float | None:
-    """Windows əsas səs çıxışının master volume faizini qaytarır."""
     try:
-        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-        from comtypes import CLSCTX_ALL
+        from pycaw.pycaw import AudioUtilities
 
-        devices = AudioUtilities.GetSpeakers()
-        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-        volume = interface.QueryInterface(IAudioEndpointVolume)
-        return round(float(volume.GetMasterVolumeLevelScalar()) * 100, 1)
+        device = AudioUtilities.GetSpeakers()
+        volume = device.EndpointVolume.GetMasterVolumeLevelScalar()
+
+        return round(float(volume) * 100, 1)
     except Exception:
         return None
 
