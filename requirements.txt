@@ -18,4 +18,4 @@ comtypes                                  # Windows Core Audio COM interfeysi
 
 google-api-python-client                  # Google Calendar API
 google-auth-httplib2                      # Google API auth transport
-google-auth-oauthlib                       # Google OAuth flow
+google-auth-oauthlib                      # Google OAuth flow
