@@ -17,6 +17,7 @@ class QueryPlan:
 
 _DAILY = ("calendar", "tasks", "memory")
 _REPORT = ("gmail", "whatsapp", "calendar", "tasks", "memory")
+_REMINDER_WORDS = ("xatırlatma", "xatırlatmanı", "xatırlatmalar", "xatırlatmağı", "reminder", "reminders")
 
 
 def _cross_source_entity(text: str) -> str:
@@ -38,7 +39,7 @@ def _entity_terms(entity: str) -> tuple[str, ...]:
 def _deletion_entity(text: str) -> str:
     cleaned = str(text or "").casefold()
     cleaned = re.sub(r"\b(sil|silə|silin|delete|poz|ləğv et|ləğv elə|çıxar)\b", " ", cleaned)
-    cleaned = re.sub(r"\b(taskı|taski|tapşırığı|qeydi|qeydini|görüşü|eventi|tədbiri)\b", " ", cleaned)
+    cleaned = re.sub(r"\b(taskı|taski|tapşırığı|xatırlatmanı|xatırlatmanı|qeydi|qeydini|görüşü|eventi|tədbiri)\b", " ", cleaned)
     return re.sub(r"\s+", " ", cleaned).strip(" ?.!,-")
 
 
@@ -51,8 +52,10 @@ def plan_query(query: str) -> QueryPlan:
     deletion = any(word in q for word in ("sil", "silə", "silin", "delete", "poz", "ləğv et", "ləğv elə", "çıxar"))
     if deletion:
         sources: list[str] = []
-        if any(word in q for word in ("task", "tapşır", "xatırlat")):
+        if any(word in q for word in ("task", "tapşır")):
             sources.append("tasks")
+        if any(word in q for word in _REMINDER_WORDS):
+            sources.append("reminder")
         if any(word in q for word in ("təqvim", "calendar", "görüş", "tədbir", "event")):
             sources.append("calendar")
         if any(word in q for word in ("yaddaş", "memory", "qeyd")):
@@ -66,6 +69,10 @@ def plan_query(query: str) -> QueryPlan:
         return QueryPlan("agenda_query", _DAILY, "today")
     if any(phrase in q for phrase in ("sabah nə etməliyəm", "sabah nə işim var", "sabah nələr var", "sabah planım")):
         return QueryPlan("agenda_query", _DAILY, "tomorrow")
+
+    if any(word in q for word in _REMINDER_WORDS):
+        period = "tomorrow" if "sabah" in q else "today" if any(word in q for word in ("bu gün", "bugün", "bugünkü")) else "upcoming"
+        return QueryPlan("reminder_query", ("reminder",), period, text)
 
     if "əhməd" in q or "ahmed" in q:
         if any(word in q for word in ("danış", "yazış", "mesaj", "son nə", "nə demiş")):
@@ -90,7 +97,7 @@ def plan_query(query: str) -> QueryPlan:
         return QueryPlan("contacts_query", ("contacts",), "", text)
     if any(word in q for word in ("təqvim", "calendar", "görüş", "tədbir")):
         return QueryPlan("calendar_query", ("calendar",), "", text)
-    if any(word in q for word in ("task", "tapşır", "xatırlat", "to-do", "todo")):
+    if any(word in q for word in ("task", "tapşır", "to-do", "todo")):
         return QueryPlan("tasks_query", ("tasks",), "", text)
     if any(word in q for word in ("yaddaş", "memory", "qeyd")):
         return QueryPlan("memory_query", ("memory",), "", text)
