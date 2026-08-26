@@ -15,6 +15,7 @@ import {
   faBatteryHalf,
   faHardDrive,
   faWifi,
+  faVolumeHigh
 } from '@fortawesome/free-solid-svg-icons';
 import { ActivityFeed } from './components/ActivityFeed';
 import { ContextPanel } from './components/ContextPanel';
@@ -46,7 +47,8 @@ const emptyDashboard: DashboardData = {
     memory_percent: null,
     disk_percent: null,
     network: null,
-    battery_percent: null
+    battery_percent: null,
+    volume_percent: null,
   },
   context: initialContext,
 };
@@ -197,6 +199,12 @@ export default function App() {
         system.battery_percent != null ? `${system.battery_percent}%` : '—',
         faBatteryHalf,
       ],
+      [
+        'SƏS',
+        system.volume_percent ?? null,
+        system.volume_percent != null ? `${system.volume_percent}%` : '—',
+        faVolumeHigh,
+      ],
     ];
 
   return (
@@ -267,6 +275,45 @@ export default function App() {
                 <strong>{displayValue(overview.unread_messages)}</strong>
               </div>
             </section>
+            
+            
+          </div>
+          <section className="core-column">
+            <div className="core-meta">
+              <span>SÜNİ İNTELLEKT NÜVƏSİ / HOLOQRAFİK İNTERFEYS</span>
+              <span>v6.1</span>
+            </div>
+            <EvaOrb state={state} />
+            <ConversationPanel messages={messages} onSubmit={handleSubmit} />
+          </section>
+          <div className="right-stack">
+            <section className="panel system-panel">
+              <div className="panel-heading">
+                <span>
+                  <FontAwesomeIcon icon={faMicrochip} /> SİSTEM
+                </span>
+                <small>LOKAL</small>
+              </div>
+              {systemRows.map(([name, percent, label, icon]) => (
+                <div className="system-metric" key={name}>
+                  <span>
+                    <span className="icon">
+                      <FontAwesomeIcon icon={icon} />
+                    </span>{' '}
+                    {name}
+                  </span>
+
+                  <div>
+                    <i style={{ width: `${percent ?? 0}%` }} />
+                  </div>
+
+                  <strong>
+                    {name === 'ŞƏBƏKƏ' ? label : displayValue(percent, '%')}
+                  </strong>
+                </div>
+              ))}
+            </section>
+
             <section className="panel weather-panel">
               <div className="panel-heading">
                 <span>HAVA PROQNOZU</span>
@@ -314,43 +361,6 @@ export default function App() {
                 </span>
               </div>
             </section>
-            <section className="panel system-panel">
-              <div className="panel-heading">
-                <span>
-                  <FontAwesomeIcon icon={faMicrochip} /> SİSTEM
-                </span>
-                <small>LOKAL</small>
-              </div>
-              {systemRows.map(([name, percent, label, icon]) => (
-                <div className="system-metric" key={name}>
-                  <span>
-                    <span className="icon">
-                      <FontAwesomeIcon icon={icon} />
-                    </span>{' '}
-                    {name}
-                  </span>
-
-                  <div>
-                    <i style={{ width: `${percent ?? 0}%` }} />
-                  </div>
-
-                  <strong>
-                    {name === 'ŞƏBƏKƏ' ? label : displayValue(percent, '%')}
-                  </strong>
-                </div>
-              ))}
-            </section>
-          </div>
-          <section className="core-column">
-            <div className="core-meta">
-              <span>SÜNİ İNTELLEKT NÜVƏSİ / HOLOQRAFİK İNTERFEYS</span>
-              <span>v6.1</span>
-            </div>
-            <EvaOrb state={state} />
-            <ConversationPanel messages={messages} onSubmit={handleSubmit} />
-          </section>
-          <div className="right-stack">
-            <ContextPanel context={context} />
           </div>
         </div>
       </main>

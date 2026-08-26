@@ -26,6 +26,7 @@ export interface DashboardSystem {
   disk_percent: number | null
   network: string | null
   battery_percent: number | null;
+  volume_percent: number | null;
 }
 
 export interface DashboardData {
