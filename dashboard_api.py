@@ -9,7 +9,8 @@ from typing import Any
 
 from actions.calendar import get_calendar_events
 from actions.email import search_emails
-from actions.reminders import get_reminders
+from actions.reminder_memory import get_reminders as get_memory_reminders
+from actions.reminders import get_reminders as get_tasks
 from actions.weather import get_weather_summary
 
 try:
@@ -37,8 +38,8 @@ def _calendar_today() -> dict[str, Any]:
 
 def _dashboard_payload() -> dict[str, Any]:
     calendar = _calendar_today()
-    tasks = get_reminders("today", limit=100)
-    reminders = get_reminders("upcoming", limit=100)
+    tasks = get_tasks("today", limit=100)
+    reminders = get_memory_reminders("today", limit=100, include_completed=False)
     unread = search_emails("is:unread", limit=1)
     weather = get_weather_summary("Baku")
 
