@@ -18,6 +18,7 @@ def main():
     def runner():
         nonlocal bridge
         ui.wait_for_api_key()
+        ui.root.after(0, ui.root.withdraw)
         jarvis = JarvisLive(ui)
         bridge = UiBridge(ui, tool_executor=jarvis._tool_executor)
 
@@ -42,9 +43,7 @@ def main():
                 bridge._server.shutdown()
 
     threading.Thread(target=runner, daemon=True).start()
-
     # React UI əsas interfeysdir; Tk yalnız mövcud audio/runtime event loop-u üçün saxlanılır.
-    ui.root.withdraw()
     ui.root.mainloop()
 
 
