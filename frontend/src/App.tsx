@@ -91,9 +91,24 @@ export default function App() {
               <div className="metric"><span>Xatırlatmalar</span><strong>7</strong></div>
               <div className="metric"><span>Oxunmamış mesajlar</span><strong>7</strong></div>
             </section>
-            <section className="panel system-panel">
-              <div className="panel-heading"><span>SİSTEM</span><small>LOKAL</small></div>
-              {['CPU', 'RAM', 'YADDAŞ', 'ŞƏBƏKƏ'].map((name, index) => <div className="system-metric" key={name}><span>{name}</span><div><i style={{ width: `${32 + index * 14}%` }} /></div><strong>{[12, 45, 68, 32][index]}%</strong></div>)}
+            <section className="panel weather-panel">
+              <div className="panel-heading">
+                <span>HAVA PROQNOZU</span>
+                <small>BAKI, AZ</small>
+              </div>
+              <div className="weather-main">
+                <strong>28°</strong>
+                <div className="weather-icon">
+                  <img src="https://cdn-icons-png.flaticon.com/512/1247/1247953.png" height="35" width="50"></img>
+                  <small>Qismən buludlu</small>
+                </div>
+              </div>
+              <div className="weather-meta">
+                <span>Hiss edilən: 31°</span>
+                <span>Külək: 8 km/saat, Şimal-Cənub</span>
+                <span>Rütubət: 83%</span>
+                <span>Təzyiq: 1009.6 hPa</span>
+              </div>
             </section>
           </div>
 
@@ -106,25 +121,9 @@ export default function App() {
           <div className="right-stack">
             <ContextPanel context={context} />
             <ActivityFeed items={activities} />
-            <section className="panel weather-panel">
-              <div className="panel-heading">
-                <span>HAVA PROQNOZU</span>
-                <small>BAKI, AZ</small>
-              </div>
-              <div className="weather-main">
-                <strong>28°</strong>
-                <div className="weather-icon">
-                  <img src="https://cdn-icons-png.flaticon.com/512/1247/1247953.png" height="35" width="50"></img>
-                  <small>Qismən buludlu</small>
-                </div>
-                
-              </div>
-              <div className="weather-meta">
-                <span>Hiss edilən: 31°</span>
-                <span>Külək: 8 km/saat, Şimal-Cənub</span>
-                <span>Rütubət: 83%</span>
-                <span>Təzyiq: 1009.6 hPa</span>
-              </div>
+            <section className="panel system-panel">
+              <div className="panel-heading"><span>SİSTEM</span><small>LOKAL</small></div>
+              {['CPU', 'RAM', 'YADDAŞ', 'ŞƏBƏKƏ'].map((name, index) => <div className="system-metric" key={name}><span>{name}</span><div><i style={{ width: `${32 + index * 14}%` }} /></div><strong>{[12, 45, 68, 32][index]}%</strong></div>)}
             </section>
           </div>
         </div>
