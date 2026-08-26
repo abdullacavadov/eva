@@ -31,10 +31,13 @@ export interface EvaContext {
   items: ContextItem[]
 }
 
-export interface EvaEvent {
-  type: 'state.changed' | 'conversation.user' | 'conversation.assistant' | 'activity.created' | 'context.updated'
-  state?: EvaState
-  text?: string
-  activity?: ActivityItem
-  context?: EvaContext
-}
+export type EvaEvent =
+  | { type: 'connection.ready' }
+  | { type: 'bridge.error'; message?: string }
+  | { type: 'state.changed'; state: EvaState }
+  | { type: 'conversation.user'; text: string }
+  | { type: 'conversation.assistant'; text: string }
+  | { type: 'activity.created'; activity: ActivityItem }
+  | { type: 'context.updated'; context: EvaContext }
+  | { type: 'tool.started'; tool: string; args?: Record<string, unknown> }
+  | { type: 'tool.completed'; tool: string; success: boolean; result?: string }

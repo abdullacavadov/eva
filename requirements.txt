@@ -2,16 +2,17 @@
 # Install: python -m pip install -r requirements.txt
 
 google-genai                              # Gemini Live API (ses + araç çağrıları)
-pyaudio                                   # Mikrofon / hoparlör (gerçek zamanlı ses)
-psutil                                    # Sistem bilgisi (pil, CPU, RAM, disk)
-Pillow                                    # Görüntü işleme (ekran + webcam analizi)
-requests                                  # Hava durumu, YouTube API, YouTube arama
-mss                                       # Ekran görüntüsü yakalama (analyze_screen)
-opencv-python                             # Webcam canlı akışı (toggle_webcam)
-pyperclip                                 # Pano kopyalama (WhatsApp otomasyonu)
-pyautogui                                 # WhatsApp Web avtomatik gönderim (Enter)
+pyaudio                                   # Mikrofon / hoparlör (gerçek zamanlı səs)
+psutil                                    # Sistem məlumatları (pil, CPU, RAM, disk)
+Pillow                                    # Görüntü işləmə (ekran + webcam analizi)
+requests                                  # Hava durumu, YouTube API, YouTube axtarış
+mss                                       # Ekran görüntüsü (analyze_screen)
+opencv-python                             # Webcam canlı axını (toggle_webcam)
+pyperclip                                 # Pano kopyalama (WhatsApp avtomatlaşdırması)
+pyautogui                                 # WhatsApp Web avtomatik göndərim (Enter)
 pygetwindow                               # WhatsApp pəncərəsini önə gətirmək
 playwright                                # WhatsApp Web read-only browser bridge
+websockets>=15,<18                        # React UI üçün lokal WebSocket bridge
 
 google-api-python-client                  # Google Calendar API
 google-auth-httplib2                      # Google API auth transport
