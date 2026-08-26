@@ -4,6 +4,7 @@
 import asyncio
 import os
 import threading
+import tkinter as tk
 
 from core.proactive import ProactiveEngine, ProactiveScheduler
 from core.ui_bridge import UiBridge
@@ -14,7 +15,7 @@ from ui import JarvisUI
 def _create_hidden_ui() -> JarvisUI:
     """Tk UI-ni runtime infrastrukturu kimi yaradır, pəncərəni göstərmir."""
     original_enter_fullscreen = JarvisUI._enter_fullscreen
-    original_deiconify = __import__("tkinter").Misc.deiconify
+    original_deiconify = tk.Wm.deiconify
 
     def hidden_enter_fullscreen(self):
         return None
@@ -23,12 +24,12 @@ def _create_hidden_ui() -> JarvisUI:
         return None
 
     JarvisUI._enter_fullscreen = hidden_enter_fullscreen
-    __import__("tkinter").Misc.deiconify = hidden_deiconify
+    tk.Wm.deiconify = hidden_deiconify
     try:
         ui = JarvisUI()
     finally:
         JarvisUI._enter_fullscreen = original_enter_fullscreen
-        __import__("tkinter").Misc.deiconify = original_deiconify
+        tk.Wm.deiconify = original_deiconify
 
     ui.root.withdraw()
     return ui
