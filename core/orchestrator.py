@@ -8,6 +8,7 @@ from actions.daily_report import build_daily_report
 from actions.email import search_emails
 from actions.whatsapp_read_action import read_whatsapp_messages
 from actions.agenda import get_daily_agenda
+from actions.reminder_memory import get_reminders as get_memory_reminders, delete_reminder as delete_memory_reminder
 from memory.memory_manager import load_memory, delete_memory
 from core.query_planner import QueryPlan, plan_query
 from core.unified_results import make_unified_result, normalize_item
@@ -89,6 +90,13 @@ def _deletion_candidates(plan: QueryPlan, limit: int) -> tuple[list[dict[str, An
                 if not entity or _entity_matches(item, entity) or _matches_search_terms(item, plan.search_terms): candidates.append(normalize_item("tasks", item, result.get("type", "task")))
             if result.get("status") == "error": errors["tasks"] = result.get("meta", {}).get("message", "Google Tasks xətası")
         except Exception as exc: errors["tasks"] = str(exc)
+    if "reminder" in plan.sources:
+        try:
+            result = get_memory_reminders("upcoming", max(limit, 50), include_completed=False)
+            for item in result.get("data", []):
+                if not entity or _entity_matches(item, entity) or _matches_search_terms(item, plan.search_terms): candidates.append(normalize_item("reminder", item, result.get("type", "reminder")))
+            if result.get("status") == "error": errors["reminder"] = result.get("meta", {}).get("message", "Xatırlatma yaddaşı xətası")
+        except Exception as exc: errors["reminder"] = str(exc)
     if "memory" in plan.sources:
         memory_items: dict[str, dict[str, Any]] = {}
         terms = plan.search_terms or (plan.search_text,)
@@ -124,6 +132,8 @@ def execute_unified_deletion(query: str, selected_id: str = "", confirmed: bool 
             task_id = str(payload.get("google_task_id", ""))
             if not task_id: return _deletion_result(query, plan, [item], errors, {"requires_confirmation": True, "deletion_safe": True, "message": "Task üçün təhlükəsiz silmə ID-si tapılmadı."})
             result = delete_reminder(task_id, str(payload.get("task_list_id", "")))
+        elif source == "reminder":
+            result = delete_memory_reminder(str(payload.get("id", item.get("id", ""))))
         elif source == "calendar":
             result = delete_calendar_event(str(payload.get("title", "")), str(payload.get("start", "")))
         elif source == "memory":
@@ -175,6 +185,9 @@ def execute_unified_query(query: str, limit: int = 8) -> dict[str, Any]:
                 from actions.reminders import get_reminders
                 result = get_reminders(plan.period if plan.period else "upcoming", max(limit, 20) if entity else limit, ""); _append_source(items, source, result, limit, entity, plan.search_terms)
                 if result.get("status") == "error": errors[source] = result.get("meta", {}).get("message", "Google Tasks xətası")
+            elif source == "reminder":
+                result = get_memory_reminders(plan.period if plan.period else "upcoming", limit, include_completed=False); _append_source(items, source, result, limit, entity, plan.search_terms)
+                if result.get("status") == "error": errors[source] = result.get("meta", {}).get("message", "Xatırlatma yaddaşı xətası")
             elif source == "memory":
                 memory_items: dict[str, dict[str, Any]] = {}; memory_terms = plan.search_terms or (plan.search_text,)
                 for term in memory_terms:
