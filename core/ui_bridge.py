@@ -2,108 +2,156 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
+import threading
+import time
 from collections.abc import Callable
 from typing import Any
 
-from websockets.asyncio.server import Server, ServerConnection, serve
+from websockets.sync.server import Server, ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
 
 
 class UiBridge:
-    """EVA runtime hadisələrini lokal React UI-a çatdırır."""
+    """Mövcud desktop EVA runtime-ını lokal React UI-a bağlayır."""
 
-    def __init__(self, on_command: Callable[[str], None]):
+    def __init__(self, ui):
+        self.ui = ui
         self.host = os.getenv("EVA_UI_WS_HOST", "127.0.0.1")
         self.port = int(os.getenv("EVA_UI_WS_PORT", "8765"))
-        self.on_command = on_command
-        self._loop: asyncio.AbstractEventLoop | None = None
-        self._server: Server | None = None
         self._clients: set[ServerConnection] = set()
+        self._clients_lock = threading.Lock()
+        self._server: Server | None = None
+        self._thread: threading.Thread | None = None
         self._last_state: str | None = None
+        self._install_ui_hooks()
+        self._start_server()
 
-    async def start(self) -> None:
-        """WebSocket server-i EVA-nın əsas asyncio loop-unda başladır."""
-        if self._server is not None:
-            return
-        self._loop = asyncio.get_running_loop()
-        self._server = await serve(self._handle_client, self.host, self.port)
-        print(f"[E.V.A] 🌐 UI WebSocket: ws://{self.host}:{self.port}")
+    def _install_ui_hooks(self) -> None:
+        """Mövcud JarvisUI metodlarını dəyişmədən event adapteri əlavə edir."""
+        self.ui.emit_event = self.emit  # type: ignore[attr-defined]
+        original_set_state = self.ui.set_state
 
-    async def stop(self) -> None:
-        """UI WebSocket server-ini təhlükəsiz bağlayır."""
-        if self._server is not None:
-            self._server.close()
-            await self._server.wait_closed()
-            self._server = None
-        self._clients.clear()
-        self._loop = None
+        def set_state(state: str):
+            original_set_state(state)
+            self.emit("state.changed", state=self._normalize_state(state))
+
+        self.ui.set_state = set_state
+        original_write_log = self.ui.write_log
+
+        def write_log(text: str):
+            original_write_log(text)
+            self._emit_log_event(text)
+
+        self.ui.write_log = write_log
+
+    @staticmethod
+    def _normalize_state(state: str) -> str:
+        return {"SPEAKING": "LISTENING", "INITIALISING": "THINKING"}.get(str(state), str(state))
+
+    def _emit_log_event(self, text: str) -> None:
+        clean = str(text or "").strip()
+        lower = clean.lower()
+        if lower.startswith("siz:") or lower.startswith("you:"):
+            detail = clean.split(":", 1)[1].strip()
+            self.emit("conversation.user", text=detail)
+            self.emit_activity("Komanda qəbul edildi", "user", detail)
+        elif lower.startswith("e.v.a:") or lower.startswith("ai:"):
+            detail = clean.split(":", 1)[1].strip()
+            self.emit("conversation.assistant", text=detail)
+            self.emit_activity("EVA cavab verdi", "assistant", detail)
+        elif lower.startswith("err:"):
+            self.emit_activity("Runtime xətası", "error", clean.split(":", 1)[1].strip())
+        elif lower.startswith("sys:"):
+            self.emit_activity(clean.split(":", 1)[1].strip(), "system")
+
+    def emit_activity(self, text: str, kind: str = "system", detail: str | None = None) -> None:
+        activity: dict[str, Any] = {
+            "id": f"activity-{time.time_ns()}",
+            "time": time.strftime("%H:%M:%S"),
+            "text": text,
+            "kind": kind,
+        }
+        if detail:
+            activity["detail"] = detail
+        self.emit("activity.created", activity=activity)
 
     def emit(self, event_type: str, **payload: Any) -> None:
-        """Hadisəni WebSocket client-lərinə qeyri-bloklayıcı göndərir."""
+        """Hadisəni WebSocket client-lərinə thread-safe şəkildə yayımlayır."""
         event = {"type": event_type, **payload}
         if event_type == "state.changed":
             self._last_state = str(payload.get("state") or "") or None
-        if not self._loop or self._server is None:
-            return
-        self._loop.call_soon_threadsafe(
-            lambda: asyncio.create_task(self._broadcast(event))
-        )
-
-    async def _broadcast(self, event: dict[str, Any]) -> None:
-        if not self._clients:
-            return
         message = json.dumps(event, ensure_ascii=False)
+        with self._clients_lock:
+            clients = tuple(self._clients)
         stale: list[ServerConnection] = []
-        for client in tuple(self._clients):
+        for client in clients:
             try:
-                await client.send(message)
-            except ConnectionClosed:
+                client.send(message)
+            except (ConnectionClosed, OSError):
                 stale.append(client)
-        for client in stale:
-            self._clients.discard(client)
+        if stale:
+            with self._clients_lock:
+                for client in stale:
+                    self._clients.discard(client)
 
-    async def _handle_client(self, websocket: ServerConnection) -> None:
-        self._clients.add(websocket)
+    def _start_server(self) -> None:
+        def run():
+            try:
+                with serve(self._handle_client, self.host, self.port) as server:
+                    self._server = server
+                    print(f"[E.V.A] 🌐 UI WebSocket: ws://{self.host}:{self.port}")
+                    server.serve_forever()
+            except OSError as exc:
+                print(f"[E.V.A] ⚠️ UI WebSocket başlatılmadı: {exc}")
+            finally:
+                self._server = None
+
+        self._thread = threading.Thread(target=run, name="eva-ui-ws", daemon=True)
+        self._thread.start()
+
+    def _handle_client(self, websocket: ServerConnection) -> None:
+        with self._clients_lock:
+            self._clients.add(websocket)
         try:
-            await websocket.send(json.dumps({"type": "connection.ready"}))
+            websocket.send(json.dumps({"type": "connection.ready"}))
             if self._last_state:
-                await websocket.send(json.dumps({"type": "state.changed", "state": self._last_state}))
-            async for raw_message in websocket:
-                await self._handle_message(websocket, raw_message)
+                websocket.send(json.dumps({"type": "state.changed", "state": self._last_state}))
+            for raw_message in websocket:
+                self._handle_message(websocket, raw_message)
         except ConnectionClosed:
             pass
         finally:
-            self._clients.discard(websocket)
+            with self._clients_lock:
+                self._clients.discard(websocket)
 
-    async def _handle_message(self, websocket: ServerConnection, raw_message: str | bytes) -> None:
+    def _handle_message(self, websocket: ServerConnection, raw_message: str | bytes) -> None:
         if isinstance(raw_message, bytes):
             raw_message = raw_message.decode("utf-8", errors="replace")
         try:
             message = json.loads(raw_message)
         except (TypeError, json.JSONDecodeError):
-            await websocket.send(json.dumps({"type": "bridge.error", "message": "Yanlış JSON mesajı."}, ensure_ascii=False))
+            websocket.send(json.dumps({"type": "bridge.error", "message": "Yanlış JSON mesajı."}, ensure_ascii=False))
             return
-
         if not isinstance(message, dict):
-            await websocket.send(json.dumps({"type": "bridge.error", "message": "Mesaj obyekti tələb olunur."}, ensure_ascii=False))
+            websocket.send(json.dumps({"type": "bridge.error", "message": "Mesaj obyekti tələb olunur."}, ensure_ascii=False))
             return
-
         message_type = str(message.get("type") or "")
         if message_type == "ping":
-            await websocket.send(json.dumps({"type": "pong"}))
+            websocket.send(json.dumps({"type": "pong"}))
             return
-
         if message_type != "conversation.send":
-            await websocket.send(json.dumps({"type": "bridge.error", "message": "Dəstəklənməyən UI hadisəsi."}, ensure_ascii=False))
+            websocket.send(json.dumps({"type": "bridge.error", "message": "Dəstəklənməyən UI hadisəsi."}, ensure_ascii=False))
             return
-
         text = str(message.get("text") or "").strip()
         if not text:
             return
+        callback: Callable[[str], None] | None = getattr(self.ui, "on_text_command", None)
+        if callback is None:
+            websocket.send(json.dumps({"type": "bridge.error", "message": "EVA text command callback-i hazır deyil."}, ensure_ascii=False))
+            return
         try:
-            self.on_command(text)
+            callback(text)
         except Exception as exc:
-            await websocket.send(json.dumps({"type": "bridge.error", "message": str(exc)}, ensure_ascii=False))
+            websocket.send(json.dumps({"type": "bridge.error", "message": str(exc)}, ensure_ascii=False))
