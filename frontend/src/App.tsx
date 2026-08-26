@@ -145,11 +145,11 @@ export default function App() {
             <section className="panel weather-panel">
               <div className="panel-heading"><span>HAVA PROQNOZU</span><small>{weather.city ? `${weather.city.toUpperCase()}, AZ` : 'BAKI, AZ'}</small></div>
               <div className="weather-main">
-                <strong>{displayValue(weather.temperature, '°')}</strong>
+                <strong>{displayValue(weather.temperature, '°C')}</strong>
                 <div className="weather-icon" aria-label={weather.condition || 'Hava məlumatı yoxdur'}><FontAwesomeIcon icon={faCloudSun} aria-hidden="true" /><small>{weather.condition || 'Məlumat yoxdur'}</small></div>
               </div>
               <div className="weather-meta">
-                <span><i><FontAwesomeIcon icon={faTemperatureLow} /></i> Hiss edilən: {displayValue(weather.feels_like, '°')}</span>
+                <span><i><FontAwesomeIcon icon={faTemperatureLow} /></i> Hiss edilən: {displayValue(weather.feels_like, '°C')}</span>
                 <span><i><FontAwesomeIcon icon={faWind} /></i> Külək: {displayValue(weather.wind_speed, ' km/saat')}, {weather.wind_direction || '—'}</span>
                 <span><i><FontAwesomeIcon icon={faDroplet} /></i> Rütubət: {displayValue(weather.humidity, '%')}</span>
                 <span><i><FontAwesomeIcon icon={faGaugeHigh} /></i> Təzyiq: {displayValue(weather.pressure, ' hPa')}</span>
