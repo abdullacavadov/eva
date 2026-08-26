@@ -26,6 +26,20 @@ def _battery_percent_from_sys_info(text: str) -> float | None:
     return float(match.group(1)) if match else None
 
 
+def _volume_percent() -> float | None:
+    """Windows əsas səs çıxışının master volume faizini qaytarır."""
+    try:
+        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+        from comtypes import CLSCTX_ALL
+
+        devices = AudioUtilities.GetSpeakers()
+        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        volume = interface.QueryInterface(IAudioEndpointVolume)
+        return round(float(volume.GetMasterVolumeLevelScalar()) * 100, 1)
+    except Exception:
+        return None
+
+
 def _network_status(text: str) -> str:
     value = str(text or "").casefold()
     if "bağlı" in value or "ip " in value:
@@ -50,6 +64,7 @@ def get_dashboard_data() -> dict[str, Any]:
             "disk_percent": None,
             "network": None,
             "battery_percent": None,
+            "volume_percent": None,
         },
         "context": {
             "source": "Google Calendar",
@@ -102,6 +117,7 @@ def get_dashboard_data() -> dict[str, Any]:
             "disk_percent": None,
             "network": _network_status(system_text),
             "battery_percent": _battery_percent_from_sys_info(system_text),
+            "volume_percent": _volume_percent(),
         }
         try:
             import psutil
