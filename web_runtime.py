@@ -13,6 +13,9 @@ from ui import JarvisUI
 
 def main():
     ui = JarvisUI()
+    # React əsas interfeysdir. Mövcud Tk runtime komponentləri yalnız callback,
+    # audio/state və event-loop infrastrukturu kimi saxlanılır.
+    ui.root.withdraw()
     bridge = None
 
     def runner():
@@ -43,7 +46,6 @@ def main():
                 bridge._server.shutdown()
 
     threading.Thread(target=runner, daemon=True).start()
-    # React UI əsas interfeysdir; Tk yalnız mövcud audio/runtime event loop-u üçün saxlanılır.
     ui.root.mainloop()
 
 
