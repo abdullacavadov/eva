@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from actions.agenda import get_daily_agenda
@@ -13,13 +14,9 @@ from actions.sys_info import sys_info
 def _percent_from_sys_info(text: str, prefix: str) -> float | None:
     for line in str(text or "").splitlines():
         if line.upper().startswith(prefix.upper()):
-            marker = "%"
-            if marker in line:
-                try:
-                    before = line.split(marker, 1)[0]
-                    return float(before.rsplit("%", 1)[-1].split()[-1])
-                except (ValueError, IndexError):
-                    pass
+            match = re.search(r"%\s*([0-9]+(?:\.[0-9]+)?)", line)
+            if match:
+                return float(match.group(1))
     return None
 
 
