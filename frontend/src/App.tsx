@@ -6,6 +6,7 @@ import {
   faDroplet,
   faGaugeHigh,
   faCloudSun,
+  faMicrochip,
   faCalendarDays,
   faListCheck,
   faBell,
@@ -124,7 +125,7 @@ export default function App() {
             </section>
 
             <section className="panel system-panel">
-              <div className="panel-heading"><span>SİSTEM</span><small>LOKAL</small></div>
+              <div className="panel-heading"><span><FontAwesomeIcon icon={faMicrochip} /> SİSTEM</span><small>LOKAL</small></div>
               {['CPU', 'RAM', 'YADDAŞ', 'ŞƏBƏKƏ'].map((name, index) => <div className="system-metric" key={name}><span>{name}</span><div><i style={{ width: `${32 + index * 14}%` }} /></div><strong>{[12, 45, 68, 32][index]}%</strong></div>)}
             </section>
           </div>
