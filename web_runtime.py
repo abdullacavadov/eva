@@ -38,8 +38,6 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         except Exception as exc:
             payload = json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False).encode("utf-8")
             self.send_response(500)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
             self.wfile.write(payload)
 
@@ -129,17 +127,17 @@ def main():
             if status == "connected":
                 ui.set_state("LISTENING")
                 ui.write_log("SYS: Gemini Live bağlantısı bərpa edildi.")
-                ui.emit_event("live.connection", status="connected")
+                ui.emit_event("connection.ready")
             elif status == "reconnecting":
                 reason = detail or "Gemini Live bağlantısı kəsildi."
                 ui.set_state("ERROR")
                 ui.write_log(f"ERR: Gemini Live bağlantısı yoxdur — {reason}")
-                ui.emit_event("live.connection", status="reconnecting", detail=reason)
+                ui.emit_event("bridge.error", message=f"Gemini Live bağlantısı yoxdur — {reason}")
             elif status == "disconnected":
                 reason = detail or "Gemini Live bağlantısı mövcud deyil."
                 ui.set_state("ERROR")
                 ui.write_log(f"ERR: Gemini Live bağlantısı yoxdur — {reason}")
-                ui.emit_event("live.connection", status="disconnected", detail=reason)
+                ui.emit_event("bridge.error", message=f"Gemini Live bağlantısı yoxdur — {reason}")
 
         live_session_module.DEFAULT_CONNECTION_STATUS_CALLBACK = on_live_connection_status
 
