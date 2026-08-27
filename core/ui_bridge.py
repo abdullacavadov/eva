@@ -6,7 +6,9 @@ import json
 import os
 import threading
 import time
+from collections import deque
 from collections.abc import Callable
+from queue import Empty, Queue
 from typing import Any
 
 from websockets.exceptions import ConnectionClosed
@@ -16,11 +18,15 @@ from websockets.sync.server import Server, ServerConnection, serve
 class UiBridge:
     """Mövcud desktop EVA runtime-ını lokal React UI-a bağlayır."""
 
+    _CLIENT_QUEUE_SIZE = 256
+    _STOP = object()
+
     def __init__(self, ui, tool_executor=None):
         self.ui = ui
         self.host = os.getenv("EVA_UI_WS_HOST", "127.0.0.1")
         self.port = int(os.getenv("EVA_UI_WS_PORT", "8765"))
         self._clients: set[ServerConnection] = set()
+        self._client_queues: dict[ServerConnection, Queue] = {}
         self._clients_lock = threading.Lock()
         self._server: Server | None = None
         self._thread: threading.Thread | None = None
@@ -102,24 +108,44 @@ class UiBridge:
             activity["detail"] = detail
         self.emit("activity.created", activity=activity)
 
+    def _queue_message(self, queue: Queue, message: str) -> None:
+        try:
+            queue.put_nowait(message)
+        except Exception:
+            try:
+                queue.get_nowait()
+            except Empty:
+                pass
+            try:
+                queue.put_nowait(message)
+            except Exception:
+                pass
+
     def emit(self, event_type: str, **payload: Any) -> None:
-        """Hadisəni bütün WebSocket client-lərinə thread-safe yayımlayır."""
+        """Hadisəni bütün WebSocket client-lərinə runtime-u bloklamadan yayımlayır."""
         event = {"type": event_type, **payload}
         if event_type == "state.changed":
             self._last_state = str(payload.get("state") or "") or None
         message = json.dumps(event, ensure_ascii=False)
         with self._clients_lock:
-            clients = tuple(self._clients)
-        stale: list[ServerConnection] = []
-        for client in clients:
+            queues = tuple(self._client_queues.values())
+        for queue in queues:
+            self._queue_message(queue, message)
+
+    def _client_sender(self, websocket: ServerConnection, queue: Queue) -> None:
+        while True:
             try:
-                client.send(message)
+                message = queue.get()
+            except Exception:
+                return
+            if message is self._STOP:
+                return
+            try:
+                websocket.send(message)
             except (ConnectionClosed, OSError):
-                stale.append(client)
-        if stale:
-            with self._clients_lock:
-                for client in stale:
-                    self._clients.discard(client)
+                return
+            except Exception:
+                return
 
     def _start_server(self) -> None:
         def run():
@@ -137,12 +163,22 @@ class UiBridge:
         self._thread.start()
 
     def _handle_client(self, websocket: ServerConnection) -> None:
+        queue: Queue = Queue(maxsize=self._CLIENT_QUEUE_SIZE)
+        sender = threading.Thread(
+            target=self._client_sender,
+            args=(websocket, queue),
+            name="eva-ui-ws-sender",
+            daemon=True,
+        )
         with self._clients_lock:
             self._clients.add(websocket)
+            self._client_queues[websocket] = queue
+            last_state = self._last_state
+        sender.start()
+        self._queue_message(queue, json.dumps({"type": "connection.ready"}))
+        if last_state:
+            self._queue_message(queue, json.dumps({"type": "state.changed", "state": last_state}))
         try:
-            websocket.send(json.dumps({"type": "connection.ready"}))
-            if self._last_state:
-                websocket.send(json.dumps({"type": "state.changed", "state": self._last_state}))
             for raw_message in websocket:
                 self._handle_message(websocket, raw_message)
         except ConnectionClosed:
@@ -150,6 +186,8 @@ class UiBridge:
         finally:
             with self._clients_lock:
                 self._clients.discard(websocket)
+                self._client_queues.pop(websocket, None)
+            self._queue_message(queue, self._STOP)
 
     def _handle_message(self, websocket: ServerConnection, raw_message: str | bytes) -> None:
         if isinstance(raw_message, bytes):
