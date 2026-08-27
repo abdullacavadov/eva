@@ -10,6 +10,9 @@ from google import genai
 from google.genai import types
 
 
+DEFAULT_CONNECTION_STATUS_CALLBACK: Callable[[str, str | None], None] | None = None
+
+
 class _ResilientLiveSession:
     """Gemini Live bağlantısını runtime-u dayandırmadan yenidən quran proxy."""
 
@@ -205,7 +208,11 @@ class LiveSessionManager:
         self.api_key = api_key
         self._manager_key = f"{model}:{api_key}"
         self.resume_handle: str | None = self._resume_handles.get(self._manager_key)
-        self.on_connection_status = on_connection_status or (lambda status, detail=None: None)
+        self.on_connection_status = (
+            on_connection_status
+            or DEFAULT_CONNECTION_STATUS_CALLBACK
+            or (lambda status, detail=None: None)
+        )
 
     def _set_resume_handle(self, value: str | None) -> None:
         self._resume_handles[self._manager_key] = value
