@@ -34,10 +34,43 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
     if (videoRef.current) videoRef.current.srcObject = null
   }
 
+  const finishClose = () => {
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+    stopLocalCamera()
+    setCameraModalOpen(false)
+    setCameraClosing(false)
+    closeTimerRef.current = null
+  }
+
+  const closeCameraModal = (stopBackend = true) => {
+    if (cameraClosing) return
+    setCameraClosing(true)
+    if (stopBackend && cameraActive) onCommand('camera')
+    closeTimerRef.current = window.setTimeout(finishClose, 280)
+  }
+
+  // Backend/EVA camera state is the source of truth for the modal.
+  // If EVA opens the camera by voice/tool, the modal opens automatically.
+  // If EVA closes it, the modal closes automatically.
+  useEffect(() => {
+    if (cameraActive) {
+      if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+      setCameraClosing(false)
+      setCameraModalOpen(true)
+      return
+    }
+
+    if (cameraModalOpen && !cameraClosing) {
+      setCameraClosing(true)
+      closeTimerRef.current = window.setTimeout(finishClose, 280)
+    }
+  }, [cameraActive])
+
   useEffect(() => {
     if (!cameraModalOpen) return
     setCameraError(null)
     let cancelled = false
+
     navigator.mediaDevices?.getUserMedia({
       video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
       audio: false,
@@ -55,38 +88,32 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
       console.error('[EVA] Kamera görüntüsü açıla bilmədi:', error)
       if (!cancelled) setCameraError('Kameraya giriş icazəsi alınmadı.')
     })
+
     return () => {
       cancelled = true
       stopLocalCamera()
     }
   }, [cameraModalOpen])
 
-  const openCameraModal = () => {
+  const toggleCamera = () => {
     if (disabled) return
-    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+    if (cameraActive) {
+      closeCameraModal(true)
+      return
+    }
+
     setCameraClosing(false)
     setCameraModalOpen(true)
     onCommand('camera')
   }
 
-  const closeCameraModal = () => {
-    if (cameraClosing) return
-    setCameraClosing(true)
-    onCommand('camera')
-    closeTimerRef.current = window.setTimeout(() => {
-      setCameraModalOpen(false)
-      setCameraClosing(false)
-      closeTimerRef.current = null
-    }, 280)
-  }
-
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && cameraModalOpen && !cameraClosing) closeCameraModal()
+      if (event.key === 'Escape' && cameraModalOpen && !cameraClosing) closeCameraModal(true)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [cameraModalOpen, cameraClosing])
+  }, [cameraModalOpen, cameraClosing, cameraActive])
 
   useEffect(() => () => {
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
@@ -96,8 +123,8 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
   const labels: Record<ControlCommand, string> = {
     shutdown: 'SHUTDOWN',
     pause: paused ? 'DAVAM' : 'FASILƏ',
-    camera: cameraActive ? 'KAMERA (✅)' : 'KAMERA (❌)',
-    microphone: microphoneMuted ? 'MİKROFON (❌)' : 'MİKROFON (✅)',
+    camera: cameraActive ? 'KAMERA (AÇIQ)' : 'KAMERA (BAĞLI)',
+    microphone: microphoneMuted ? 'MİKROFON (SƏSSİZ)' : 'MİKROFON (AÇIQ)',
   }
 
   return (
@@ -115,7 +142,7 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
                 aria-label={labels[command]}
                 aria-pressed={command === 'shutdown' ? undefined : active}
                 disabled={disabled}
-                onClick={command === 'camera' ? openCameraModal : () => onCommand(command)}
+                onClick={command === 'camera' ? toggleCamera : () => onCommand(command)}
               >
                 <FontAwesomeIcon icon={command === 'pause' ? (paused ? faPlay : faPause) : icon} aria-hidden="true" />
                 <span>{labels[command]}</span>
@@ -126,11 +153,19 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
       </section>
 
       {cameraModalOpen && (
-        <div className={`camera-modal-backdrop ${cameraClosing ? 'camera-modal-closing' : ''}`} role="dialog" aria-modal="true" aria-label="EVA kamera görüntüsü" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCameraModal() }}>
+        <div
+          className={`camera-modal-backdrop ${cameraClosing ? 'camera-modal-closing' : ''}`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="EVA kamera görüntüsü"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeCameraModal(true)
+          }}
+        >
           <div className="camera-modal">
             <div className="camera-modal-header">
               <div><span className="camera-modal-eyebrow">E.V.A / VISUAL SENSOR</span><strong>KAMERA</strong></div>
-              <button className="camera-modal-close" type="button" aria-label="Kameranı bağla" onClick={closeCameraModal}><FontAwesomeIcon icon={faXmark} /></button>
+              <button className="camera-modal-close" type="button" aria-label="Kameranı bağla" onClick={() => closeCameraModal(true)}><FontAwesomeIcon icon={faXmark} /></button>
             </div>
             <div className="camera-viewport">
               <video ref={videoRef} className="camera-video" autoPlay playsInline muted />
