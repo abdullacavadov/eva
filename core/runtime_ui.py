@@ -29,10 +29,12 @@ class RuntimeUI:
     """
 
     _STATE_SFX = {
-        "IDLE": "Start",
-        "THINKING": "Think",
-        "SUCCESS": "Done",
-        "ERROR": "Error",
+        "IDLE": ("Start", False),
+        "LISTENING": ("HUD", True),
+        "THINKING": ("Think", True),
+        "EXECUTING": ("Think", True),
+        "SUCCESS": ("Done", False),
+        "ERROR": ("Error", False),
     }
 
     def __init__(self) -> None:
@@ -52,9 +54,11 @@ class RuntimeUI:
 
     def set_state(self, state: str) -> None:
         self._state = str(state or "IDLE")
+        self.emit_event("sfx.stop")
         sfx = self._STATE_SFX.get(self._state)
         if sfx:
-            self.emit_event("sfx.play", name=sfx)
+            name, loop = sfx
+            self.emit_event("sfx.play", name=name, loop=loop)
 
     def write_log(self, text: str) -> None:
         return None
@@ -76,10 +80,10 @@ class RuntimeUI:
         return None
 
     def play_success_sfx(self) -> None:
-        self.emit_event("sfx.play", name="Done")
+        self.emit_event("sfx.play", name="Done", loop=False)
 
     def play_sfx(self, name: str) -> None:
-        self.emit_event("sfx.play", name=str(name))
+        self.emit_event("sfx.play", name=str(name), loop=False)
 
     def wait_for_api_key(self) -> None:
         return None
