@@ -4,12 +4,23 @@ import type { EvaEvent } from '../types/eva'
 const DEFAULT_WS_URL = `ws://${window.location.hostname || '127.0.0.1'}:8765`
 const WS_URL = import.meta.env.VITE_EVA_WS_URL || DEFAULT_WS_URL
 const RECONNECT_DELAY_MS = 1500
+const SFX_NAMES = new Set(['HUD', 'Start', 'Think', 'Done', 'Error'])
+
+function playSfx(name: string) {
+  if (!SFX_NAMES.has(name)) return
+  const audio = new Audio(`/sfx/${name}.mp3`)
+  audio.preload = 'auto'
+  void audio.play().catch(() => {
+    // Browser autoplay policy bloklasa runtime işləməyə davam etməlidir.
+  })
+}
 
 export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
   const socketRef = useRef<WebSocket | null>(null)
   const onEventRef = useRef(onEvent)
   const reconnectRef = useRef<number | null>(null)
-  const [connected, setConnected] = useState(false)
+  const [socketConnected, setSocketConnected] = useState(false)
+  const [liveConnected, setLiveConnected] = useState(false)
 
   useEffect(() => {
     onEventRef.current = onEvent
@@ -33,13 +44,17 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
 
       socket.onopen = () => {
         if (disposed || socketRef.current !== socket) return
-        setConnected(true)
+        setSocketConnected(true)
       }
 
       socket.onmessage = (message) => {
         if (disposed || socketRef.current !== socket) return
         try {
           const event = JSON.parse(message.data) as EvaEvent
+          if (event.type === 'live.connection') {
+            setLiveConnected(event.status === 'connected')
+          }
+          if (event.type === 'sfx.play') playSfx(event.name)
           onEventRef.current(event)
         } catch {
           // Gözlənilməz WebSocket mesajı UI state-i pozmamalıdır.
@@ -50,7 +65,8 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
         if (socketRef.current !== socket) return
         socketRef.current = null
         if (disposed) return
-        setConnected(false)
+        setSocketConnected(false)
+        setLiveConnected(false)
         scheduleReconnect()
       }
 
@@ -71,10 +87,10 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
 
   const sendText = useCallback((text: string) => {
     const socket = socketRef.current
-    if (!socket || socket.readyState !== WebSocket.OPEN) return false
+    if (!socket || socket.readyState !== WebSocket.OPEN || !liveConnected) return false
     socket.send(JSON.stringify({ type: 'conversation.send', text }))
     return true
-  }, [])
+  }, [liveConnected])
 
-  return { connected, sendText }
+  return { connected: liveConnected, socketConnected, sendText }
 }
