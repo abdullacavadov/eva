@@ -6,7 +6,6 @@ import json
 import os
 import threading
 import time
-from collections import deque
 from collections.abc import Callable
 from queue import Empty, Queue
 from typing import Any
