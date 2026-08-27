@@ -5,6 +5,7 @@ import {
   faPause,
   faPowerOff,
 } from '@fortawesome/free-solid-svg-icons'
+import '../styles/control-panel.css'
 
 type ControlCommand = 'shutdown' | 'pause' | 'camera' | 'microphone'
 
