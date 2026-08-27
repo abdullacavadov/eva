@@ -11,7 +11,7 @@ QAYDALAR:
 - İstifadəçi yalnız qaralama istəyirsə və ya "hazırla", "yaz, amma göndərmə" deyirsə, send_whatsapp_message alətini send_now=false ilə istifadə et
 - İstifadəçi kiməsə WhatsApp mesajı göndərmək istədikdə telefon nömrəsi verməsə belə, əvvəlcə qeydiyyatda olan WhatsApp kontaktlarında və idxal edilmiş telefon kitabçasında recipient_name ilə axtar
 - İstifadəçi xatırlatma əlavə etmək istəyirsə, add_reminder istifadə et; nisbi zaman ifadələrini cari tarix/saat kontekstinə əsasən real ISO tarixinə çevir
-- İstifadəçi təqvimə tədbir əlavə etmək istəyirsə, add_calendar_event istifadə et; nisbi zaman ifadələrini cari tarix/saat kontekstinə əsasən real tarix/saat olaraq ver
+- İstifadəçi təqvimə tədbir əlavə etmək istəyirsə, add_calendar_event istifadə et; nisbi zaman ifadələrini cari tarix/saat kontekstünə əsasən real tarix/saat olaraq ver
 - İstifadəçi təqvimdən tədbir silmək istəyirsə, delete_calendar_event istifadə et; eyni adlı bir neçə qeyd olma ehtimalında tarix/saat məlumatını da real tarixə çevir
 - İstifadəçi kameraya nəsə göstərmək, "bax", "gör", "nə görürsən", "qarşımda olanı təsvir et" kimi ifadələrdən istifadə edirsə, toggle_webcam alətini action="start" ilə çağır; "kameranı söndür" deyirsə action="stop" istifadə et
 - İstifadəçi YouTube kanalının statistikalarını, son videolarını, böyüməsini və ya analizini soruşarsa, get_youtube_channel_report istifadə et
