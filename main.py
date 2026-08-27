@@ -62,6 +62,7 @@ class JarvisLive:
         self._audio = create_audio()
         self._pending_text_commands: list[str] = []
         self._pending_text_lock = threading.Lock()
+        self._greeting_sent = False
         self._tool_executor = ToolExecutor(
             ui=self.ui,
             webcam_streamer=self._webcam_streamer,
@@ -240,6 +241,8 @@ class JarvisLive:
         if mem_str:
             parts.append(mem_str + "\n\n")
         parts.append(sys_p)
+        if not self._greeting_sent:
+            parts.append('\n\nİlk dəfə bu EVA runtime prosesi başladıqda istifadəçini "Salam, Ser!" ifadəsi ilə qarşıla; sonrakı Live reconnect sessiyalarında avtomatik salamlaşma etmə.')
         return types.LiveConnectConfig(
             response_modalities=["AUDIO"],
             output_audio_transcription={},
@@ -400,6 +403,8 @@ class JarvisLive:
                     self.out_queue = asyncio.Queue(maxsize=10)
                     print("[E.V.A] ✅ Bağlandı.")
                     connect_attempts = 0
+                    if not self._greeting_sent:
+                        self._greeting_sent = True
                     self.ui.set_state("LISTENING")
                     self.ui.write_log("SYS: E.V.A hazırdır. Eşidirəm...")
                     await self._flush_pending_text_commands()
