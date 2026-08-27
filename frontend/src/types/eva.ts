@@ -41,6 +41,7 @@ export type EvaEvent =
       context?: EvaContext | null
     }
   | { type: 'bridge.error'; message?: string }
+  | { type: 'live.connection'; status: 'connected' | 'reconnecting' | 'disconnected'; detail?: string | null }
   | { type: 'state.changed'; state: EvaState }
   | { type: 'conversation.user'; text: string }
   | { type: 'conversation.assistant'; text: string }
