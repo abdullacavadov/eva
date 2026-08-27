@@ -14,7 +14,10 @@ DEFAULT_CONNECTION_STATUS_CALLBACK: Callable[[str, str | None], None] | None = N
 
 
 class _ResilientLiveSession:
-    """Gemini Live bağlantısını runtime-u dayandırmadan yenidən quran proxy."""
+    """Gemini Live bağlantısını runtime-u dayandırmadan idarə edən proxy."""
+
+    _MAX_CONSECUTIVE_RECONNECTS = 3
+    _RECONNECT_COOLDOWN = 8.0
 
     def __init__(self, manager: "LiveSessionManager", config):
         self._manager = manager
@@ -25,10 +28,13 @@ class _ResilientLiveSession:
         self._resume_handle: str | None = manager.resume_handle
         self._closed = False
         self._reconnect_lock = asyncio.Lock()
+        self._consecutive_reconnects = 0
 
     @property
     def _session_config(self):
-        """Mövcud resume handle-ı saxla; Gemini API üçün transparent rejim istifadə etmə."""
+        """Yalnız real resume handle olduqda session resumption göndər."""
+        if not self._resume_handle:
+            return self._config
         resume = types.SessionResumptionConfig(handle=self._resume_handle)
         if hasattr(self._config, "model_copy"):
             return self._config.model_copy(update={"session_resumption": resume})
@@ -101,11 +107,23 @@ class _ResilientLiveSession:
             if force_fresh:
                 self._clear_resume_handle()
 
+            self._consecutive_reconnects += 1
             self._notify_status("reconnecting", reason)
+
+            if self._consecutive_reconnects > self._MAX_CONSECUTIVE_RECONNECTS:
+                detail = reason or "Gemini Live bağlantısı təkrar-təkrar kəsilir."
+                self._notify_status(
+                    "disconnected",
+                    f"Gemini Live əlçatan deyil; avtomatik reconnect müvəqqəti dayandırıldı. {detail}",
+                )
+                await asyncio.sleep(self._RECONNECT_COOLDOWN)
+                self._consecutive_reconnects = 0
+
             delay = 1.0
             while not self._closed:
                 try:
                     await self._connect(clear_handle_on_failure=True)
+                    self._consecutive_reconnects = 0
                     self._notify_status("connected", None)
                     print("[E.V.A] 🔁 Gemini Live bağlantısı bərpa edildi.", flush=True)
                     return
@@ -118,6 +136,7 @@ class _ResilientLiveSession:
 
     async def __aenter__(self):
         await self._connect(clear_handle_on_failure=True)
+        self._consecutive_reconnects = 0
         self._notify_status("connected", None)
         return self
 
@@ -127,7 +146,7 @@ class _ResilientLiveSession:
         return False
 
     async def receive(self):
-        """Mesajları verir; socket qırılsa eyni runtime daxilində reconnect edir."""
+        """Mesajları verir; socket qırılsa nəzarətli reconnect edir."""
         while not self._closed:
             try:
                 session = self._session
@@ -144,7 +163,9 @@ class _ResilientLiveSession:
                             self._manager.resume_handle = self._resume_handle
                     yield message
                 if not self._closed:
-                    await self._reconnect(force_fresh=True, reason="Gemini Live bağlantısı bağlandı və bağlandı (1000).")
+                    reason = "Gemini Live server bağlantını normal şəkildə bağladı (1000)."
+                    self._notify_status("disconnected", reason)
+                    await self._reconnect(force_fresh=True, reason=reason)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -153,7 +174,7 @@ class _ResilientLiveSession:
                 code = self._close_code(exc)
                 if code == 1000:
                     self._clear_resume_handle()
-                    reason = "Gemini Live bağlantısı normal şəkildə bağlandı (1000); yeni sessiya açılır."
+                    reason = "Gemini Live bağlantısı normal şəkildə bağlandı (1000); fresh sessiya yoxlanılır."
                     self._notify_status("disconnected", reason)
                     await self._reconnect(force_fresh=True, reason=reason)
                     continue
@@ -213,10 +234,6 @@ class LiveSessionManager:
             or DEFAULT_CONNECTION_STATUS_CALLBACK
             or (lambda status, detail=None: None)
         )
-
-    def _set_resume_handle(self, value: str | None) -> None:
-        self._resume_handles[self._manager_key] = value
-        self._resume_handle = value
 
     def create_client(self) -> genai.Client:
         """EVA-nın Live API versiyası ilə Gemini client yaradır."""
