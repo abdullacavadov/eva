@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 
@@ -103,11 +104,7 @@ class _ResilientLiveSession:
         return False
 
     async def receive(self):
-        """Mesajları verir; disconnect olduqda outer runtime-a nəzarəti qaytarır.
-
-        Reconnect burada edilmir. Receive və send eyni anda ayrıca reconnect
-        etməsin deyə reconnect-in yeganə sahibi JarvisLive.run() dövrüdür.
-        """
+        """Mesajları verir; disconnect olduqda outer runtime-a nəzarəti qaytarır."""
         if self._closed:
             raise RuntimeError("Live session bağlanıb.")
         session = self._session
@@ -173,6 +170,10 @@ class LiveSessionManager:
     """Gemini client yaradılmasını və Live API bağlantısını idarə edir."""
 
     _resume_handles: dict[str, str | None] = {}
+    _unstable_sessions: dict[str, int] = {}
+    _session_started_at: dict[str, float] = {}
+    _MAX_UNSTABLE_SESSIONS = 3
+    _STABLE_SESSION_SECONDS = 10.0
 
     def __init__(
         self,
@@ -197,12 +198,33 @@ class LiveSessionManager:
             http_options={"api_version": "v1alpha"},
         )
 
+    async def _wait_before_connect(self) -> None:
+        failures = self._unstable_sessions.get(self._manager_key, 0)
+        if failures >= self._MAX_UNSTABLE_SESSIONS:
+            detail = "Gemini Live sessiyası ardıcıl olaraq çox tez bağlandı."
+            self.on_connection_status("disconnected", detail)
+            raise RuntimeError(
+                "Gemini Live əlçatan deyil; sessiya ardıcıl olaraq qeyri-stabil oldu. "
+                "Avtomatik reconnect müvəqqəti dayandırıldı."
+            )
+
     @asynccontextmanager
     async def connect(self, config):
-        """Bir Live session yaradır; reconnect outer runtime tərəfindən edilir."""
+        """Bir Live session yaradır; reconnect yalnız outer runtime tərəfindən edilir."""
+        await self._wait_before_connect()
         session = _ResilientLiveSession(self, config)
-        async with session:
-            yield session
+        started = asyncio.get_running_loop().time()
+        self._session_started_at[self._manager_key] = started
+        try:
+            async with session:
+                yield session
+        finally:
+            duration = asyncio.get_running_loop().time() - started
+            if duration >= self._STABLE_SESSION_SECONDS:
+                self._unstable_sessions[self._manager_key] = 0
+            else:
+                failures = self._unstable_sessions.get(self._manager_key, 0) + 1
+                self._unstable_sessions[self._manager_key] = failures
 
     @property
     def resume_handle(self) -> str | None:
