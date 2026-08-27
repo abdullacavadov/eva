@@ -126,18 +126,18 @@ def main():
         def on_live_connection_status(status: str, detail: str | None = None):
             if status == "connected":
                 ui.set_state("LISTENING")
+                ui.emit_event("live.connection", status="connected")
                 ui.write_log("SYS: Gemini Live bağlantısı bərpa edildi.")
-                ui.emit_event("connection.ready")
             elif status == "reconnecting":
                 reason = detail or "Gemini Live bağlantısı kəsildi."
                 ui.set_state("ERROR")
+                ui.emit_event("live.connection", status="reconnecting", detail=reason)
                 ui.write_log(f"ERR: Gemini Live bağlantısı yoxdur — {reason}")
-                ui.emit_event("bridge.error", message=f"Gemini Live bağlantısı yoxdur — {reason}")
             elif status == "disconnected":
                 reason = detail or "Gemini Live bağlantısı mövcud deyil."
                 ui.set_state("ERROR")
+                ui.emit_event("live.connection", status="disconnected", detail=reason)
                 ui.write_log(f"ERR: Gemini Live bağlantısı yoxdur — {reason}")
-                ui.emit_event("bridge.error", message=f"Gemini Live bağlantısı yoxdur — {reason}")
 
         live_session_module.DEFAULT_CONNECTION_STATUS_CALLBACK = on_live_connection_status
 
@@ -161,8 +161,15 @@ def main():
         finally:
             if proactive_scheduler:
                 proactive_scheduler.stop()
-            # Dashboard və React UI EVA Live session-dan müstəqildir.
-            # Gemini/runtime xətası browser-in məlumat kanalını bağlamamalıdır.
+            if frontend_process is not None:
+                try:
+                    frontend_process.terminate()
+                except Exception:
+                    pass
+            try:
+                dashboard_server.shutdown()
+            except Exception:
+                pass
 
     threading.Thread(target=runner, daemon=True).start()
     ui.root.mainloop()
