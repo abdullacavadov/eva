@@ -114,10 +114,11 @@ class _ResilientLiveSession:
                 detail = reason or "Gemini Live bağlantısı təkrar-təkrar kəsilir."
                 self._notify_status(
                     "disconnected",
-                    f"Gemini Live əlçatan deyil; avtomatik reconnect müvəqqəti dayandırıldı. {detail}",
+                    f"Gemini Live əlçatan deyil; avtomatik reconnect dayandırıldı. {detail}",
                 )
-                await asyncio.sleep(self._RECONNECT_COOLDOWN)
-                self._consecutive_reconnects = 0
+                raise RuntimeError(
+                    f"Gemini Live əlçatan deyil; {self._MAX_CONSECUTIVE_RECONNECTS} reconnect cəhdindən sonra dayandırıldı."
+                )
 
             delay = 1.0
             while not self._closed:
@@ -152,7 +153,6 @@ class _ResilientLiveSession:
                     await self._reconnect()
                     continue
                 async for message in session.receive():
-                    # Həqiqi trafik gəlibsə bağlantı artıq canlıdır.
                     self._consecutive_reconnects = 0
                     update = getattr(message, "session_resumption_update", None)
                     if update is not None:
