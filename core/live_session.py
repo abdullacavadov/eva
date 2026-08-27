@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 
 from google import genai
 from google.genai import types
 
 
+DEFAULT_CONNECTION_STATUS_CALLBACK: Callable[[str, str | None], None] | None = None
+
+
 class _ResilientLiveSession:
-    """Gemini Live bağlantısını tək reconnect lifecycle-ı ilə idarə edən proxy."""
+    """Gemini Live socket lifecycle-ını outer runtime-a ötürən nazik proxy."""
 
     def __init__(self, manager: "LiveSessionManager", config):
         self._manager = manager
@@ -20,13 +24,11 @@ class _ResilientLiveSession:
         self._session = None
         self._resume_handle: str | None = manager.resume_handle
         self._closed = False
-        self._reconnect_task: asyncio.Task | None = None
-        self._reconnect_lock = asyncio.Lock()
-        self._reconnect_delay = 1.0
 
     @property
     def _session_config(self):
-        """Mövcud resume handle-ı saxla; Gemini API üçün transparent rejim istifadə etmə."""
+        if not self._resume_handle:
+            return self._config
         resume = types.SessionResumptionConfig(handle=self._resume_handle)
         if hasattr(self._config, "model_copy"):
             return self._config.model_copy(update={"session_resumption": resume})
@@ -35,6 +37,10 @@ class _ResilientLiveSession:
             config["session_resumption"] = resume
             return config
         return self._config
+
+    def _clear_resume_handle(self) -> None:
+        self._resume_handle = None
+        self._manager.resume_handle = None
 
     async def _connect(self, *, clear_handle_on_failure: bool = False):
         if self._closed:
@@ -49,8 +55,7 @@ class _ResilientLiveSession:
         except Exception:
             await self._close_current()
             if clear_handle_on_failure and self._resume_handle:
-                self._resume_handle = None
-                self._manager.resume_handle = None
+                self._clear_resume_handle()
                 self._client = self._manager.create_client()
                 self._context = self._client.aio.live.connect(
                     model=self._manager.model,
@@ -71,170 +76,169 @@ class _ResilientLiveSession:
             except Exception:
                 pass
 
-    async def _reconnect_impl(self, *, force_fresh: bool = False):
-        async with self._reconnect_lock:
-            if self._closed:
-                raise RuntimeError("Live session bağlanıb.")
+    def _notify_status(self, status: str, detail: str | None = None) -> None:
+        try:
+            self._manager.on_connection_status(status, detail)
+        except Exception:
+            pass
 
-            if force_fresh:
-                self._resume_handle = None
-                self._manager.resume_handle = None
-
-            await self._close_current()
-
-            while not self._closed:
-                try:
-                    await asyncio.sleep(self._reconnect_delay)
-                    await self._connect(clear_handle_on_failure=True)
-                    self._reconnect_delay = 1.0
-                    print("[E.V.A] 🔁 Gemini Live bağlantısı bərpa edildi.", flush=True)
-                    return
-                except asyncio.CancelledError:
-                    raise
-                except Exception as exc:
-                    print(f"[E.V.A] ⚠️ Live reconnect uğursuz oldu: {exc}", flush=True)
-                    await self._close_current()
-                    await asyncio.sleep(self._reconnect_delay)
-                    self._reconnect_delay = min(self._reconnect_delay * 2.0, 8.0)
-
-        raise RuntimeError("Live session bağlanıb.")
-
-    async def _reconnect(self, *, force_fresh: bool = False):
-        """Bütün reconnect çağıranları eyni task-ı paylaşır; paralel reconnect yaranmır."""
-        if self._closed:
-            raise RuntimeError("Live session bağlanıb.")
-
-        task = self._reconnect_task
-        if task is None or task.done():
-            task = asyncio.create_task(self._reconnect_impl(force_fresh=force_fresh))
-            self._reconnect_task = task
-        await task
+    @staticmethod
+    def _close_code(exc: Exception) -> int | None:
+        code = getattr(exc, "code", None)
+        try:
+            return int(code) if code is not None else None
+        except (TypeError, ValueError):
+            return None
 
     async def __aenter__(self):
         await self._connect(clear_handle_on_failure=True)
+        self._notify_status("connected")
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
         self._closed = True
-        task = self._reconnect_task
-        if task is not None and not task.done():
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
         await self._close_current()
         return False
-
-    @staticmethod
-    def _is_clean_close(exc: Exception) -> bool:
-        """WebSocket 1000 clean close-unu reconnect loopundan ayır."""
-        code = getattr(exc, "code", None)
-        return code == 1000
 
     @staticmethod
     def _update_resume_handle(manager: "LiveSessionManager", current_handle: str | None, message):
         update = getattr(message, "session_resumption_update", None)
         if update is None:
             return current_handle
-        resumable = bool(getattr(update, "resumable", False))
-        handle = getattr(update, "new_handle", None)
-        if resumable and handle:
-            current_handle = str(handle)
-            manager.resume_handle = current_handle
+        if bool(getattr(update, "resumable", False)):
+            handle = getattr(update, "new_handle", None)
+            if handle:
+                current_handle = str(handle)
+                manager.resume_handle = current_handle
         return current_handle
 
     async def receive(self):
-        """Mesajları çoxturnlu Live session boyunca verir; socket qırılsa reconnect edir.
+        """Receive messages without treating SDK iterator completion as a reconnect.
 
-        google-genai SDK-nın bəzi versiyalarında ``AsyncSession.receive()`` ilk
-        ``turn_complete`` mesajından sonra iteratoru bitirir. Bu, çoxturnlu Live
-        söhbətdə reconnect kimi görünür. Birbaşa aşağı səviyyəli ``_receive()``
-        çağırışı həmin SDK davranışını yan keçərək socketin real ömrünü qoruyur.
+        Some google-genai versions expose ``AsyncSession.receive()`` as a turn-level
+        iterator. The private ``_receive()`` method keeps the underlying Live socket
+        alive across multiple turns.
         """
-        while not self._closed:
-            try:
-                session = self._session
-                if session is None:
-                    await self._reconnect()
-                    continue
+        if self._closed:
+            raise RuntimeError("Live session bağlanıb.")
+        session = self._session
+        if session is None:
+            raise RuntimeError("Gemini Live session mövcud deyil.")
 
-                receive_one = getattr(session, "_receive", None)
-                if receive_one is None:
-                    raise RuntimeError(
-                        "Gemini Live SDK _receive() interfeysini təqdim etmir."
-                    )
+        receive_one = getattr(session, "_receive", None)
+        if receive_one is None:
+            raise RuntimeError("Gemini Live SDK _receive() interfeysini təqdim etmir.")
 
-                while not self._closed:
-                    message = await receive_one()
-                    if message is None:
-                        if not self._closed:
-                            await self._reconnect(force_fresh=True)
-                        break
-                    self._resume_handle = self._update_resume_handle(
-                        self._manager, self._resume_handle, message
-                    )
-                    yield message
-            except asyncio.CancelledError:
+        try:
+            while not self._closed:
+                message = await receive_one()
+                if message is None:
+                    reason = "Gemini Live server bağlantını bağladı."
+                    self._notify_status("disconnected", reason)
+                    raise RuntimeError(reason)
+                self._resume_handle = self._update_resume_handle(
+                    self._manager, self._resume_handle, message
+                )
+                yield message
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            if self._closed:
                 raise
-            except Exception as exc:
-                if self._closed:
-                    raise
-                print(f"[E.V.A] ⚠️ Live receive bağlantısı kəsildi: {exc}", flush=True)
-                await self._reconnect(force_fresh=self._is_clean_close(exc))
+            code = self._close_code(exc)
+            if code == 1000:
+                self._clear_resume_handle()
+                reason = "Gemini Live bağlantısı normal şəkildə bağlandı (1000)."
+            else:
+                reason = str(exc)
+            self._notify_status("disconnected", reason)
+            raise RuntimeError(f"Gemini Live bağlantısı kəsildi: {reason}") from exc
 
-    async def _call_with_reconnect(self, method_name: str, **kwargs):
-        last_error = None
-        for _ in range(2):
-            try:
-                session = self._session
-                if session is None:
-                    await self._reconnect()
-                    session = self._session
-                return await getattr(session, method_name)(**kwargs)
-            except asyncio.CancelledError:
+    async def _call(self, method_name: str, **kwargs):
+        if self._closed:
+            raise RuntimeError("Live session bağlanıb.")
+        session = self._session
+        if session is None:
+            raise RuntimeError("Gemini Live session mövcud deyil.")
+        try:
+            return await getattr(session, method_name)(**kwargs)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            if self._closed:
                 raise
-            except Exception as exc:
-                last_error = exc
-                if self._closed:
-                    raise
-                await self._reconnect(force_fresh=self._is_clean_close(exc))
-        raise last_error  # type: ignore[misc]
+            code = self._close_code(exc)
+            if code == 1000:
+                self._clear_resume_handle()
+            self._notify_status("disconnected", str(exc))
+            raise RuntimeError(f"Gemini Live bağlantısı kəsildi: {exc}") from exc
 
     async def send_realtime_input(self, **kwargs):
-        return await self._call_with_reconnect("send_realtime_input", **kwargs)
+        return await self._call("send_realtime_input", **kwargs)
 
     async def send_client_content(self, **kwargs):
-        return await self._call_with_reconnect("send_client_content", **kwargs)
+        return await self._call("send_client_content", **kwargs)
 
     async def send_tool_response(self, **kwargs):
-        return await self._call_with_reconnect("send_tool_response", **kwargs)
+        return await self._call("send_tool_response", **kwargs)
 
 
 class LiveSessionManager:
     """Gemini client yaradılmasını və Live API bağlantısını idarə edir."""
 
     _resume_handles: dict[str, str | None] = {}
+    _unstable_sessions: dict[str, int] = {}
+    _MAX_UNSTABLE_SESSIONS = 3
+    _STABLE_SESSION_SECONDS = 10.0
 
-    def __init__(self, model: str, api_key: str):
+    def __init__(
+        self,
+        model: str,
+        api_key: str,
+        on_connection_status: Callable[[str, str | None], None] | None = None,
+    ):
         self.model = model
         self.api_key = api_key
         self._manager_key = f"{model}:{api_key}"
         self.resume_handle: str | None = self._resume_handles.get(self._manager_key)
+        self.on_connection_status = (
+            on_connection_status
+            or DEFAULT_CONNECTION_STATUS_CALLBACK
+            or (lambda status, detail=None: None)
+        )
 
     def create_client(self) -> genai.Client:
-        """EVA-nın Live API versiyası ilə Gemini client yaradır."""
         return genai.Client(
             api_key=self.api_key,
             http_options={"api_version": "v1alpha"},
         )
 
+    async def _check_stability(self) -> None:
+        failures = self._unstable_sessions.get(self._manager_key, 0)
+        if failures >= self._MAX_UNSTABLE_SESSIONS:
+            detail = "Gemini Live sessiyası ardıcıl olaraq çox tez bağlandı."
+            self.on_connection_status("disconnected", detail)
+            raise RuntimeError(
+                "Gemini Live əlçatan deyil; sessiya ardıcıl olaraq qeyri-stabil oldu. "
+                "Avtomatik reconnect müvəqqəti dayandırıldı."
+            )
+
     @asynccontextmanager
     async def connect(self, config):
-        """Runtime-u dayandırmadan Live socket reconnect edə bilən session verir."""
+        await self._check_stability()
         session = _ResilientLiveSession(self, config)
-        async with session:
-            yield session
+        started = asyncio.get_running_loop().time()
+        try:
+            async with session:
+                yield session
+        finally:
+            duration = asyncio.get_running_loop().time() - started
+            if duration >= self._STABLE_SESSION_SECONDS:
+                self._unstable_sessions[self._manager_key] = 0
+            else:
+                self._unstable_sessions[self._manager_key] = (
+                    self._unstable_sessions.get(self._manager_key, 0) + 1
+                )
 
     @property
     def resume_handle(self) -> str | None:
