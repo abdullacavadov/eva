@@ -261,7 +261,12 @@ class JarvisLive:
     async def _send_realtime(self):
         while True:
             msg = await self.out_queue.get()
-            await self.session.send_realtime_input(media=msg)
+            await self.session.send_realtime_input(
+                audio=types.Blob(
+                    data=msg["data"],
+                    mime_type="audio/pcm;rate=16000",
+                )
+            )
 
     async def _stream_webcam_frames(self):
         _last_sent: bytes | None = None
@@ -275,7 +280,12 @@ class JarvisLive:
                 continue
             _last_sent = jpeg
             try:
-                await self.session.send_realtime_input(media={"data": jpeg, "mime_type": "image/jpeg"})
+                await self.session.send_realtime_input(
+                    video=types.Blob(
+                        data=jpeg,
+                        mime_type="image/jpeg",
+                    )
+                )
             except Exception as e:
                 print(f"[Webcam] Kadr göndərilə bilmədi: {e}")
             await asyncio.sleep(1.5)
