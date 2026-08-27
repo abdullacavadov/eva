@@ -23,10 +23,10 @@ const controls: Array<{
   icon: typeof faPowerOff
   tone: string
 }> = [
-  { command: 'shutdown', label: 'SHUTDOWN', icon: faPowerOff, tone: 'danger' },
-  { command: 'pause', label: 'PAUSE', icon: faPause, tone: 'warning' },
-  { command: 'camera', label: 'CAMERA', icon: faCamera, tone: 'camera' },
-  { command: 'microphone', label: 'MICROPHONE', icon: faMicrophone, tone: 'microphone' },
+  { command: 'shutdown', label: 'SÖNDÜR', icon: faPowerOff, tone: 'danger' },
+  { command: 'pause', label: 'FASİLƏ', icon: faPause, tone: 'warning' },
+  { command: 'camera', label: 'KAMERA', icon: faCamera, tone: 'camera' },
+  { command: 'microphone', label: 'MİKRAFON', icon: faMicrophone, tone: 'microphone' },
 ]
 
 export function ControlPanel({
