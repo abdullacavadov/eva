@@ -9,7 +9,8 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
   const socketRef = useRef<WebSocket | null>(null)
   const onEventRef = useRef(onEvent)
   const reconnectRef = useRef<number | null>(null)
-  const [connected, setConnected] = useState(false)
+  const [socketConnected, setSocketConnected] = useState(false)
+  const [liveConnected, setLiveConnected] = useState(false)
 
   useEffect(() => {
     onEventRef.current = onEvent
@@ -33,7 +34,7 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
 
       socket.onopen = () => {
         if (disposed || socketRef.current !== socket) return
-        setConnected(true)
+        setSocketConnected(true)
       }
 
       socket.onmessage = (message) => {
@@ -41,7 +42,8 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
         try {
           const event = JSON.parse(message.data) as EvaEvent
           if (event.type === 'live.connection') {
-            setConnected(event.status === 'connected')
+            const status = String(event.status || '')
+            setLiveConnected(status === 'connected')
           }
           onEventRef.current(event)
         } catch {
@@ -53,7 +55,8 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
         if (socketRef.current !== socket) return
         socketRef.current = null
         if (disposed) return
-        setConnected(false)
+        setSocketConnected(false)
+        setLiveConnected(false)
         scheduleReconnect()
       }
 
@@ -74,10 +77,10 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
 
   const sendText = useCallback((text: string) => {
     const socket = socketRef.current
-    if (!socket || socket.readyState !== WebSocket.OPEN || !connected) return false
+    if (!socket || socket.readyState !== WebSocket.OPEN || !liveConnected) return false
     socket.send(JSON.stringify({ type: 'conversation.send', text }))
     return true
-  }, [connected])
+  }, [liveConnected])
 
-  return { connected, sendText }
+  return { connected: liveConnected, socketConnected, sendText }
 }
