@@ -18,6 +18,7 @@ class UiBridge:
     """Mövcud desktop EVA runtime-ını lokal React UI-a bağlayır."""
 
     _CLIENT_QUEUE_SIZE = 256
+    _MAX_HISTORY = 200
     _STOP = object()
 
     def __init__(self, ui, tool_executor=None):
@@ -30,6 +31,9 @@ class UiBridge:
         self._server: Server | None = None
         self._thread: threading.Thread | None = None
         self._last_state: str | None = None
+        self._conversation_history: list[dict[str, Any]] = []
+        self._activity_history: list[dict[str, Any]] = []
+        self._last_context: dict[str, Any] | None = None
         self._install_ui_hooks()
         if tool_executor is not None:
             self._install_tool_hook(tool_executor)
@@ -120,11 +124,32 @@ class UiBridge:
             except Exception:
                 pass
 
+    def _snapshot(self) -> dict[str, Any]:
+        with self._clients_lock:
+            return {
+                "state": self._last_state,
+                "messages": list(self._conversation_history),
+                "activities": list(self._activity_history),
+                "context": self._last_context,
+            }
+
     def emit(self, event_type: str, **payload: Any) -> None:
         """Hadisəni bütün WebSocket client-lərinə runtime-u bloklamadan yayımlayır."""
         event = {"type": event_type, **payload}
         if event_type == "state.changed":
             self._last_state = str(payload.get("state") or "") or None
+        elif event_type in {"conversation.user", "conversation.assistant"}:
+            self._conversation_history.append(event)
+            del self._conversation_history[:-self._MAX_HISTORY]
+        elif event_type == "activity.created":
+            activity = payload.get("activity")
+            if isinstance(activity, dict):
+                self._activity_history.append(activity)
+                del self._activity_history[:-self._MAX_HISTORY]
+        elif event_type == "context.updated":
+            context = payload.get("context")
+            if isinstance(context, dict):
+                self._last_context = context
         message = json.dumps(event, ensure_ascii=False)
         with self._clients_lock:
             queues = tuple(self._client_queues.values())
@@ -172,11 +197,15 @@ class UiBridge:
         with self._clients_lock:
             self._clients.add(websocket)
             self._client_queues[websocket] = queue
-            last_state = self._last_state
+            snapshot = {
+                "state": self._last_state,
+                "messages": list(self._conversation_history),
+                "activities": list(self._activity_history),
+                "context": self._last_context,
+            }
         sender.start()
         self._queue_message(queue, json.dumps({"type": "connection.ready"}))
-        if last_state:
-            self._queue_message(queue, json.dumps({"type": "state.changed", "state": last_state}))
+        self._queue_message(queue, json.dumps({"type": "runtime.snapshot", **snapshot}, ensure_ascii=False))
         try:
             for raw_message in websocket:
                 self._handle_message(websocket, raw_message)
