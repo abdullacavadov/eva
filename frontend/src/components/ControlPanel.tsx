@@ -39,9 +39,9 @@ export function ControlPanel({
 }: ControlPanelProps) {
   const labels: Record<ControlCommand, string> = {
     shutdown: 'SHUTDOWN',
-    pause: paused ? 'RESUME' : 'PAUSE',
-    camera: cameraActive ? 'CAMERA ON' : 'CAMERA',
-    microphone: microphoneMuted ? 'MICROPHONE OFF' : 'MICROPHONE',
+    pause: paused ? 'DAVAM' : 'FASILƏ',
+    camera: cameraActive ? 'KAMERA (✅)' : 'KAMERA (❌)',
+    microphone: microphoneMuted ? 'MİKROFON (❌)' : 'MİKROFON (✅)',
   }
 
   return (
