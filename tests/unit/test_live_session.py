@@ -1,12 +1,9 @@
 import asyncio
 
-import pytest
-
 from core.live_session import LiveSessionManager, _ResilientLiveSession
 
 
-@pytest.mark.asyncio
-async def test_reconnect_calls_share_one_task(monkeypatch):
+def test_reconnect_calls_share_one_task(monkeypatch):
     manager = LiveSessionManager("test-model", "test-key")
     session = _ResilientLiveSession(manager, config={})
     calls = 0
@@ -18,13 +15,15 @@ async def test_reconnect_calls_share_one_task(monkeypatch):
 
     monkeypatch.setattr(session, "_reconnect_impl", fake_reconnect_impl)
 
-    await asyncio.gather(session._reconnect(), session._reconnect())
+    async def run():
+        await asyncio.gather(session._reconnect(), session._reconnect())
+
+    asyncio.run(run())
 
     assert calls == 1
 
 
-@pytest.mark.asyncio
-async def test_receive_uses_low_level_receive_across_multiple_turns():
+def test_receive_uses_low_level_receive_across_multiple_turns():
     manager = LiveSessionManager("test-model", "test-key")
     session = _ResilientLiveSession(manager, config={})
 
@@ -38,11 +37,14 @@ async def test_receive_uses_low_level_receive_across_multiple_turns():
 
     fake = FakeLiveSession()
     session._session = fake
-    messages = session.receive()
 
-    await messages.__anext__()
-    await messages.__anext__()
-    await messages.aclose()
+    async def run():
+        messages = session.receive()
+        await messages.__anext__()
+        await messages.__anext__()
+        await messages.aclose()
+
+    asyncio.run(run())
 
     assert fake.calls == 2
 
