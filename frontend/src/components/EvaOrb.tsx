@@ -42,9 +42,10 @@ export function EvaOrb({ state }: { state: EvaState }) {
     '--orb-strong-glow': strongGlow,
   } as CSSProperties
 
-  const particleStyle = (opacity: number, size: string, duration: string): CSSProperties => ({
+  const particleStyle = (opacity: number, size: string, duration: string, animationName: string): CSSProperties => ({
     backgroundImage: `radial-gradient(circle, ${withAlpha(color, String(opacity))} 0 ${size}, transparent ${size})`,
     animationDuration: duration,
+    animationName,
   })
 
   return (
@@ -71,10 +72,10 @@ export function EvaOrb({ state }: { state: EvaState }) {
         }}
       >
         <div className="orb-grid" style={{ opacity: state === 'THINKING' ? 1 : undefined }} />
-        <div className="orb-particles particles-a" style={particleStyle(.95, '1px', state === 'THINKING' ? '4s' : '8s')} />
-        <div className="orb-particles particles-b" style={particleStyle(.55, '1px', state === 'EXECUTING' ? '5s' : '11s')} />
-        <div className="orb-particles particles-c" style={particleStyle(.78, '1.2px', state === 'LISTENING' ? '3.5s' : '7s')} />
-        <div className="orb-particles particles-d" style={particleStyle(.48, '.8px', state === 'ERROR' ? '2.5s' : '9s')} />
+        <div className="orb-particles particles-a" style={particleStyle(.95, '1px', state === 'THINKING' ? '4s' : '8s', 'drift')} />
+        <div className="orb-particles particles-b" style={particleStyle(.55, '1px', state === 'EXECUTING' ? '5s' : '11s', 'drift-reverse')} />
+        <div className="orb-particles particles-c" style={particleStyle(.78, '1.2px', state === 'LISTENING' ? '3.5s' : '7s', 'drift')} />
+        <div className="orb-particles particles-d" style={particleStyle(.48, '.8px', state === 'ERROR' ? '2.5s' : '9s', 'drift-reverse')} />
         <span
           className="orb-wordmark"
           style={{ color: '#D8F7FF', textShadow: `0 0 14px ${color}, 0 0 38px ${withAlpha(color, '0.62')}` }}
