@@ -33,6 +33,13 @@ export interface EvaContext {
 
 export type EvaEvent =
   | { type: 'connection.ready' }
+  | {
+      type: 'runtime.snapshot'
+      state?: EvaState | null
+      messages?: Array<{ type: 'conversation.user' | 'conversation.assistant'; text: string }>
+      activities?: ActivityItem[]
+      context?: EvaContext | null
+    }
   | { type: 'bridge.error'; message?: string }
   | { type: 'state.changed'; state: EvaState }
   | { type: 'conversation.user'; text: string }
