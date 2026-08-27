@@ -69,12 +69,20 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
     }
   }, [])
 
-  const sendText = useCallback((text: string) => {
+  const sendMessage = useCallback((message: Record<string, unknown>) => {
     const socket = socketRef.current
     if (!socket || socket.readyState !== WebSocket.OPEN) return false
-    socket.send(JSON.stringify({ type: 'conversation.send', text }))
+    socket.send(JSON.stringify(message))
     return true
   }, [])
 
-  return { connected, sendText }
+  const sendText = useCallback((text: string) => {
+    return sendMessage({ type: 'conversation.send', text })
+  }, [sendMessage])
+
+  const sendControl = useCallback((command: 'shutdown' | 'pause' | 'camera' | 'microphone') => {
+    return sendMessage({ type: 'control.command', command })
+  }, [sendMessage])
+
+  return { connected, sendText, sendControl }
 }

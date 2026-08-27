@@ -31,6 +31,12 @@ export interface EvaContext {
   items: ContextItem[]
 }
 
+export type EvaControlState = {
+  paused?: boolean
+  camera_active?: boolean
+  microphone_muted?: boolean
+}
+
 export type EvaEvent =
   | { type: 'connection.ready' }
   | {
@@ -39,6 +45,7 @@ export type EvaEvent =
       messages?: Array<{ type: 'conversation.user' | 'conversation.assistant'; text: string }>
       activities?: ActivityItem[]
       context?: EvaContext | null
+      control?: EvaControlState | null
     }
   | { type: 'bridge.error'; message?: string }
   | { type: 'state.changed'; state: EvaState }
@@ -46,5 +53,6 @@ export type EvaEvent =
   | { type: 'conversation.assistant'; text: string }
   | { type: 'activity.created'; activity: ActivityItem }
   | { type: 'context.updated'; context: EvaContext }
+  | { type: 'control.state'; control: EvaControlState }
   | { type: 'tool.started'; tool: string; args?: Record<string, unknown> }
   | { type: 'tool.completed'; tool: string; success: boolean; result?: string }

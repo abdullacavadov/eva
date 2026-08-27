@@ -122,6 +122,49 @@ def main():
         ui.wait_for_api_key()
         ui.root.after(0, ui.root.withdraw)
         jarvis = JarvisLive(ui)
+
+        def handle_control(command: str) -> dict:
+            """React idarəetmə panelinin runtime əmrlərini mövcud EVA state-inə bağlayır."""
+            command = str(command or "").strip().lower()
+
+            if command == "pause":
+                paused = not bool(jarvis._paused)
+                jarvis._on_pause_toggle(paused)
+                ui.write_log(f"SYS: EVA {'pauza edildi' if paused else 'davam etdirildi'}.")
+                return {"paused": paused}
+
+            if command == "camera":
+                activate = not jarvis._webcam_streamer.is_active
+                if activate:
+                    status = jarvis._webcam_streamer.start()
+                    active = status in {"ok", "already_active"}
+                else:
+                    jarvis._webcam_streamer.stop()
+                    active = False
+                ui.root.after(0, ui.set_webcam_active, active)
+                ui.write_log(f"SYS: Kamera {'aktivdir' if active else 'deaktiv edildi'}.")
+                return {"camera_active": active}
+
+            if command == "microphone":
+                ui.muted = not bool(ui.muted)
+                muted = bool(ui.muted)
+                ui.write_log(f"SYS: Mikrofon {'səssizdir' if muted else 'aktivdir'}.")
+                return {"microphone_muted": muted}
+
+            if command == "shutdown":
+                ui.write_log("SYS: EVA bağlanır...")
+                jarvis._webcam_streamer.stop()
+                jarvis._stop_music()
+                ui.root.after(0, ui.root.destroy)
+                return {
+                    "paused": True,
+                    "camera_active": False,
+                    "microphone_muted": True,
+                }
+
+            raise ValueError("Naməlum idarəetmə əmri.")
+
+        ui.on_control_command = handle_control
         bridge = UiBridge(ui, tool_executor=jarvis._tool_executor)
 
         proactive_scheduler = None
