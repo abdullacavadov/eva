@@ -123,7 +123,6 @@ class _ResilientLiveSession:
             while not self._closed:
                 try:
                     await self._connect(clear_handle_on_failure=True)
-                    self._consecutive_reconnects = 0
                     self._notify_status("connected", None)
                     print("[E.V.A] 🔁 Gemini Live bağlantısı bərpa edildi.", flush=True)
                     return
@@ -136,7 +135,6 @@ class _ResilientLiveSession:
 
     async def __aenter__(self):
         await self._connect(clear_handle_on_failure=True)
-        self._consecutive_reconnects = 0
         self._notify_status("connected", None)
         return self
 
@@ -154,6 +152,8 @@ class _ResilientLiveSession:
                     await self._reconnect()
                     continue
                 async for message in session.receive():
+                    # Həqiqi trafik gəlibsə bağlantı artıq canlıdır.
+                    self._consecutive_reconnects = 0
                     update = getattr(message, "session_resumption_update", None)
                     if update is not None:
                         resumable = bool(getattr(update, "resumable", False))
