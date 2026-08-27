@@ -3,6 +3,7 @@ import {
   faCamera,
   faMicrophone,
   faPause,
+  faPlay,
   faPowerOff,
 } from '@fortawesome/free-solid-svg-icons'
 import '../styles/control-panel.css'
@@ -66,7 +67,10 @@ export function ControlPanel({
               disabled={disabled}
               onClick={() => onCommand(command)}
             >
-              <FontAwesomeIcon icon={icon} aria-hidden="true" />
+              <FontAwesomeIcon
+                icon={command === 'pause' ? (paused ? faPlay : faPause) : icon}
+                aria-hidden="true"
+              />
               <span>{labels[command]}</span>
             </button>
           )
