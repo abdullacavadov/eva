@@ -219,13 +219,13 @@ export default function App() {
       <main className="workspace">
         <header className="topbar">
           <div>
-            <span className="eyebrow">E.V.A / ŞƏXSİ ASSİSTENT</span>
-            <h1>İdarə Mərkəzi</h1>
+            <span className="eyebrow">E.V.A</span>
+            <h1>Enhanced Virtual Assistant</h1>
           </div>
           <div className="system-status">
             <span className={`online-dot ${online ? '' : 'offline'}`} />
             {statusText}
-            <small>{online ? 'LOKAL NÜVƏ' : 'MƏLUMAT KANALI GÖZLƏNİLİR'}</small>
+            <small>{online ? 'CORE FOR WINDOWS' : 'MƏLUMAT KANALI GÖZLƏNİLİR'}</small>
           </div>
           <div
             className="clock"
