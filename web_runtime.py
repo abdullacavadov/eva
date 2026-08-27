@@ -14,6 +14,7 @@ from pathlib import Path
 from core.dashboard_api import get_dashboard_data
 from core.proactive import ProactiveEngine, ProactiveScheduler
 from core.ui_bridge import UiBridge
+import core.live_session as live_session_module
 from main import JarvisLive
 from ui import JarvisUI
 
@@ -123,6 +124,24 @@ def main():
         ui.root.after(0, ui.root.withdraw)
         jarvis = JarvisLive(ui)
         bridge = UiBridge(ui, tool_executor=jarvis._tool_executor)
+
+        def on_live_connection_status(status: str, detail: str | None = None):
+            if status == "connected":
+                ui.set_state("LISTENING")
+                ui.write_log("SYS: Gemini Live bağlantısı bərpa edildi.")
+                ui.emit_event("live.connection", status="connected")
+            elif status == "reconnecting":
+                reason = detail or "Gemini Live bağlantısı kəsildi."
+                ui.set_state("ERROR")
+                ui.write_log(f"ERR: Gemini Live bağlantısı yoxdur — {reason}")
+                ui.emit_event("live.connection", status="reconnecting", detail=reason)
+            elif status == "disconnected":
+                reason = detail or "Gemini Live bağlantısı mövcud deyil."
+                ui.set_state("ERROR")
+                ui.write_log(f"ERR: Gemini Live bağlantısı yoxdur — {reason}")
+                ui.emit_event("live.connection", status="disconnected", detail=reason)
+
+        live_session_module.DEFAULT_CONNECTION_STATUS_CALLBACK = on_live_connection_status
 
         proactive_scheduler = None
         if str(os.getenv("EVA_PROACTIVE_ENABLED", "true")).strip().lower() not in {"0", "false", "no", "off"}:
