@@ -23,6 +23,30 @@ async def test_reconnect_calls_share_one_task(monkeypatch):
     assert calls == 1
 
 
+@pytest.mark.asyncio
+async def test_receive_uses_low_level_receive_across_multiple_turns():
+    manager = LiveSessionManager("test-model", "test-key")
+    session = _ResilientLiveSession(manager, config={})
+
+    class FakeLiveSession:
+        def __init__(self):
+            self.calls = 0
+
+        async def _receive(self):
+            self.calls += 1
+            return object()
+
+    fake = FakeLiveSession()
+    session._session = fake
+    messages = session.receive()
+
+    await messages.__anext__()
+    await messages.__anext__()
+    await messages.aclose()
+
+    assert fake.calls == 2
+
+
 class _CleanCloseError(Exception):
     code = 1000
 
