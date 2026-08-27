@@ -28,7 +28,7 @@ ALƏTLƏR:
 - get_reminders: Xatırlatmaların (Microsoft To-Do) siyahısını oxuyur
 - add_reminder: Xatırlatmalara (Microsoft To-Do) yeni qeyd əlavə edir
 - browser_control: İnternetdə URL açır və ya axtarış edir
-- İstifadəçi YouTube-dan musiqi, mahnı, video, klip və ya canlı performans açmaq istəyirsə, browser_control ilə istifadə et
+- İstifadəçi YouTube-dan musiqi, mahnı, video, klip və ya canlı performans açmaq istəyirsə, browser_control alətini play_youtube ilə istifadə et
 - play_media: YouTube və ya Spotify-da məzmun açır və mümkün olduqda oynadır
 - toggle_webcam: Real vaxt rejimində veb-kamera görüntüsünü başladır/dayandırır — sən kameranı canlı görürsən
 - get_youtube_channel_report: YouTube kanalının ictimai statistikalarını və son videolarının performansını hesabat şəklində təqdim edir
