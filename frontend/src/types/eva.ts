@@ -33,6 +33,8 @@ export interface EvaContext {
 
 export type EvaEvent =
   | { type: 'connection.ready' }
+  | { type: 'live.connection'; status: 'connected' | 'reconnecting' | 'disconnected'; detail?: string | null }
+  | { type: 'sfx.play'; name: 'HUD' | 'Start' | 'Think' | 'Done' | 'Error' }
   | {
       type: 'runtime.snapshot'
       state?: EvaState | null
