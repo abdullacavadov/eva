@@ -34,6 +34,11 @@ class UiBridge:
         self._conversation_history: list[dict[str, Any]] = []
         self._activity_history: list[dict[str, Any]] = []
         self._last_context: dict[str, Any] | None = None
+        self._control_state: dict[str, Any] = {
+            "paused": False,
+            "camera_active": False,
+            "microphone_muted": False,
+        }
         self._install_ui_hooks()
         if tool_executor is not None:
             self._install_tool_hook(tool_executor)
@@ -131,6 +136,7 @@ class UiBridge:
                 "messages": list(self._conversation_history),
                 "activities": list(self._activity_history),
                 "context": self._last_context,
+                "control": dict(self._control_state),
             }
 
     def emit(self, event_type: str, **payload: Any) -> None:
@@ -150,6 +156,10 @@ class UiBridge:
             context = payload.get("context")
             if isinstance(context, dict):
                 self._last_context = context
+        elif event_type == "control.state":
+            control = payload.get("control")
+            if isinstance(control, dict):
+                self._control_state.update(control)
         message = json.dumps(event, ensure_ascii=False)
         with self._clients_lock:
             queues = tuple(self._client_queues.values())
@@ -202,6 +212,7 @@ class UiBridge:
                 "messages": list(self._conversation_history),
                 "activities": list(self._activity_history),
                 "context": self._last_context,
+                "control": dict(self._control_state),
             }
         sender.start()
         self._queue_message(queue, json.dumps({"type": "connection.ready"}))
@@ -217,6 +228,25 @@ class UiBridge:
                 self._client_queues.pop(websocket, None)
             self._queue_message(queue, self._STOP)
 
+    def _handle_control_command(self, websocket: ServerConnection, command: str) -> None:
+        allowed = {"shutdown", "pause", "camera", "microphone"}
+        if command not in allowed:
+            websocket.send(json.dumps({"type": "bridge.error", "message": "Naməlum idarəetmə əmri."}, ensure_ascii=False))
+            return
+
+        callback: Callable[[str], dict[str, Any] | None] | None = getattr(self.ui, "on_control_command", None)
+        if callback is None:
+            websocket.send(json.dumps({"type": "bridge.error", "message": "EVA control callback-i hazır deyil."}, ensure_ascii=False))
+            return
+
+        try:
+            control = callback(command) or {}
+            if isinstance(control, dict):
+                self._control_state.update(control)
+            self.emit("control.state", control=dict(self._control_state))
+        except Exception as exc:
+            websocket.send(json.dumps({"type": "bridge.error", "message": str(exc)}, ensure_ascii=False))
+
     def _handle_message(self, websocket: ServerConnection, raw_message: str | bytes) -> None:
         if isinstance(raw_message, bytes):
             raw_message = raw_message.decode("utf-8", errors="replace")
@@ -231,6 +261,9 @@ class UiBridge:
         message_type = str(message.get("type") or "")
         if message_type == "ping":
             websocket.send(json.dumps({"type": "pong"}))
+            return
+        if message_type == "control.command":
+            self._handle_control_command(websocket, str(message.get("command") or "").strip().lower())
             return
         if message_type != "conversation.send":
             websocket.send(json.dumps({"type": "bridge.error", "message": "Dəstəklənməyən UI hadisəsi."}, ensure_ascii=False))
