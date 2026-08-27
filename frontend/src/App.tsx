@@ -165,15 +165,16 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-
     const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
     const poll = async () => {
       while (!cancelled) {
         const data = await fetchDashboard();
         if (cancelled) return;
-        setDashboard(data);
-        if (data.context.items.length > 0) setContext(data.context);
+        if (data) {
+          setDashboard(data);
+          if (data.context.items.length > 0) setContext(data.context);
+        }
         await sleep(15000);
       }
     };
