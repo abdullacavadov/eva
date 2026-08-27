@@ -24,7 +24,7 @@ import {
   ConversationPanel,
   type Message,
 } from './components/ConversationPanel';
-import { ControlPanel } from './components/ControlPanel';
+import { ControlPanel, type ControlCommand } from './components/ControlPanel';
 import { EvaOrb } from './components/EvaOrb';
 import { fetchDashboard } from './services/dashboard';
 import { useEvaConnection } from './services/useEvaConnection';
@@ -81,6 +81,9 @@ export default function App() {
   const [online, setOnline] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardData>(emptyDashboard);
   const [now, setNow] = useState(() => new Date());
+  const [paused, setPaused] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [microphoneMuted, setMicrophoneMuted] = useState(false);
 
   const applyEvent = (event: EvaEvent) => {
     if (event.type === 'connection.ready') setOnline(true);
@@ -97,6 +100,11 @@ export default function App() {
       );
       setActivities(event.activities ?? []);
       if (event.context) setContext(event.context);
+      if (event.control) {
+        setPaused(Boolean(event.control.paused));
+        setCameraActive(Boolean(event.control.camera_active));
+        setMicrophoneMuted(Boolean(event.control.microphone_muted));
+      }
       return;
     }
 
@@ -115,6 +123,11 @@ export default function App() {
       ]);
     }
     if (event.type === 'state.changed' && event.state) setState(event.state);
+    if (event.type === 'control.state') {
+      if (event.control.paused !== undefined) setPaused(Boolean(event.control.paused));
+      if (event.control.camera_active !== undefined) setCameraActive(Boolean(event.control.camera_active));
+      if (event.control.microphone_muted !== undefined) setMicrophoneMuted(Boolean(event.control.microphone_muted));
+    }
     if (event.type === 'conversation.user' && event.text)
       setMessages((items) => [
         ...items,
@@ -156,7 +169,7 @@ export default function App() {
       ]);
   };
 
-  const { connected, sendText } = useEvaConnection(applyEvent);
+  const { connected, sendText, sendControl } = useEvaConnection(applyEvent);
   useEffect(() => setOnline(connected), [connected]);
 
   useEffect(() => {
@@ -203,6 +216,22 @@ export default function App() {
       ]);
     }
   };
+
+  const handleControl = (command: ControlCommand) => {
+    if (!sendControl(command)) {
+      setActivities((items) => [
+        ...items,
+        {
+          id: crypto.randomUUID(),
+          time: new Date().toLocaleTimeString('az-AZ'),
+          text: 'EVA idarəetmə bağlantısı hazır deyil',
+          kind: 'error',
+          detail: 'WebSocket bağlantısı gözlənilir.',
+        },
+      ]);
+    }
+  };
+
   const systemRows: Array<[string, number | null, string, typeof faMicrochip]> =
     [
       ['CPU', system.cpu_percent, '%', faMicrochip],
@@ -307,7 +336,13 @@ export default function App() {
                 <strong>{displayValue(overview.unread_messages)}</strong>
               </div>
             </section>
-            <ControlPanel />
+            <ControlPanel
+              onCommand={handleControl}
+              paused={paused}
+              cameraActive={cameraActive}
+              microphoneMuted={microphoneMuted}
+              disabled={!connected}
+            />
           </div>
           <section className="core-column">
             <div className="core-meta">
