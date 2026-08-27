@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 @dataclass
 class _RuntimeRoot:
-    """Legacy JarvisLive callback-ləri üçün minimal Tk uyğunluğu."""
+    """Legacy JarvisLive callback-ləri üçün minimal root contract."""
 
     def after(self, _delay_ms: int, callback: Callable[..., Any], *args: Any) -> None:
         callback(*args)
@@ -20,9 +20,11 @@ class _RuntimeRoot:
 class RuntimeUI:
     """JarvisLive/ToolExecutor üçün headless UI contract.
 
-    Bu adapter ui.py import etmir və Tkinter, pəncərə, desktop orb və SFX
-    playback yaratmır. Hadisələr UiBridge tərəfindən React-a ötürülür.
+    Tkinter, desktop window, legacy orb və desktop SFX player yaratmır.
+    Hadisələr UiBridge vasitəsilə React UI-a ötürülür.
     """
+
+    _STATE_SFX = {"IDLE": "Start", "THINKING": "Think", "SUCCESS": "Done", "ERROR": "Error"}
 
     def __init__(self) -> None:
         self.root = _RuntimeRoot()
@@ -41,9 +43,11 @@ class RuntimeUI:
 
     def set_state(self, state: str) -> None:
         self._state = str(state or "IDLE")
+        sfx = self._STATE_SFX.get(self._state)
+        if sfx:
+            self.emit_event("sfx.play", name=sfx)
 
     def write_log(self, text: str) -> None:
-        # UiBridge hook-u bunu React activity/conversation eventinə çevirir.
         return None
 
     def write_debug(self, text: str, level: str = "INFO") -> None:
@@ -60,8 +64,6 @@ class RuntimeUI:
         self.emit_event("webcam.changed", active=self._webcam_active)
 
     def update_webcam_preview(self, _jpeg: bytes) -> None:
-        # React runtime üçün preview kanalı ayrıca əlavə edilə bilər; Tk preview
-        # kimi hər frame-i UI thread-inə daşımırıq.
         return None
 
     def play_success_sfx(self) -> None:
@@ -71,5 +73,4 @@ class RuntimeUI:
         self.emit_event("sfx.play", name=str(name))
 
     def wait_for_api_key(self) -> None:
-        # API key artıq core.config.get_api_key() tərəfindən idarə olunur.
         return None
