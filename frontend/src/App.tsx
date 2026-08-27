@@ -24,6 +24,7 @@ import {
   ConversationPanel,
   type Message,
 } from './components/ConversationPanel';
+import { ControlPanel } from './components/ControlPanel';
 import { EvaOrb } from './components/EvaOrb';
 import { fetchDashboard } from './services/dashboard';
 import { useEvaConnection } from './services/useEvaConnection';
@@ -306,6 +307,7 @@ export default function App() {
                 <strong>{displayValue(overview.unread_messages)}</strong>
               </div>
             </section>
+            <ControlPanel />
           </div>
           <section className="core-column">
             <div className="core-meta">
