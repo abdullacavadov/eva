@@ -3,6 +3,7 @@ import type { EvaEvent } from '../types/eva'
 
 const DEFAULT_WS_URL = `ws://${window.location.hostname || '127.0.0.1'}:8765`
 const WS_URL = import.meta.env.VITE_EVA_WS_URL || DEFAULT_WS_URL
+const RECONNECT_DELAY_MS = 1500
 
 export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
   const socketRef = useRef<WebSocket | null>(null)
@@ -17,29 +18,44 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
   useEffect(() => {
     let disposed = false
 
+    const scheduleReconnect = () => {
+      if (disposed || reconnectRef.current !== null) return
+      reconnectRef.current = window.setTimeout(() => {
+        reconnectRef.current = null
+        connect()
+      }, RECONNECT_DELAY_MS)
+    }
+
     const connect = () => {
       if (disposed) return
       const socket = new WebSocket(WS_URL)
       socketRef.current = socket
 
       socket.onopen = () => {
-        if (!disposed) setConnected(true)
+        if (disposed || socketRef.current !== socket) return
+        setConnected(true)
       }
+
       socket.onmessage = (message) => {
+        if (disposed || socketRef.current !== socket) return
         try {
           const event = JSON.parse(message.data) as EvaEvent
           onEventRef.current(event)
         } catch {
-          // WebSocket protokolundakı gözlənilməz mesaj UI state-i pozmamalıdır.
+          // Gözlənilməz WebSocket mesajı UI state-i pozmamalıdır.
         }
       }
+
       socket.onclose = () => {
+        if (socketRef.current !== socket) return
+        socketRef.current = null
         if (disposed) return
         setConnected(false)
-        reconnectRef.current = window.setTimeout(connect, 1500)
+        scheduleReconnect()
       }
+
       socket.onerror = () => {
-        socket.close()
+        if (socketRef.current === socket) socket.close()
       }
     }
 
@@ -47,6 +63,7 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
     return () => {
       disposed = true
       if (reconnectRef.current !== null) window.clearTimeout(reconnectRef.current)
+      reconnectRef.current = null
       socketRef.current?.close()
       socketRef.current = null
     }
