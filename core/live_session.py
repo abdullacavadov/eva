@@ -154,10 +154,17 @@ class _ResilientLiveSession:
 class LiveSessionManager:
     """Gemini client yaradılmasını və Live API bağlantısını idarə edir."""
 
+    _resume_handles: dict[str, str | None] = {}
+
     def __init__(self, model: str, api_key: str):
         self.model = model
         self.api_key = api_key
-        self.resume_handle: str | None = None
+        self._manager_key = f"{model}:{api_key}"
+        self.resume_handle: str | None = self._resume_handles.get(self._manager_key)
+
+    def _set_resume_handle(self, value: str | None) -> None:
+        self._resume_handles[self._manager_key] = value
+        self._resume_handle = value
 
     def create_client(self) -> genai.Client:
         """EVA-nın Live API versiyası ilə Gemini client yaradır."""
@@ -172,3 +179,13 @@ class LiveSessionManager:
         session = _ResilientLiveSession(self, config)
         async with session:
             yield session
+
+    @property
+    def resume_handle(self) -> str | None:
+        return self._resume_handle
+
+    @resume_handle.setter
+    def resume_handle(self, value: str | None) -> None:
+        self._resume_handle = value
+        if hasattr(self, "_manager_key"):
+            self._resume_handles[self._manager_key] = value
