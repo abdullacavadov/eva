@@ -104,13 +104,10 @@ class _ResilientLiveSession:
         if self._closed:
             raise RuntimeError("Live session bağlanıb.")
 
-        async with self._reconnect_lock:
-            task = self._reconnect_task
-            if task is None or task.done():
-                task = asyncio.create_task(
-                    self._reconnect_impl(force_fresh=force_fresh)
-                )
-                self._reconnect_task = task
+        task = self._reconnect_task
+        if task is None or task.done():
+            task = asyncio.create_task(self._reconnect_impl(force_fresh=force_fresh))
+            self._reconnect_task = task
         await task
 
     async def __aenter__(self):
