@@ -6,10 +6,14 @@ const WS_URL = import.meta.env.VITE_EVA_WS_URL || DEFAULT_WS_URL
 const RECONNECT_DELAY_MS = 1500
 const SFX_NAMES = new Set(['HUD', 'Start', 'Think', 'Done', 'Error'])
 
-function playSfx(name: string) {
-  if (!SFX_NAMES.has(name)) return
+function createSfx(name: string) {
+  if (!SFX_NAMES.has(name)) return null
   const audio = new Audio(`/sfx/${name}.mp3`)
   audio.preload = 'auto'
+  return audio
+}
+
+function playSfx(audio: HTMLAudioElement) {
   void audio.play().catch(() => {
     // Browser autoplay policy bloklasa runtime işləməyə davam etməlidir.
   })
@@ -19,6 +23,7 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
   const socketRef = useRef<WebSocket | null>(null)
   const onEventRef = useRef(onEvent)
   const reconnectRef = useRef<number | null>(null)
+  const loopSfxRef = useRef<HTMLAudioElement | null>(null)
   const [socketConnected, setSocketConnected] = useState(false)
   const [liveConnected, setLiveConnected] = useState(false)
 
@@ -28,6 +33,30 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
 
   useEffect(() => {
     let disposed = false
+
+    const stopLoopSfx = () => {
+      const audio = loopSfxRef.current
+      loopSfxRef.current = null
+      if (audio) {
+        audio.pause()
+        audio.currentTime = 0
+      }
+    }
+
+    const handleSfx = (event: Extract<EvaEvent, { type: 'sfx.play' }>) => {
+      if (!SFX_NAMES.has(event.name)) return
+      if (event.loop) {
+        stopLoopSfx()
+        const audio = createSfx(event.name)
+        if (!audio) return
+        audio.loop = true
+        loopSfxRef.current = audio
+        playSfx(audio)
+        return
+      }
+      const audio = createSfx(event.name)
+      if (audio) playSfx(audio)
+    }
 
     const scheduleReconnect = () => {
       if (disposed || reconnectRef.current !== null) return
@@ -54,7 +83,8 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
           if (event.type === 'live.connection') {
             setLiveConnected(event.status === 'connected')
           }
-          if (event.type === 'sfx.play') playSfx(event.name)
+          if (event.type === 'sfx.play') handleSfx(event)
+          if (event.type === 'sfx.stop') stopLoopSfx()
           onEventRef.current(event)
         } catch {
           // Gözlənilməz WebSocket mesajı UI state-i pozmamalıdır.
@@ -65,6 +95,7 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
         if (socketRef.current !== socket) return
         socketRef.current = null
         if (disposed) return
+        stopLoopSfx()
         setSocketConnected(false)
         setLiveConnected(false)
         scheduleReconnect()
@@ -80,6 +111,7 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
       disposed = true
       if (reconnectRef.current !== null) window.clearTimeout(reconnectRef.current)
       reconnectRef.current = null
+      stopLoopSfx()
       socketRef.current?.close()
       socketRef.current = null
     }
