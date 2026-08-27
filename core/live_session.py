@@ -113,12 +113,6 @@ class _ResilientLiveSession:
         return current_handle
 
     async def receive(self):
-        """Receive messages without treating SDK iterator completion as a reconnect.
-
-        Some google-genai versions expose ``AsyncSession.receive()`` as a turn-level
-        iterator. The private ``_receive()`` method keeps the underlying Live socket
-        alive across multiple turns.
-        """
         if self._closed:
             raise RuntimeError("Live session bağlanıb.")
         session = self._session
@@ -208,9 +202,10 @@ class LiveSessionManager:
         )
 
     def create_client(self) -> genai.Client:
+        # Gemini Live üçün cari rəsmi API səviyyəsi v1beta-dir.
         return genai.Client(
             api_key=self.api_key,
-            http_options={"api_version": "v1alpha"},
+            http_options={"api_version": "v1beta"},
         )
 
     async def _check_stability(self) -> None:
