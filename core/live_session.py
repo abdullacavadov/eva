@@ -118,11 +118,9 @@ class _ResilientLiveSession:
         session = self._session
         if session is None:
             raise RuntimeError("Gemini Live session mövcud deyil.")
-
         receive_one = getattr(session, "_receive", None)
         if receive_one is None:
             raise RuntimeError("Gemini Live SDK _receive() interfeysini təqdim etmir.")
-
         try:
             while not self._closed:
                 message = await receive_one()
@@ -171,7 +169,18 @@ class _ResilientLiveSession:
         return await self._call("send_realtime_input", **kwargs)
 
     async def send_client_content(self, **kwargs):
-        return await self._call("send_client_content", **kwargs)
+        # Gemini 3.1 Live-da canlı mətn yeniləmələri realtime input ilə göndərilir.
+        text = kwargs.get("text")
+        if text is None:
+            turns = kwargs.get("turns") or {}
+            parts = turns.get("parts") if isinstance(turns, dict) else None
+            if parts:
+                text = " ".join(
+                    str(part.get("text", "")) for part in parts if isinstance(part, dict)
+                ).strip()
+        if not text:
+            return None
+        return await self._call("send_realtime_input", text=text)
 
     async def send_tool_response(self, **kwargs):
         return await self._call("send_tool_response", **kwargs)
@@ -181,9 +190,6 @@ class LiveSessionManager:
     """Gemini client yaradılmasını və Live API bağlantısını idarə edir."""
 
     _resume_handles: dict[str, str | None] = {}
-    _unstable_sessions: dict[str, int] = {}
-    _MAX_UNSTABLE_SESSIONS = 3
-    _STABLE_SESSION_SECONDS = 10.0
 
     def __init__(
         self,
@@ -202,38 +208,18 @@ class LiveSessionManager:
         )
 
     def create_client(self) -> genai.Client:
-        # Gemini Live üçün cari rəsmi API səviyyəsi v1beta-dir.
         return genai.Client(
             api_key=self.api_key,
             http_options={"api_version": "v1beta"},
         )
 
-    async def _check_stability(self) -> None:
-        failures = self._unstable_sessions.get(self._manager_key, 0)
-        if failures >= self._MAX_UNSTABLE_SESSIONS:
-            detail = "Gemini Live sessiyası ardıcıl olaraq çox tez bağlandı."
-            self.on_connection_status("disconnected", detail)
-            raise RuntimeError(
-                "Gemini Live əlçatan deyil; sessiya ardıcıl olaraq qeyri-stabil oldu. "
-                "Avtomatik reconnect müvəqqəti dayandırıldı."
-            )
-
     @asynccontextmanager
     async def connect(self, config):
-        await self._check_stability()
+        # Əvvəlki stability counter səhv olaraq yeni reconnect-ləri bloklayırdı.
+        # Real server xətası birbaşa runtime-a ötürülür; reconnect qərarını main.py verir.
         session = _ResilientLiveSession(self, config)
-        started = asyncio.get_running_loop().time()
-        try:
-            async with session:
-                yield session
-        finally:
-            duration = asyncio.get_running_loop().time() - started
-            if duration >= self._STABLE_SESSION_SECONDS:
-                self._unstable_sessions[self._manager_key] = 0
-            else:
-                self._unstable_sessions[self._manager_key] = (
-                    self._unstable_sessions.get(self._manager_key, 0) + 1
-                )
+        async with session:
+            yield session
 
     @property
     def resume_handle(self) -> str | None:
