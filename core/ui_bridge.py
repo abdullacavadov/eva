@@ -53,6 +53,19 @@ class UiBridge:
             self.emit("state.changed", state=self._normalize_state(state))
 
         self.ui.set_state = set_state
+
+        # Kamera həm UI düyməsindən, həm də EVA-nın toggle_webcam tool-undan
+        # dəyişə bilər. Hər iki dəyişiklik eyni WebSocket state-ə yayımlanır.
+        original_set_webcam_active = getattr(self.ui, "set_webcam_active", None)
+        if callable(original_set_webcam_active):
+            def set_webcam_active(active: bool):
+                active = bool(active)
+                original_set_webcam_active(active)
+                self._control_state["camera_active"] = active
+                self.emit("control.state", control={"camera_active": active})
+
+            self.ui.set_webcam_active = set_webcam_active
+
         original_write_log = self.ui.write_log
 
         def write_log(text: str):
