@@ -19,6 +19,7 @@ def make_bridge(callback):
         "camera_active": False,
         "microphone_muted": False,
     }
+    bridge.emit = lambda event_type, **payload: None
     return bridge
 
 
@@ -47,6 +48,7 @@ def test_control_command_requires_runtime_callback():
     bridge = UiBridge.__new__(UiBridge)
     bridge.ui = type("UI", (), {})()
     bridge._control_state = {}
+    bridge.emit = lambda event_type, **payload: None
     websocket = FakeWebSocket()
 
     bridge._handle_message(websocket, json.dumps({"type": "control.command", "command": "camera"}))
