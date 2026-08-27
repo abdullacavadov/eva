@@ -25,7 +25,6 @@ import {
   type Message,
 } from './components/ConversationPanel';
 import { EvaOrb } from './components/EvaOrb';
-import { Sidebar } from './components/Sidebar';
 import { fetchDashboard } from './services/dashboard';
 import { useEvaConnection } from './services/useEvaConnection';
 import type { DashboardData } from './types/dashboard';
@@ -84,6 +83,22 @@ export default function App() {
 
   const applyEvent = (event: EvaEvent) => {
     if (event.type === 'connection.ready') setOnline(true);
+
+    if (event.type === 'runtime.snapshot') {
+      setOnline(true);
+      if (event.state) setState(event.state);
+      setMessages(
+        (event.messages ?? []).map((message, index) => ({
+          id: `runtime-${index}-${message.type}`,
+          role: message.type === 'conversation.user' ? 'user' : 'assistant',
+          text: message.text,
+        })),
+      );
+      setActivities(event.activities ?? []);
+      if (event.context) setContext(event.context);
+      return;
+    }
+
     if (event.type === 'bridge.error') {
       setOnline(false);
       setState('ERROR');
@@ -142,23 +157,31 @@ export default function App() {
 
   const { connected, sendText } = useEvaConnection(applyEvent);
   useEffect(() => setOnline(connected), [connected]);
+
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
   useEffect(() => {
     let cancelled = false;
-    const load = async () => {
-      const data = await fetchDashboard();
-      if (cancelled) return;
-      setDashboard(data);
-      if (data.context.items.length > 0) setContext(data.context);
+    const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+    const poll = async () => {
+      while (!cancelled) {
+        const data = await fetchDashboard();
+        if (cancelled) return;
+        if (data) {
+          setDashboard(data);
+          if (data.context.items.length > 0) setContext(data.context);
+        }
+        await sleep(15000);
+      }
     };
-    void load();
-    const timer = window.setInterval(() => void load(), 15000);
+
+    void poll();
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
     };
   }, []);
 
@@ -230,7 +253,7 @@ export default function App() {
           <div
             className="clock"
             aria-label={`Cari vaxt ${formatClock(now)}, ${formatDate(now)}`}
-            >
+          >
             <strong>{formatClock(now)}</strong>
             <small>{formatDate(now)}</small>
           </div>
@@ -283,8 +306,6 @@ export default function App() {
                 <strong>{displayValue(overview.unread_messages)}</strong>
               </div>
             </section>
-            
-            
           </div>
           <section className="core-column">
             <div className="core-meta">

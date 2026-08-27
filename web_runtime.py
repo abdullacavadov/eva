@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """EVA runtime-u React UI ilə birlikdə başladan vahid giriş nöqtəsi."""
 
-import asyncio
 import json
 import os
 import subprocess
@@ -116,12 +115,10 @@ def _start_react_frontend() -> subprocess.Popen | None:
 
 def main():
     ui = _create_hidden_ui()
-    bridge = None
     dashboard_server = _start_dashboard_api()
     frontend_process = _start_react_frontend()
 
     def runner():
-        nonlocal bridge
         ui.wait_for_api_key()
         ui.root.after(0, ui.root.withdraw)
         jarvis = JarvisLive(ui)
@@ -138,17 +135,17 @@ def main():
             ui.root.after(0, ui.write_log, "SYS: Proaktiv monitor aktivdir.")
 
         try:
+            import asyncio
             asyncio.run(jarvis.run())
         except KeyboardInterrupt:
             print("\n🔴 Ayrılır...", flush=True)
+        except Exception as exc:
+            print(f"[E.V.A] ❌ Runtime thread dayandı: {exc}", flush=True)
         finally:
             if proactive_scheduler:
                 proactive_scheduler.stop()
-            dashboard_server.shutdown()
-            if bridge and bridge._server:
-                bridge._server.shutdown()
-            if frontend_process and frontend_process.poll() is None:
-                frontend_process.terminate()
+            # Dashboard və React UI EVA Live session-dan müstəqildir.
+            # Gemini/runtime xətası browser-in məlumat kanalını bağlamamalıdır.
 
     threading.Thread(target=runner, daemon=True).start()
     ui.root.mainloop()
