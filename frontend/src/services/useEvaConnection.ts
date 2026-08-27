@@ -40,6 +40,9 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
         if (disposed || socketRef.current !== socket) return
         try {
           const event = JSON.parse(message.data) as EvaEvent
+          if (event.type === 'live.connection') {
+            setConnected(event.status === 'connected')
+          }
           onEventRef.current(event)
         } catch {
           // Gözlənilməz WebSocket mesajı UI state-i pozmamalıdır.
@@ -71,10 +74,10 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
 
   const sendText = useCallback((text: string) => {
     const socket = socketRef.current
-    if (!socket || socket.readyState !== WebSocket.OPEN) return false
+    if (!socket || socket.readyState !== WebSocket.OPEN || !connected) return false
     socket.send(JSON.stringify({ type: 'conversation.send', text }))
     return true
-  }, [])
+  }, [connected])
 
   return { connected, sendText }
 }
