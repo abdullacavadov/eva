@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from typing import Any, Callable
 
 
 @dataclass
 class _RuntimeRoot:
-    """Legacy callback-lər üçün minimal root contract."""
+    """Legacy callback-lər üçün Tk uyğun minimal root contract."""
 
     def after(self, _delay_ms: int, callback: Callable[..., Any], *args: Any) -> None:
         callback(*args)
 
     def withdraw(self) -> None:
         return None
+
+    def mainloop(self) -> None:
+        threading.Event().wait()
 
 
 class RuntimeUI:
@@ -79,3 +83,6 @@ class RuntimeUI:
 
     def wait_for_api_key(self) -> None:
         return None
+
+    def wake_up(self) -> None:
+        self.set_state("LISTENING")
