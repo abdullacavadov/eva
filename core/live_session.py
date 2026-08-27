@@ -24,10 +24,8 @@ class _ResilientLiveSession:
 
     @property
     def _session_config(self):
-        resume = types.SessionResumptionConfig(
-            handle=self._resume_handle,
-            transparent=True,
-        )
+        """Mövcud resume handle-ı saxla; Gemini API üçün transparent rejim istifadə etmə."""
+        resume = types.SessionResumptionConfig(handle=self._resume_handle)
         if hasattr(self._config, "model_copy"):
             return self._config.model_copy(update={"session_resumption": resume})
         if isinstance(self._config, dict):
