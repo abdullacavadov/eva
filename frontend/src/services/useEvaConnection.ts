@@ -4,6 +4,18 @@ import type { EvaEvent } from '../types/eva'
 const DEFAULT_WS_URL = `ws://${window.location.hostname || '127.0.0.1'}:8765`
 const WS_URL = import.meta.env.VITE_EVA_WS_URL || DEFAULT_WS_URL
 const RECONNECT_DELAY_MS = 1500
+const SFX_NAMES = new Set(['HUD', 'Start', 'Think', 'Done', 'Error'])
+
+function playSfx(name: string) {
+  if (!SFX_NAMES.has(name)) return
+  try {
+    const audio = new Audio(`/sfx/${encodeURIComponent(name)}.mp3`)
+    audio.volume = 0.45
+    void audio.play().catch(() => undefined)
+  } catch {
+    // Browser audio policy SFX-i UI state-dən ayırmamalıdır.
+  }
+}
 
 export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
   const socketRef = useRef<WebSocket | null>(null)
@@ -45,6 +57,7 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
             const status = String(event.status || '')
             setLiveConnected(status === 'connected')
           }
+          if (event.type === 'sfx.play') playSfx(String(event.name || ''))
           onEventRef.current(event)
         } catch {
           // Gözlənilməz WebSocket mesajı UI state-i pozmamalıdır.
