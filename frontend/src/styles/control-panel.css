@@ -1,0 +1,89 @@
+.control-panel {
+  min-height: 0;
+  padding-bottom: 14px;
+}
+
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 14px 14px;
+}
+
+.control-button {
+  min-height: 94px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: linear-gradient(
+    145deg,
+    rgba(7, 25, 35, 0.9),
+    rgba(3, 13, 21, 0.82)
+  );
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.control-button svg {
+  font-size: 28px;
+}
+
+.control-button span {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
+.control-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(69, 217, 255, 0.55);
+  background: rgba(9, 30, 42, 0.94);
+  box-shadow: 0 0 22px rgba(69, 217, 255, 0.08);
+}
+
+.control-button:focus-visible {
+  outline: 1px solid var(--cyan-bright);
+  outline-offset: 2px;
+}
+
+.control-button-danger svg {
+  color: var(--red);
+  filter: drop-shadow(0 0 7px rgba(255, 89, 106, 0.28));
+}
+
+.control-button-warning svg {
+  color: var(--amber);
+  filter: drop-shadow(0 0 7px rgba(255, 200, 87, 0.24));
+}
+
+.control-button-camera svg {
+  color: var(--cyan);
+  filter: drop-shadow(0 0 7px rgba(69, 217, 255, 0.24));
+}
+
+.control-button-microphone svg {
+  color: var(--green);
+  filter: drop-shadow(0 0 7px rgba(67, 230, 170, 0.24));
+}
+
+@media (max-width: 560px) {
+  .control-grid {
+    gap: 10px;
+  }
+
+  .control-button {
+    min-height: 82px;
+  }
+
+  .control-button svg {
+    font-size: 24px;
+  }
+}
