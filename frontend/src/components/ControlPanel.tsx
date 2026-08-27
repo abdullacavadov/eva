@@ -8,10 +8,10 @@ import {
 import '../styles/control-panel.css';
 
 const controls = [
-  { label: 'SÖNDÜR', icon: faPowerOff, tone: 'danger' },
-  { label: 'FASİLƏ', icon: faPause, tone: 'warning' },
-  { label: 'KAMERA', icon: faCamera, tone: 'camera' },
-  { label: 'MİKROFON', icon: faMicrophone, tone: 'microphone' },
+  { label: 'SHUTDOWN', icon: faPowerOff, tone: 'danger' },
+  { label: 'PAUSE', icon: faPause, tone: 'warning' },
+  { label: 'CAMERA', icon: faCamera, tone: 'camera' },
+  { label: 'MICROPHONE', icon: faMicrophone, tone: 'microphone' },
 ] as const;
 
 export function ControlPanel() {
