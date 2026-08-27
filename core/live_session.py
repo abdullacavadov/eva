@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 
@@ -14,10 +13,7 @@ DEFAULT_CONNECTION_STATUS_CALLBACK: Callable[[str, str | None], None] | None = N
 
 
 class _ResilientLiveSession:
-    """Gemini Live bağlantısını runtime-u dayandırmadan idarə edən proxy."""
-
-    _MAX_CONSECUTIVE_RECONNECTS = 3
-    _RECONNECT_COOLDOWN = 8.0
+    """Gemini Live bağlantısının vəziyyətini izləyən nazik session proxy-si."""
 
     def __init__(self, manager: "LiveSessionManager", config):
         self._manager = manager
@@ -27,8 +23,6 @@ class _ResilientLiveSession:
         self._session = None
         self._resume_handle: str | None = manager.resume_handle
         self._closed = False
-        self._reconnect_lock = asyncio.Lock()
-        self._consecutive_reconnects = 0
 
     @property
     def _session_config(self):
@@ -98,42 +92,6 @@ class _ResilientLiveSession:
         except (TypeError, ValueError):
             return None
 
-    async def _reconnect(self, *, force_fresh: bool = False, reason: str | None = None):
-        async with self._reconnect_lock:
-            if self._closed:
-                raise RuntimeError("Live session bağlanıb.")
-            if self._session is not None:
-                await self._close_current()
-            if force_fresh:
-                self._clear_resume_handle()
-
-            self._consecutive_reconnects += 1
-            self._notify_status("reconnecting", reason)
-
-            if self._consecutive_reconnects > self._MAX_CONSECUTIVE_RECONNECTS:
-                detail = reason or "Gemini Live bağlantısı təkrar-təkrar kəsilir."
-                self._notify_status(
-                    "disconnected",
-                    f"Gemini Live əlçatan deyil; avtomatik reconnect dayandırıldı. {detail}",
-                )
-                raise RuntimeError(
-                    f"Gemini Live əlçatan deyil; {self._MAX_CONSECUTIVE_RECONNECTS} reconnect cəhdindən sonra dayandırıldı."
-                )
-
-            delay = 1.0
-            while not self._closed:
-                try:
-                    await self._connect(clear_handle_on_failure=True)
-                    self._notify_status("connected", None)
-                    print("[E.V.A] 🔁 Gemini Live bağlantısı bərpa edildi.", flush=True)
-                    return
-                except Exception as exc:
-                    self._notify_status("disconnected", str(exc))
-                    print(f"[E.V.A] ⚠️ Live reconnect uğursuz oldu: {exc}", flush=True)
-                    await asyncio.sleep(delay)
-                    delay = min(delay * 2.0, 8.0)
-        raise RuntimeError("Live session bağlanıb.")
-
     async def __aenter__(self):
         await self._connect(clear_handle_on_failure=True)
         self._notify_status("connected", None)
@@ -145,73 +103,70 @@ class _ResilientLiveSession:
         return False
 
     async def receive(self):
-        """Mesajları verir; socket qırılsa nəzarətli reconnect edir."""
-        while not self._closed:
-            try:
-                session = self._session
-                if session is None:
-                    await self._reconnect()
-                    continue
-                async for message in session.receive():
-                    self._consecutive_reconnects = 0
-                    update = getattr(message, "session_resumption_update", None)
-                    if update is not None:
-                        resumable = bool(getattr(update, "resumable", False))
-                        handle = getattr(update, "new_handle", None)
-                        if resumable and handle:
-                            self._resume_handle = str(handle)
-                            self._manager.resume_handle = self._resume_handle
-                    yield message
-                if not self._closed:
-                    reason = "Gemini Live server bağlantını normal şəkildə bağladı (1000)."
-                    self._notify_status("disconnected", reason)
-                    await self._reconnect(force_fresh=True, reason=reason)
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                if self._closed:
-                    raise
-                code = self._close_code(exc)
-                if code == 1000:
-                    self._clear_resume_handle()
-                    reason = "Gemini Live bağlantısı normal şəkildə bağlandı (1000); fresh sessiya yoxlanılır."
-                    self._notify_status("disconnected", reason)
-                    await self._reconnect(force_fresh=True, reason=reason)
-                    continue
-                reason = str(exc)
-                self._notify_status("disconnected", reason)
-                print(f"[E.V.A] ⚠️ Live receive bağlantısı kəsildi: {exc}", flush=True)
-                await self._reconnect(reason=reason)
+        """Mesajları verir; disconnect olduqda outer runtime-a nəzarəti qaytarır.
 
-    async def _call_with_reconnect(self, method_name: str, **kwargs):
-        last_error = None
-        for _ in range(2):
-            try:
-                session = self._session
-                if session is None:
-                    await self._reconnect()
-                    session = self._session
-                return await getattr(session, method_name)(**kwargs)
-            except asyncio.CancelledError:
+        Reconnect burada edilmir. Receive və send eyni anda ayrıca reconnect
+        etməsin deyə reconnect-in yeganə sahibi JarvisLive.run() dövrüdür.
+        """
+        if self._closed:
+            raise RuntimeError("Live session bağlanıb.")
+        session = self._session
+        if session is None:
+            raise RuntimeError("Gemini Live session mövcud deyil.")
+        try:
+            async for message in session.receive():
+                update = getattr(message, "session_resumption_update", None)
+                if update is not None:
+                    resumable = bool(getattr(update, "resumable", False))
+                    handle = getattr(update, "new_handle", None)
+                    if resumable and handle:
+                        self._resume_handle = str(handle)
+                        self._manager.resume_handle = self._resume_handle
+                yield message
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            if self._closed:
                 raise
-            except Exception as exc:
-                last_error = exc
-                if self._closed:
-                    raise
-                code = self._close_code(exc)
-                if code == 1000:
-                    self._clear_resume_handle()
-                await self._reconnect(force_fresh=code == 1000, reason=str(exc))
-        raise last_error  # type: ignore[misc]
+            code = self._close_code(exc)
+            if code == 1000:
+                self._clear_resume_handle()
+                reason = "Gemini Live bağlantısı normal şəkildə bağlandı (1000)."
+            else:
+                reason = str(exc)
+            self._notify_status("disconnected", reason)
+            raise RuntimeError(f"Gemini Live bağlantısı kəsildi: {reason}") from exc
+        else:
+            if not self._closed:
+                reason = "Gemini Live server bağlantını bağladı."
+                self._notify_status("disconnected", reason)
+                raise RuntimeError(reason)
+
+    async def _call(self, method_name: str, **kwargs):
+        if self._closed:
+            raise RuntimeError("Live session bağlanıb.")
+        session = self._session
+        if session is None:
+            raise RuntimeError("Gemini Live session mövcud deyil.")
+        try:
+            return await getattr(session, method_name)(**kwargs)
+        except Exception as exc:
+            if self._closed:
+                raise
+            code = self._close_code(exc)
+            if code == 1000:
+                self._clear_resume_handle()
+            self._notify_status("disconnected", str(exc))
+            raise RuntimeError(f"Gemini Live bağlantısı kəsildi: {exc}") from exc
 
     async def send_realtime_input(self, **kwargs):
-        return await self._call_with_reconnect("send_realtime_input", **kwargs)
+        return await self._call("send_realtime_input", **kwargs)
 
     async def send_client_content(self, **kwargs):
-        return await self._call_with_reconnect("send_client_content", **kwargs)
+        return await self._call("send_client_content", **kwargs)
 
     async def send_tool_response(self, **kwargs):
-        return await self._call_with_reconnect("send_tool_response", **kwargs)
+        return await self._call("send_tool_response", **kwargs)
 
 
 class LiveSessionManager:
@@ -244,7 +199,7 @@ class LiveSessionManager:
 
     @asynccontextmanager
     async def connect(self, config):
-        """Runtime-u dayandırmadan Live socket reconnect edə bilən session verir."""
+        """Bir Live session yaradır; reconnect outer runtime tərəfindən edilir."""
         session = _ResilientLiveSession(self, config)
         async with session:
             yield session
