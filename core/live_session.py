@@ -132,8 +132,26 @@ class _ResilientLiveSession:
         code = getattr(exc, "code", None)
         return code == 1000
 
+    @staticmethod
+    def _update_resume_handle(manager: "LiveSessionManager", current_handle: str | None, message):
+        update = getattr(message, "session_resumption_update", None)
+        if update is None:
+            return current_handle
+        resumable = bool(getattr(update, "resumable", False))
+        handle = getattr(update, "new_handle", None)
+        if resumable and handle:
+            current_handle = str(handle)
+            manager.resume_handle = current_handle
+        return current_handle
+
     async def receive(self):
-        """Mesajları verir; socket qırılsa eyni runtime daxilində tək reconnect edir."""
+        """Mesajları çoxturnlu Live session boyunca verir; socket qırılsa reconnect edir.
+
+        google-genai SDK-nın bəzi versiyalarında ``AsyncSession.receive()`` ilk
+        ``turn_complete`` mesajından sonra iteratoru bitirir. Bu, çoxturnlu Live
+        söhbətdə reconnect kimi görünür. Birbaşa aşağı səviyyəli ``_receive()``
+        çağırışı həmin SDK davranışını yan keçərək socketin real ömrünü qoruyur.
+        """
         while not self._closed:
             try:
                 session = self._session
@@ -141,18 +159,22 @@ class _ResilientLiveSession:
                     await self._reconnect()
                     continue
 
-                async for message in session.receive():
-                    update = getattr(message, "session_resumption_update", None)
-                    if update is not None:
-                        resumable = bool(getattr(update, "resumable", False))
-                        handle = getattr(update, "new_handle", None)
-                        if resumable and handle:
-                            self._resume_handle = str(handle)
-                            self._manager.resume_handle = self._resume_handle
-                    yield message
+                receive_one = getattr(session, "_receive", None)
+                if receive_one is None:
+                    raise RuntimeError(
+                        "Gemini Live SDK _receive() interfeysini təqdim etmir."
+                    )
 
-                if not self._closed:
-                    await self._reconnect(force_fresh=True)
+                while not self._closed:
+                    message = await receive_one()
+                    if message is None:
+                        if not self._closed:
+                            await self._reconnect(force_fresh=True)
+                        break
+                    self._resume_handle = self._update_resume_handle(
+                        self._manager, self._resume_handle, message
+                    )
+                    yield message
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
