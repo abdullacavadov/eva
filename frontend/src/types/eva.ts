@@ -33,13 +33,7 @@ export interface EvaContext {
 
 export type EvaEvent =
   | { type: 'connection.ready' }
-  | {
-      type: 'runtime.snapshot'
-      state?: EvaState | null
-      messages?: Array<{ type: 'conversation.user' | 'conversation.assistant'; text: string }>
-      activities?: ActivityItem[]
-      context?: EvaContext | null
-    }
+  | { type: 'runtime.snapshot'; state?: EvaState | null; messages?: Array<{ type: 'conversation.user' | 'conversation.assistant'; text: string }>; activities?: ActivityItem[]; context?: EvaContext | null }
   | { type: 'bridge.error'; message?: string }
   | { type: 'live.connection'; status: 'connected' | 'reconnecting' | 'disconnected'; detail?: string | null }
   | { type: 'state.changed'; state: EvaState }
@@ -49,3 +43,4 @@ export type EvaEvent =
   | { type: 'context.updated'; context: EvaContext }
   | { type: 'tool.started'; tool: string; args?: Record<string, unknown> }
   | { type: 'tool.completed'; tool: string; success: boolean; result?: string }
+  | { type: 'sfx.play'; name: 'HUD' | 'Start' | 'Think' | 'Done' | 'Error' }
