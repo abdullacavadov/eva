@@ -23,10 +23,12 @@ try:
 except ImportError:
     HAS_MSS = False
 
+# Gemini 2.0 Flash artıq shutdown olunub. Vision üçün hazırda dəstəklənən
+# multimodal modelləri üstünlük sırası ilə istifadə edirik.
 VISION_MODELS = (
-    "models/gemini-2.0-flash",
-    "models/gemini-2.5-flash-lite",
-    "models/gemini-2.5-flash",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-pro",
 )
 VISION_MAX_DIMENSION = 1800
 VISION_MAX_INLINE_BYTES = 5_500_000
@@ -112,7 +114,7 @@ def _vision_prompt(query: str, window_title: str) -> str:
         f"Pencere başlığı: {label}\n\n"
         "Görevlerin:\n"
         "1. Pencerenin genel amacını 1-2 cümlede açıkla.\n"
-        "2. Görünen önemli metinleri, hata mesajlarını, butonları, başlıkları və durum etiketlerini oku.\n"
+        "2. Görünen önemli metinleri, hata mesajlarını, butonları, başlıkları ve durum etiketlerini oku.\n"
         "3. Kullanıcı sorusunu bu görüntüyə görə birbaşa cavabla.\n"
         "4. Əgər bir hata, uyarı və ya dikkat edilmesi gereken bir şey varsa bunu net belirt.\n"
         "5. Uydurma yapma. Emin olmadığın kısımlarda bunu söyle.\n\n"
@@ -162,13 +164,18 @@ def _friendly_vision_error(exc: Exception) -> str:
     return f"Gemini vision isteği başarısız oldu: {exc}"
 
 
-def _generate_vision_response(client: genai.Client, model_name: str, prompt: str, image_part: types.Part):
-    """Vision sorğusunu Chat API ilə göndər; SDK-nın AFC xəbərdarlığını aradan qaldır."""
-    chat = client.chats.create(
+def _generate_vision_response(client, model_name: str, prompt: str, image_part: types.Part):
+    """Single-turn multimodal request.
+
+    No tools/AFC are passed to this request. Vision analysis is deliberately
+    isolated from EVA's tool-enabled Live conversation, avoiding the AFC
+    warning/error path in Models.generate_content.
+    """
+    return client.models.generate_content(
         model=model_name,
+        contents=[types.Part.from_text(text=prompt), image_part],
         config=types.GenerateContentConfig(temperature=0.2),
     )
-    return chat.send_message([types.Part.from_text(text=prompt), image_part])
 
 
 def _analyze_with_gemini(query: str, image_path: Path, window_title: str) -> str:
@@ -201,14 +208,12 @@ def _analyze_with_gemini(query: str, image_path: Path, window_title: str) -> str
 
 
 def _is_webcam_query(query: str) -> bool:
-    q = (query or "").lower().strip()
+    q = (query or "").lower()
     markers = (
-        "əlimdə", "əlimdəki", "əlimdə olan", "elində", "məni gör", "məni görür",
-        "mənə bax", "kameraya bax", "kamerada nə", "kamera ilə", "kameradan", "webcam",
-        "qarşımdakı", "qarşımda nə", "qarşımda olan", "gördüyün", "gördüklərin",
-        "nə görürsən", "ne görürsən", "hal-hazırda nə görünür", "hazırda nə görünür",
-        "indi nə görünür", "nə görünür", "nə görür", "nə var qarşımd", "mənim qarşımda",
-        "ətrafımda nə", "məni görə", "məni görürsən",
+        "əlimdə", "elində", "əlimdəki", "əlimdə olan", "məni gör", "məni görür",
+        "mənə bax", "kameraya bax", "kamerada nə", "qarşımdakı", "qarşımda nə",
+        "gördüyün", "gördüklərin", "nə görürsən", "ne görürsən", "nə görürsən məni",
+        "kamera ilə", "kameradan", "webcam",
     )
     return any(marker in q for marker in markers)
 
