@@ -3,6 +3,8 @@
 import threading
 import time
 
+from core.webcam_snapshot import LATEST_FRAME_PATH
+
 
 class WebcamStreamer:
     """Continuously capture the latest JPEG frame from the default webcam."""
@@ -10,6 +12,7 @@ class WebcamStreamer:
     JPEG_QUALITY = 72
     MAX_DIM = 640
     WARMUP = 6
+    SNAPSHOT_INTERVAL = 0.10
 
     def __init__(self):
         self._latest: bytes | None = None
@@ -33,6 +36,11 @@ class WebcamStreamer:
             self._active = True
             self._latest = None
 
+        try:
+            LATEST_FRAME_PATH.unlink(missing_ok=True)
+        except Exception:
+            pass
+
         thread = threading.Thread(target=self._run, daemon=True)
         self._thread = thread
         thread.start()
@@ -42,6 +50,10 @@ class WebcamStreamer:
         with self._lock:
             self._active = False
             self._latest = None
+        try:
+            LATEST_FRAME_PATH.unlink(missing_ok=True)
+        except Exception:
+            pass
 
     def _run(self) -> None:
         try:
@@ -63,6 +75,7 @@ class WebcamStreamer:
             cap.read()
 
         enc_params = [cv2.IMWRITE_JPEG_QUALITY, self.JPEG_QUALITY]
+        last_snapshot = 0.0
 
         try:
             while True:
@@ -85,8 +98,22 @@ class WebcamStreamer:
                 frame = cv2.flip(frame, 1)
                 ok, buffer = cv2.imencode(".jpg", frame, enc_params)
                 if ok:
+                    jpeg = buffer.tobytes()
                     with self._lock:
-                        self._latest = buffer.tobytes()
+                        self._latest = jpeg
+
+                    now = time.monotonic()
+                    if now - last_snapshot >= self.SNAPSHOT_INTERVAL:
+                        tmp_path = LATEST_FRAME_PATH.with_suffix(".tmp")
+                        try:
+                            tmp_path.write_bytes(jpeg)
+                            tmp_path.replace(LATEST_FRAME_PATH)
+                            last_snapshot = now
+                        except Exception:
+                            try:
+                                tmp_path.unlink(missing_ok=True)
+                            except Exception:
+                                pass
 
                 time.sleep(0.03)
         finally:
@@ -94,4 +121,8 @@ class WebcamStreamer:
             with self._lock:
                 self._active = False
                 self._latest = None
+            try:
+                LATEST_FRAME_PATH.unlink(missing_ok=True)
+            except Exception:
+                pass
             print("[Webcam] Kamera serbest bırakıldı.")
