@@ -112,7 +112,7 @@ def _vision_prompt(query: str, window_title: str) -> str:
         f"Pencere başlığı: {label}\n\n"
         "Görevlerin:\n"
         "1. Pencerenin genel amacını 1-2 cümlede açıkla.\n"
-        "2. Görünen önemli metinleri, hata mesajlarını, butonları, başlıkları ve durum etiketlerini oku.\n"
+        "2. Görünen önemli metinleri, hata mesajlarını, butonları, başlıkları və durum etiketlerini oku.\n"
         "3. Kullanıcı sorusunu bu görüntüyə görə birbaşa cavabla.\n"
         "4. Əgər bir hata, uyarı və ya dikkat edilmesi gereken bir şey varsa bunu net belirt.\n"
         "5. Uydurma yapma. Emin olmadığın kısımlarda bunu söyle.\n\n"
@@ -162,6 +162,15 @@ def _friendly_vision_error(exc: Exception) -> str:
     return f"Gemini vision isteği başarısız oldu: {exc}"
 
 
+def _generate_vision_response(client: genai.Client, model_name: str, prompt: str, image_part: types.Part):
+    """Vision sorğusunu Chat API ilə göndər; SDK-nın AFC xəbərdarlığını aradan qaldır."""
+    chat = client.chats.create(
+        model=model_name,
+        config=types.GenerateContentConfig(temperature=0.2),
+    )
+    return chat.send_message([types.Part.from_text(text=prompt), image_part])
+
+
 def _analyze_with_gemini(query: str, image_path: Path, window_title: str) -> str:
     api_key = str(get_app_config_value("gemini_api_key", "") or "").strip()
     if not api_key:
@@ -174,11 +183,7 @@ def _analyze_with_gemini(query: str, image_path: Path, window_title: str) -> str
     for model_name in VISION_MODELS:
         for attempt, delay in enumerate(retry_delays, start=1):
             try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=[types.Part.from_text(text=prompt), image_part],
-                    config=types.GenerateContentConfig(temperature=0.2),
-                )
+                response = _generate_vision_response(client, model_name, prompt, image_part)
                 merged = _extract_response_text(response)
                 if merged:
                     return merged
@@ -196,12 +201,14 @@ def _analyze_with_gemini(query: str, image_path: Path, window_title: str) -> str
 
 
 def _is_webcam_query(query: str) -> bool:
-    q = (query or "").lower()
+    q = (query or "").lower().strip()
     markers = (
-        "əlimdə", "elində", "əlimdəki", "əlimdə olan", "məni gör", "məni görür",
-        "mənə bax", "kameraya bax", "kamerada nə", "qarşımdakı", "qarşımda nə",
-        "gördüyün", "gördüklərin", "nə görürsən", "ne görürsən", "nə görürsən məni",
-        "kamera ilə", "kameradan", "webcam",
+        "əlimdə", "əlimdəki", "əlimdə olan", "elində", "məni gör", "məni görür",
+        "mənə bax", "kameraya bax", "kamerada nə", "kamera ilə", "kameradan", "webcam",
+        "qarşımdakı", "qarşımda nə", "qarşımda olan", "gördüyün", "gördüklərin",
+        "nə görürsən", "ne görürsən", "hal-hazırda nə görünür", "hazırda nə görünür",
+        "indi nə görünür", "nə görünür", "nə görür", "nə var qarşımd", "mənim qarşımda",
+        "ətrafımda nə", "məni görə", "məni görürsən",
     )
     return any(marker in q for marker in markers)
 
@@ -225,11 +232,7 @@ def _analyze_webcam_snapshot(query: str) -> str | None:
         last_error: Exception | None = None
         for model_name in VISION_MODELS:
             try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=[types.Part.from_text(text=prompt), image_part],
-                    config=types.GenerateContentConfig(temperature=0.2),
-                )
+                response = _generate_vision_response(client, model_name, prompt, image_part)
                 text = _extract_response_text(response)
                 if text:
                     return text
