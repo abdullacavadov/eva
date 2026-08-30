@@ -5,7 +5,14 @@ import {
   faWind,
   faDroplet,
   faGaugeHigh,
+  faSun,
+  faCloud,
   faCloudSun,
+  faCloudRain,
+  faCloudShowersHeavy,
+  faSnowflake,
+  faSmog,
+  faCloudBolt,
   faMicrochip,
   faCalendarDays,
   faListCheck,
@@ -72,6 +79,43 @@ const formatDate = (date: Date) =>
   });
 const displayValue = (value: number | null | undefined, suffix = '') =>
   value == null ? '—' : `${Math.round(value)}${suffix}`;
+
+function getWeatherIcon(weatherCode: number | undefined) {
+  switch (weatherCode) {
+    case 0:
+      return faSun;
+    case 1:
+    case 2:
+      return faCloudSun;
+    case 3:
+      return faCloud;
+    case 45:
+    case 48:
+      return faSmog;
+    case 51:
+    case 53:
+    case 55:
+      return faCloudRain;
+    case 61:
+    case 63:
+    case 65:
+      return faCloudRain;
+    case 71:
+    case 73:
+    case 75:
+      return faSnowflake;
+    case 80:
+    case 81:
+    case 82:
+      return faCloudShowersHeavy;
+    case 95:
+    case 96:
+    case 99:
+      return faCloudBolt;
+    default:
+      return faCloudSun;
+  }
+}
 
 export default function App() {
   const [state, setState] = useState<EvaState>('IDLE');
@@ -395,7 +439,10 @@ export default function App() {
                   className="weather-icon"
                   aria-label={weather.condition || 'Hava məlumatı yoxdur'}
                 >
-                  <FontAwesomeIcon icon={faCloudSun} aria-hidden="true" />
+                  <FontAwesomeIcon
+                    icon={getWeatherIcon(weather.weather_code)}
+                    aria-hidden="true"
+                  />
                   <small>{weather.condition || 'Məlumat yoxdur'}</small>
                 </div>
               </div>
