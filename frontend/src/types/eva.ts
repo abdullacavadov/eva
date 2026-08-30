@@ -54,5 +54,6 @@ export type EvaEvent =
   | { type: 'activity.created'; activity: ActivityItem }
   | { type: 'context.updated'; context: EvaContext }
   | { type: 'control.state'; control: EvaControlState }
+  | { type: 'webcam.frame'; data: string }
   | { type: 'tool.started'; tool: string; args?: Record<string, unknown> }
   | { type: 'tool.completed'; tool: string; success: boolean; result?: string }
