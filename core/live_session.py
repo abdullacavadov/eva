@@ -3,19 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-import time
 from contextlib import asynccontextmanager
 
 from google import genai
 from google.genai import types
 
-from core.webcam import WebcamStreamer
-
 
 class _ResilientLiveSession:
     """Gemini Live bağlantısını tək reconnect lifecycle-ı ilə idarə edən proxy."""
-
-    WEBCAM_REFRESH_INTERVAL = 0.50
 
     def __init__(self, manager: "LiveSessionManager", config):
         self._manager = manager
@@ -28,8 +23,6 @@ class _ResilientLiveSession:
         self._reconnect_task: asyncio.Task | None = None
         self._reconnect_lock = asyncio.Lock()
         self._reconnect_delay = 1.0
-        self._last_webcam_refresh = 0.0
-        self._last_webcam_frame: bytes | None = None
 
     @property
     def _session_config(self):
@@ -94,8 +87,6 @@ class _ResilientLiveSession:
                     await asyncio.sleep(self._reconnect_delay)
                     await self._connect(clear_handle_on_failure=True)
                     self._reconnect_delay = 1.0
-                    self._last_webcam_refresh = 0.0
-                    self._last_webcam_frame = None
                     print("[E.V.A] 🔁 Gemini Live bağlantısı bərpa edildi.", flush=True)
                     return
                 except asyncio.CancelledError:
@@ -154,7 +145,13 @@ class _ResilientLiveSession:
         return current_handle
 
     async def receive(self):
-        """Mesajları çoxturnlu Live session boyunca verir; socket qırılsa reconnect edir."""
+        """Mesajları çoxturnlu Live session boyunca verir; socket qırılsa reconnect edir.
+
+        google-genai SDK-nın bəzi versiyalarında ``AsyncSession.receive()`` ilk
+        ``turn_complete`` mesajından sonra iteratoru bitirir. Bu, çoxturnlu Live
+        söhbətdə reconnect kimi görünür. Birbaşa aşağı səviyyəli ``_receive()``
+        çağırışı həmin SDK davranışını yan keçərək socketin real ömrünü qoruyur.
+        """
         while not self._closed:
             try:
                 session = self._session
@@ -204,52 +201,10 @@ class _ResilientLiveSession:
                 await self._reconnect(force_fresh=self._is_clean_close(exc))
         raise last_error  # type: ignore[misc]
 
-    async def _refresh_webcam_for_audio_turn(self) -> None:
-        """İstifadəçi danışmağa başlayanda Gemini-yə ən son webcam frame-ni təzələyir."""
-        now = time.monotonic()
-        if now - self._last_webcam_refresh < self.WEBCAM_REFRESH_INTERVAL:
-            return
-
-        frame = WebcamStreamer.get_active_latest_frame()
-        if frame is None:
-            self._last_webcam_frame = None
-            return
-
-        if frame == self._last_webcam_frame and now - self._last_webcam_refresh < 1.0:
-            return
-
-        self._last_webcam_refresh = now
-        self._last_webcam_frame = frame
-        try:
-            await self._call_with_reconnect(
-                "send_realtime_input",
-                video=types.Blob(data=frame, mime_type="image/jpeg"),
-            )
-            print("[Webcam] 📸 Gemini Live üçün cari kadr təzələndi.", flush=True)
-        except Exception as exc:
-            print(f"[Webcam] Cari kadr təzələnmədi: {exc}", flush=True)
-
     async def send_realtime_input(self, **kwargs):
-        """Gemini Live üçün audio/video input-u düzgün SDK sahəsi ilə göndərir.
-
-        Köhnə EVA kodu JPEG frame-ləri ``media`` kimi göndərirdi. Aktual Gemini Live
-        SDK-sında görüntü ``video=types.Blob(...)`` olmalıdır. Bu proxy köhnə çağırışları
-        da normallaşdırır ki, başqa runtime kodlarını dəyişmədən kamera işləsin.
-        """
-        media = kwargs.get("media")
-        if isinstance(media, dict):
-            mime_type = str(media.get("mime_type") or media.get("mimeType") or "")
-            data = media.get("data")
-            if data is not None and mime_type.lower().startswith("image/"):
-                kwargs.pop("media", None)
-                kwargs["video"] = types.Blob(data=data, mime_type=mime_type)
-            elif data is not None and mime_type.lower().startswith("audio/"):
-                kwargs.pop("media", None)
-                kwargs["audio"] = types.Blob(data=data, mime_type=mime_type)
         return await self._call_with_reconnect("send_realtime_input", **kwargs)
 
     async def send_client_content(self, **kwargs):
-        await self._refresh_webcam_for_audio_turn()
         return await self._call_with_reconnect("send_client_content", **kwargs)
 
     async def send_tool_response(self, **kwargs):
