@@ -205,12 +205,7 @@ class _ResilientLiveSession:
         raise last_error  # type: ignore[misc]
 
     async def _refresh_webcam_for_audio_turn(self) -> None:
-        """İstifadəçi danışmağa başlayanda Gemini-yə ən son webcam frame-ni təzələyir.
-
-        Davamlı video axını ayrıca task tərəfindən ötürülür. Bu əlavə refresh isə
-        audio turn-dan dərhal əvvəl işləyir və modelin köhnə frame-ə cavab verməsinin
-        qarşısını alır.
-        """
+        """İstifadəçi danışmağa başlayanda Gemini-yə ən son webcam frame-ni təzələyir."""
         now = time.monotonic()
         if now - self._last_webcam_refresh < self.WEBCAM_REFRESH_INTERVAL:
             return
@@ -228,16 +223,29 @@ class _ResilientLiveSession:
         try:
             await self._call_with_reconnect(
                 "send_realtime_input",
-                media={"data": frame, "mime_type": "image/jpeg"},
+                video=types.Blob(data=frame, mime_type="image/jpeg"),
             )
             print("[Webcam] 📸 Gemini Live üçün cari kadr təzələndi.", flush=True)
         except Exception as exc:
             print(f"[Webcam] Cari kadr təzələnmədi: {exc}", flush=True)
 
     async def send_realtime_input(self, **kwargs):
+        """Gemini Live üçün audio/video input-u düzgün SDK sahəsi ilə göndərir.
+
+        Köhnə EVA kodu JPEG frame-ləri ``media`` kimi göndərirdi. Aktual Gemini Live
+        SDK-sında görüntü ``video=types.Blob(...)`` olmalıdır. Bu proxy köhnə çağırışları
+        da normallaşdırır ki, başqa runtime kodlarını dəyişmədən kamera işləsin.
+        """
         media = kwargs.get("media")
-        if isinstance(media, dict) and media.get("mime_type") == "audio/pcm":
-            await self._refresh_webcam_for_audio_turn()
+        if isinstance(media, dict):
+            mime_type = str(media.get("mime_type") or media.get("mimeType") or "")
+            data = media.get("data")
+            if data is not None and mime_type.lower().startswith("image/"):
+                kwargs.pop("media", None)
+                kwargs["video"] = types.Blob(data=data, mime_type=mime_type)
+            elif data is not None and mime_type.lower().startswith("audio/"):
+                kwargs.pop("media", None)
+                kwargs["audio"] = types.Blob(data=data, mime_type=mime_type)
         return await self._call_with_reconnect("send_realtime_input", **kwargs)
 
     async def send_client_content(self, **kwargs):
