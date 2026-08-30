@@ -13,6 +13,8 @@ class WebcamStreamer:
     MAX_DIM = 640
     WARMUP = 6
     SNAPSHOT_INTERVAL = 0.10
+    _active_instance: "WebcamStreamer | None" = None
+    _instance_lock = threading.Lock()
 
     def __init__(self):
         self._latest: bytes | None = None
@@ -29,12 +31,24 @@ class WebcamStreamer:
         with self._lock:
             return self._latest
 
+    @classmethod
+    def get_active_latest_frame(cls) -> bytes | None:
+        """Return the latest frame from the currently active EVA webcam."""
+        with cls._instance_lock:
+            instance = cls._active_instance
+        if instance is None or not instance.is_active:
+            return None
+        return instance.get_latest_frame()
+
     def start(self) -> str:
         with self._lock:
             if self._active:
                 return "already_active"
             self._active = True
             self._latest = None
+
+        with self._instance_lock:
+            self.__class__._active_instance = self
 
         try:
             LATEST_FRAME_PATH.unlink(missing_ok=True)
@@ -50,6 +64,9 @@ class WebcamStreamer:
         with self._lock:
             self._active = False
             self._latest = None
+        with self._instance_lock:
+            if self.__class__._active_instance is self:
+                self.__class__._active_instance = None
         try:
             LATEST_FRAME_PATH.unlink(missing_ok=True)
         except Exception:
@@ -62,6 +79,9 @@ class WebcamStreamer:
             print("[Webcam] opencv-python yüklü deyil.")
             with self._lock:
                 self._active = False
+            with self._instance_lock:
+                if self.__class__._active_instance is self:
+                    self.__class__._active_instance = None
             return
 
         cap = cv2.VideoCapture(0)
@@ -69,6 +89,9 @@ class WebcamStreamer:
             print("[Webcam] Kamera açılmadı.")
             with self._lock:
                 self._active = False
+            with self._instance_lock:
+                if self.__class__._active_instance is self:
+                    self.__class__._active_instance = None
             return
 
         for _ in range(self.WARMUP):
@@ -121,6 +144,9 @@ class WebcamStreamer:
             with self._lock:
                 self._active = False
                 self._latest = None
+            with self._instance_lock:
+                if self.__class__._active_instance is self:
+                    self.__class__._active_instance = None
             try:
                 LATEST_FRAME_PATH.unlink(missing_ok=True)
             except Exception:
