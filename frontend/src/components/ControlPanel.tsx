@@ -10,6 +10,7 @@ interface ControlPanelProps {
   paused: boolean
   cameraActive: boolean
   microphoneMuted: boolean
+  cameraPreview?: string | null
   disabled?: boolean
 }
 
@@ -20,23 +21,13 @@ const controls = [
   { command: 'microphone' as const, label: 'MİKRAFON', icon: faMicrophone, tone: 'microphone' },
 ]
 
-export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted, disabled = false }: ControlPanelProps) {
+export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted, cameraPreview = null, disabled = false }: ControlPanelProps) {
   const [cameraModalOpen, setCameraModalOpen] = useState(false)
   const [cameraClosing, setCameraClosing] = useState(false)
-  const [cameraError, setCameraError] = useState<string | null>(null)
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
   const closeTimerRef = useRef<number | null>(null)
-
-  const stopLocalCamera = () => {
-    streamRef.current?.getTracks().forEach((track) => track.stop())
-    streamRef.current = null
-    if (videoRef.current) videoRef.current.srcObject = null
-  }
 
   const finishClose = () => {
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
-    stopLocalCamera()
     setCameraModalOpen(false)
     setCameraClosing(false)
     closeTimerRef.current = null
@@ -45,13 +36,14 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
   const startCloseAnimation = () => {
     if (!cameraModalOpen || cameraClosing) return
     setCameraClosing(true)
-    stopLocalCamera()
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
     closeTimerRef.current = window.setTimeout(finishClose, 280)
   }
 
   // Backend/EVA camera state is the source of truth for the modal.
-  // EVA səsli şəkildə kameranı açdıqda da bu effekt modalı avtomatik açır.
+  // Brauzerin öz kamerasını açmırıq. Modal EVA-nın istifadə etdiyi eyni
+  // backend webcam frame-lərini göstərir; beləliklə iki capture sessiyası
+  // yaranmır və Gemini Live ilə göstərilən görüntü eyni mənbədən gəlir.
   useEffect(() => {
     if (cameraActive) {
       if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
@@ -59,39 +51,8 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
       setCameraModalOpen(true)
       return
     }
-
     startCloseAnimation()
   }, [cameraActive])
-
-  // Modal yalnız cameraActive olduqda lokal preview açır.
-  useEffect(() => {
-    if (!cameraModalOpen || !cameraActive) return
-    setCameraError(null)
-    let cancelled = false
-
-    navigator.mediaDevices?.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-      audio: false,
-    }).then((stream) => {
-      if (cancelled) {
-        stream.getTracks().forEach((track) => track.stop())
-        return
-      }
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        void videoRef.current.play()
-      }
-    }).catch((error) => {
-      console.error('[EVA] Kamera görüntüsü açıla bilmədi:', error)
-      if (!cancelled) setCameraError('Kameraya giriş icazəsi alınmadı.')
-    })
-
-    return () => {
-      cancelled = true
-      stopLocalCamera()
-    }
-  }, [cameraModalOpen, cameraActive])
 
   const toggleCamera = () => {
     if (disabled) return
@@ -114,7 +75,6 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
 
   useEffect(() => () => {
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
-    stopLocalCamera()
   }, [])
 
   const labels: Record<ControlCommand, string> = {
@@ -165,11 +125,14 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
               <button className="camera-modal-close" type="button" aria-label="Kameranı bağla" onClick={closeCameraModal}><FontAwesomeIcon icon={faXmark} /></button>
             </div>
             <div className="camera-viewport">
-              <video ref={videoRef} className="camera-video" autoPlay playsInline muted />
+              {cameraPreview ? (
+                <img src={cameraPreview} className="camera-video" alt="EVA canlı kamera görüntüsü" />
+              ) : (
+                <div className="camera-error">CANLI GÖRÜNTÜ GÖZLƏNİLİR...</div>
+              )}
               <div className="camera-scanline" />
               <span className="camera-corner camera-corner-tl" /><span className="camera-corner camera-corner-tr" />
               <span className="camera-corner camera-corner-bl" /><span className="camera-corner camera-corner-br" />
-              {cameraError && <div className="camera-error">{cameraError}</div>}
             </div>
             <div className="camera-modal-footer"><span><i /> CANLI GÖRÜNTÜ</span><small>ESC / BAĞLA</small></div>
           </div>
