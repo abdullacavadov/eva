@@ -24,7 +24,21 @@ const controls = [
 export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted, cameraPreview = null, disabled = false }: ControlPanelProps) {
   const [cameraModalOpen, setCameraModalOpen] = useState(false)
   const [cameraClosing, setCameraClosing] = useState(false)
+  const [preview, setPreview] = useState<string | null>(cameraPreview)
   const closeTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    setPreview(cameraPreview ?? null)
+  }, [cameraPreview])
+
+  useEffect(() => {
+    const handleWebcamFrame = (event: Event) => {
+      const frame = (event as CustomEvent<string>).detail
+      if (typeof frame === 'string' && frame) setPreview(frame)
+    }
+    window.addEventListener('eva:webcam-frame', handleWebcamFrame)
+    return () => window.removeEventListener('eva:webcam-frame', handleWebcamFrame)
+  }, [])
 
   const finishClose = () => {
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
@@ -40,10 +54,6 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
     closeTimerRef.current = window.setTimeout(finishClose, 280)
   }
 
-  // Backend/EVA camera state is the source of truth for the modal.
-  // Brauzerin öz kamerasını açmırıq. Modal EVA-nın istifadə etdiyi eyni
-  // backend webcam frame-lərini göstərir; beləliklə iki capture sessiyası
-  // yaranmır və Gemini Live ilə göstərilən görüntü eyni mənbədən gəlir.
   useEffect(() => {
     if (cameraActive) {
       if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
@@ -53,6 +63,10 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
     }
     startCloseAnimation()
   }, [cameraActive])
+
+  useEffect(() => () => {
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+  }, [])
 
   const toggleCamera = () => {
     if (disabled) return
@@ -72,10 +86,6 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [cameraModalOpen, cameraClosing, cameraActive])
-
-  useEffect(() => () => {
-    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
-  }, [])
 
   const labels: Record<ControlCommand, string> = {
     shutdown: 'SHUTDOWN',
@@ -125,8 +135,8 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
               <button className="camera-modal-close" type="button" aria-label="Kameranı bağla" onClick={closeCameraModal}><FontAwesomeIcon icon={faXmark} /></button>
             </div>
             <div className="camera-viewport">
-              {cameraPreview ? (
-                <img src={cameraPreview} className="camera-video" alt="EVA canlı kamera görüntüsü" />
+              {preview ? (
+                <img src={preview} className="camera-video" alt="EVA canlı kamera görüntüsü" />
               ) : (
                 <div className="camera-error">CANLI GÖRÜNTÜ GÖZLƏNİLİR...</div>
               )}
