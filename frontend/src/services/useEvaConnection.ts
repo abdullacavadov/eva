@@ -40,6 +40,9 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
         if (disposed || socketRef.current !== socket) return
         try {
           const event = JSON.parse(message.data) as EvaEvent
+          if (event.type === 'webcam.frame') {
+            window.dispatchEvent(new CustomEvent('eva:webcam-frame', { detail: event.data }))
+          }
           onEventRef.current(event)
         } catch {
           // Gözlənilməz WebSocket mesajı UI state-i pozmamalıdır.
