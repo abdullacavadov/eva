@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import threading
@@ -20,6 +21,7 @@ class UiBridge:
     _CLIENT_QUEUE_SIZE = 256
     _MAX_HISTORY = 200
     _STOP = object()
+    _WEBCAM_PREVIEW_INTERVAL = 0.10
 
     def __init__(self, ui, tool_executor=None):
         self.ui = ui
@@ -34,6 +36,7 @@ class UiBridge:
         self._conversation_history: list[dict[str, Any]] = []
         self._activity_history: list[dict[str, Any]] = []
         self._last_context: dict[str, Any] | None = None
+        self._last_webcam_preview_at = 0.0
         self._control_state: dict[str, Any] = {
             "paused": False,
             "camera_active": False,
@@ -63,8 +66,34 @@ class UiBridge:
                 original_set_webcam_active(active)
                 self._control_state["camera_active"] = active
                 self.emit("control.state", control={"camera_active": active})
+                if not active:
+                    self.emit("webcam.frame", data="")
 
             self.ui.set_webcam_active = set_webcam_active
+
+        # React kamera preview-si brauzerin öz kamerasını açmır. Bu hook
+        # EVA-nın artıq çəkdiyi eyni backend frame-lərini WebSocket üzərindən
+        # React-ə ötürür. Beləliklə Windows webcam üçün ikinci capture sessiyası
+        # yaranmır və UI-də göstərilən görüntü Gemini Live-a verilən mənbə ilə eynidir.
+        original_update_webcam_preview = getattr(self.ui, "update_webcam_preview", None)
+        if callable(original_update_webcam_preview):
+            def update_webcam_preview(jpeg_bytes: bytes):
+                original_update_webcam_preview(jpeg_bytes)
+                now = time.monotonic()
+                if now - self._last_webcam_preview_at < self._WEBCAM_PREVIEW_INTERVAL:
+                    return
+                with self._clients_lock:
+                    has_clients = bool(self._client_queues)
+                if not has_clients:
+                    return
+                self._last_webcam_preview_at = now
+                try:
+                    encoded = base64.b64encode(jpeg_bytes).decode("ascii")
+                    self.emit("webcam.frame", data=f"data:image/jpeg;base64,{encoded}")
+                except Exception:
+                    pass
+
+            self.ui.update_webcam_preview = update_webcam_preview
 
         original_write_log = self.ui.write_log
 
