@@ -129,7 +129,10 @@ class UiBridge:
 
     @staticmethod
     def _normalize_state(state: str) -> str:
-        return {"SPEAKING": "LISTENING", "INITIALISING": "THINKING"}.get(str(state), str(state))
+        # State adlarını dəyişməməliyik: React orb-u bunlardan vizual rəngi
+        # seçir. Əvvəlki SPEAKING/INITIALISING -> LISTENING/THINKING xəritəsi
+        # bu state-lərin öz rənglərini itirirdi.
+        return str(state)
 
     def _emit_log_event(self, text: str) -> None:
         clean = str(text or "").strip()
@@ -218,106 +221,3 @@ class UiBridge:
                 return
             try:
                 websocket.send(message)
-            except (ConnectionClosed, OSError):
-                return
-            except Exception:
-                return
-
-    def _start_server(self) -> None:
-        def run():
-            try:
-                with serve(self._handle_client, self.host, self.port) as server:
-                    self._server = server
-                    print(f"[E.V.A] 🌐 UI WebSocket: ws://{self.host}:{self.port}")
-                    server.serve_forever()
-            except OSError as exc:
-                print(f"[E.V.A] ⚠️ UI WebSocket başlatılmadı: {exc}")
-            finally:
-                self._server = None
-
-        self._thread = threading.Thread(target=run, name="eva-ui-ws", daemon=True)
-        self._thread.start()
-
-    def _handle_client(self, websocket: ServerConnection) -> None:
-        queue: Queue = Queue(maxsize=self._CLIENT_QUEUE_SIZE)
-        sender = threading.Thread(
-            target=self._client_sender,
-            args=(websocket, queue),
-            name="eva-ui-ws-sender",
-            daemon=True,
-        )
-        with self._clients_lock:
-            self._clients.add(websocket)
-            self._client_queues[websocket] = queue
-            snapshot = {
-                "state": self._last_state,
-                "messages": list(self._conversation_history),
-                "activities": list(self._activity_history),
-                "context": self._last_context,
-                "control": dict(self._control_state),
-            }
-        sender.start()
-        self._queue_message(queue, json.dumps({"type": "connection.ready"}))
-        self._queue_message(queue, json.dumps({"type": "runtime.snapshot", **snapshot}, ensure_ascii=False))
-        try:
-            for raw_message in websocket:
-                self._handle_message(websocket, raw_message)
-        except ConnectionClosed:
-            pass
-        finally:
-            with self._clients_lock:
-                self._clients.discard(websocket)
-                self._client_queues.pop(websocket, None)
-            self._queue_message(queue, self._STOP)
-
-    def _handle_control_command(self, websocket: ServerConnection, command: str) -> None:
-        allowed = {"shutdown", "pause", "camera", "microphone"}
-        if command not in allowed:
-            websocket.send(json.dumps({"type": "bridge.error", "message": "Naməlum idarəetmə əmri."}, ensure_ascii=False))
-            return
-
-        callback: Callable[[str], dict[str, Any] | None] | None = getattr(self.ui, "on_control_command", None)
-        if callback is None:
-            websocket.send(json.dumps({"type": "bridge.error", "message": "EVA control callback-i hazır deyil."}, ensure_ascii=False))
-            return
-
-        try:
-            control = callback(command) or {}
-            if isinstance(control, dict):
-                self._control_state.update(control)
-            self.emit("control.state", control=dict(self._control_state))
-        except Exception as exc:
-            websocket.send(json.dumps({"type": "bridge.error", "message": str(exc)}, ensure_ascii=False))
-
-    def _handle_message(self, websocket: ServerConnection, raw_message: str | bytes) -> None:
-        if isinstance(raw_message, bytes):
-            raw_message = raw_message.decode("utf-8", errors="replace")
-        try:
-            message = json.loads(raw_message)
-        except (TypeError, json.JSONDecodeError):
-            websocket.send(json.dumps({"type": "bridge.error", "message": "Yanlış JSON mesajı."}, ensure_ascii=False))
-            return
-        if not isinstance(message, dict):
-            websocket.send(json.dumps({"type": "bridge.error", "message": "Mesaj obyekti tələb olunur."}, ensure_ascii=False))
-            return
-        message_type = str(message.get("type") or "")
-        if message_type == "ping":
-            websocket.send(json.dumps({"type": "pong"}))
-            return
-        if message_type == "control.command":
-            self._handle_control_command(websocket, str(message.get("command") or "").strip().lower())
-            return
-        if message_type != "conversation.send":
-            websocket.send(json.dumps({"type": "bridge.error", "message": "Dəstəklənməyən UI hadisəsi."}, ensure_ascii=False))
-            return
-        text = str(message.get("text") or "").strip()
-        if not text:
-            return
-        callback: Callable[[str], None] | None = getattr(self.ui, "on_text_command", None)
-        if callback is None:
-            websocket.send(json.dumps({"type": "bridge.error", "message": "EVA text command callback-i hazır deyil."}, ensure_ascii=False))
-            return
-        try:
-            callback(text)
-        except Exception as exc:
-            websocket.send(json.dumps({"type": "bridge.error", "message": str(exc)}, ensure_ascii=False))
