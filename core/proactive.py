@@ -14,7 +14,6 @@ from typing import Any, Callable
 
 from actions.agenda import get_daily_agenda
 from actions.email import search_emails
-from actions.whatsapp_read_action import read_whatsapp_conversations
 from memory.memory_manager import load_memory
 from core.notification_digest import build_notification_digest
 
@@ -208,13 +207,7 @@ class ProactiveEngine:
         except Exception:
             sources["gmail"] = []
             self._collection_failures.add("gmail")
-        try:
-            result = read_whatsapp_conversations()
-            sources["whatsapp"] = result.get("data", []) if result.get("status") != "error" else []
-            if result.get("status") == "error": self._collection_failures.add("whatsapp")
-        except Exception:
-            sources["whatsapp"] = []
-            self._collection_failures.add("whatsapp")
+        
         try:
             result = get_daily_agenda(limit=50, date_text=datetime.now().astimezone().date().isoformat())
             if isinstance(result, dict) and result.get("status") == "error": raise RuntimeError("agenda source error")
