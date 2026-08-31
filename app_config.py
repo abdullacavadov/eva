@@ -1,4 +1,4 @@
-# Alp Ünlü tarafından yapılmıştır — @alppunlu
+# Alp Ünlü tərəfindən hazırlanmışdır — @alppunlu
 from __future__ import annotations
 
 import json
@@ -15,6 +15,12 @@ DEFAULT_CONFIG = {
     "voice": "Charon",
     "youtube_api_key": "",
     "youtube_channel_handle": "",
+    "sfx_enabled": True,
+    "sfx_volume": 20,
+    "proactive_enabled": True,
+    "language": "az-AZ",
+    "wake_listener_enabled": True,
+    "auto_start": False,
 }
 
 
