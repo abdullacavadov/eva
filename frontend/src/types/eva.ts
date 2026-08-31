@@ -1,11 +1,15 @@
 export type EvaState =
   | 'IDLE'
   | 'LISTENING'
+  | 'SPEAKING'
   | 'THINKING'
   | 'EXECUTING'
   | 'WAITING_CONFIRMATION'
   | 'SUCCESS'
+  | 'MUTED'
+  | 'PAUSED'
   | 'ERROR'
+  | 'INITIALISING'
 
 export type ActivityKind = 'system' | 'user' | 'assistant' | 'action' | 'success' | 'error'
 
