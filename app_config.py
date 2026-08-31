@@ -1,4 +1,4 @@
-# Alp Ünlü tərəfindən hazırlanmışdır — @alppunlu
+# Alp Ünlü tərəfindən yapılmışdır — @alppunlu
 from __future__ import annotations
 
 import json
