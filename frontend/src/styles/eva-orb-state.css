@@ -1,0 +1,127 @@
+.eva-core {
+  --orb-rgb: 0, 255, 136;
+  color: rgb(var(--orb-rgb));
+}
+
+.eva-core .orb-sphere {
+  box-shadow:
+    inset 0 0 40px rgb(var(--orb-rgb) / 0.35),
+    inset 8px -8px 30px rgb(0 0 0 / 0.6),
+    0 0 2px 1px rgb(var(--orb-rgb) / 0.9),
+    0 0 25px rgb(var(--orb-rgb) / 0.5);
+}
+
+.eva-core .orb-wire .meridian,
+.eva-core .orb-wire .latitude {
+  border-color: rgb(var(--orb-rgb) / 0.3);
+}
+
+.eva-core .orb-particles {
+  background-image: radial-gradient(
+    circle,
+    rgb(var(--orb-rgb) / 0.9) 0 1px,
+    transparent 1.5px
+  );
+}
+
+.eva-core .orb-wordmark {
+  color: rgb(var(--orb-rgb) / 0.92);
+  text-shadow:
+    0 0 14px rgb(var(--orb-rgb) / 0.95),
+    0 0 38px rgb(var(--orb-rgb) / 0.62);
+}
+
+.eva-core .orb-glow {
+  background: rgb(var(--orb-rgb) / 0.12);
+}
+
+.eva-core .orb-orbit {
+  border-color: rgb(var(--orb-rgb) / 0.24);
+}
+
+.eva-core .orb-beam {
+  background: linear-gradient(
+    transparent,
+    rgb(var(--orb-rgb) / 0.55),
+    transparent
+  );
+  box-shadow: 0 0 30px 5px rgb(var(--orb-rgb) / 0.18);
+}
+
+.eva-core .orb-platform {
+  border-color: rgb(var(--orb-rgb) / 0.3);
+  box-shadow:
+    0 0 22px rgb(var(--orb-rgb) / 0.1),
+    inset 0 0 22px rgb(var(--orb-rgb) / 0.08);
+}
+
+.eva-core .orb-platform::before {
+  border-color: rgb(var(--orb-rgb) / 0.25);
+}
+
+.eva-core .orb-platform i,
+.eva-core .status-dot,
+.eva-core .orb-waveform i {
+  background: rgb(var(--orb-rgb));
+}
+
+.eva-core .orb-platform i,
+.eva-core .status-dot {
+  box-shadow: 0 0 10px rgb(var(--orb-rgb));
+}
+
+.eva-core .orb-waveform i {
+  box-shadow: 0 0 8px rgb(var(--orb-rgb) / 0.7);
+}
+
+.eva-core.state-listening,
+.eva-core.state-idle,
+.eva-core.state-success {
+  --orb-rgb: 0, 255, 136;
+}
+
+.eva-core.state-speaking,
+.eva-core.state-executing {
+  --orb-rgb: 68, 136, 255;
+}
+
+.eva-core.state-thinking,
+.eva-core.state-waiting_confirmation {
+  --orb-rgb: 255, 204, 0;
+}
+
+.eva-core.state-muted {
+  --orb-rgb: 200, 30, 80;
+}
+
+.eva-core.state-paused {
+  --orb-rgb: 30, 60, 55;
+}
+
+.eva-core.state-error,
+.eva-core.state-initialising {
+  --orb-rgb: 255, 51, 68;
+}
+
+.eva-core.state-paused .orb-glow {
+  opacity: 0.55;
+}
+
+.eva-core.state-paused .orb-sphere,
+.eva-core.state-paused .orb-wire,
+.eva-core.state-paused .orb-orbit,
+.eva-core.state-paused .orb-beam,
+.eva-core.state-paused .orb-platform {
+  animation-play-state: paused;
+}
+
+.eva-core.state-muted .orb-waveform,
+.eva-core.state-paused .orb-waveform {
+  opacity: 0;
+}
+
+.eva-core.state-speaking .orb-waveform,
+.eva-core.state-listening .orb-waveform,
+.eva-core.state-executing .orb-waveform {
+  opacity: 0.8;
+}
