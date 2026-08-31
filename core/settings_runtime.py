@@ -44,6 +44,11 @@ def _apply_sound_settings(ui, config: dict[str, Any]) -> None:
     sound.set_enabled(bool(config.get("sfx_enabled", True)))
 
 
+def apply_saved_settings(ui) -> None:
+    """Yadda saxlanmış runtime parametrlərini UI/runtime yaradıldıqdan sonra tətbiq edir."""
+    _apply_sound_settings(ui, load_app_config())
+
+
 def install_settings_bridge(bridge, ui) -> None:
     """UiBridge-in settings.get/settings.update hadisələrini dəstəkləməsi üçün genişləndirir."""
     original_handle_message = bridge._handle_message
