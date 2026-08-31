@@ -64,12 +64,17 @@ const emptyDashboard: DashboardData = {
 const stateStatusLabel: Record<EvaState, string> = {
   IDLE: 'SİSTEM HAZIRDIR',
   LISTENING: 'EVA DİNLƏYİR',
+  SPEAKING: 'EVA DANIŞIR',
   THINKING: 'EVA DÜŞÜNÜR',
   EXECUTING: 'EVA İCRA EDİR',
   WAITING_CONFIRMATION: 'TƏSDİQ GÖZLƏNİLİR',
   SUCCESS: 'ƏMƏLİYYAT TAMAMLANDI',
   ERROR: 'SİSTEM XƏTASI',
+  MUTED: 'MİKROFON SƏSSİZDİR',
+  PAUSED: 'EVA DAYANDIRILIB',
+  INITIALISING: 'EVA BAŞLADILIR',
 };
+
 const formatClock = (date: Date) =>
   date.toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' });
 const formatDate = (date: Date) =>

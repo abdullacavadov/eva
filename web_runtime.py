@@ -118,6 +118,16 @@ def main():
     dashboard_server = _start_dashboard_api()
     frontend_process = _start_react_frontend()
 
+    # React UI açılışına paralel startup SFX.
+
+    ui.sound.play_startup()
+    print(
+        f"[E.V.A] 🔊 Startup SFX: enabled={ui.sound._enabled}, "
+        f"file={__import__('ui')._START_FILE}, "
+        f"exists={__import__('ui')._START_FILE.exists()}",
+        flush=True,
+    )
+
     def runner():
         ui.wait_for_api_key()
         ui.root.after(0, ui.root.withdraw)
