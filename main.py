@@ -314,6 +314,7 @@ class JarvisLive:
             while True:
                 async for response in self.session.receive():
                     if response.data:
+                        self.set_speaking(True)
                         self.audio_in_queue.put_nowait(response.data)
                     if response.server_content:
                         sc = response.server_content
