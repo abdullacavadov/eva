@@ -43,6 +43,12 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
           if (event.type === 'webcam.frame') {
             window.dispatchEvent(new CustomEvent('eva:webcam-frame', { detail: event.data }))
           }
+          if (event.type === 'control.state') {
+            window.dispatchEvent(new CustomEvent('eva:control-state', { detail: event.control }))
+          }
+          if (event.type === 'runtime.snapshot' && event.control) {
+            window.dispatchEvent(new CustomEvent('eva:control-state', { detail: event.control }))
+          }
           onEventRef.current(event)
         } catch {
           // Gözlənilməz WebSocket mesajı UI state-i pozmamalıdır.
