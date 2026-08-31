@@ -13,7 +13,7 @@ from pathlib import Path
 
 from core.dashboard_api import get_dashboard_data
 from core.proactive import ProactiveEngine, ProactiveScheduler
-from core.settings_runtime import install_settings_bridge
+from core.settings_runtime import apply_saved_settings, install_settings_bridge
 from core.ui_bridge import UiBridge
 from main import JarvisLive
 from ui import JarvisUI
@@ -116,6 +116,7 @@ def _start_react_frontend() -> subprocess.Popen | None:
 
 def main():
     ui = _create_hidden_ui()
+    apply_saved_settings(ui)
     dashboard_server = _start_dashboard_api()
     frontend_process = _start_react_frontend()
 
