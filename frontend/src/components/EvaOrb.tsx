@@ -1,5 +1,5 @@
-import type { CSSProperties } from 'react';
-import type { EvaState } from '../types/eva';
+import { useEffect, useState, type CSSProperties } from 'react';
+import type { EvaControlState, EvaState } from '../types/eva';
 import '../styles/eva-orb-state.css';
 
 const stateLabel: Record<EvaState, string> = {
@@ -32,19 +32,26 @@ const stateColors: Record<EvaState, string> = {
 
 interface EvaOrbProps {
   state: EvaState;
-  paused?: boolean;
-  microphoneMuted?: boolean;
 }
 
-export function EvaOrb({ state, paused = false, microphoneMuted = false }: EvaOrbProps) {
-  const visualState: EvaState = paused
+export function EvaOrb({ state }: EvaOrbProps) {
+  const [control, setControl] = useState<EvaControlState>({});
+
+  useEffect(() => {
+    const handleControlState = (event: Event) => {
+      const detail = (event as CustomEvent<EvaControlState>).detail;
+      if (detail && typeof detail === 'object') setControl(detail);
+    };
+    window.addEventListener('eva:control-state', handleControlState);
+    return () => window.removeEventListener('eva:control-state', handleControlState);
+  }, []);
+
+  const visualState: EvaState = control.paused
     ? 'PAUSED'
-    : microphoneMuted
+    : control.microphone_muted
       ? 'MUTED'
       : state;
-  const orbStyle = {
-    '--orb-rgb': stateColors[visualState],
-  } as CSSProperties;
+  const orbStyle = { '--orb-rgb': stateColors[visualState] } as CSSProperties;
 
   return (
     <section
@@ -60,32 +67,20 @@ export function EvaOrb({ state, paused = false, microphoneMuted = false }: EvaOr
         <div className="orb-particles particles-a" />
         <div className="orb-particles particles-b" />
         <div className="orb-wire">
-          {Array.from({ length: 9 }, (_, index) => (
-            <span className="meridian" key={`m-${index}`} />
-          ))}
-          {Array.from({ length: 5 }, (_, index) => (
-            <span className="latitude" key={`l-${index}`} />
-          ))}
+          {Array.from({ length: 9 }, (_, index) => <span className="meridian" key={`m-${index}`} />)}
+          {Array.from({ length: 5 }, (_, index) => <span className="latitude" key={`l-${index}`} />)}
         </div>
         <span className="orb-wordmark">E.V.A</span>
       </div>
       <div className="orb-beam" />
-      <div className="orb-platform">
-        <i />
-        <i />
-        <i />
-        <i />
-      </div>
+      <div className="orb-platform"><i /><i /><i /><i /></div>
       <div className="orb-status">
         <span className="status-dot" />
         {stateLabel[visualState]}
       </div>
       <div className="orb-waveform" aria-hidden="true">
         {Array.from({ length: 28 }, (_, index) => (
-          <i
-            key={index}
-            style={{ '--bar': `${16 + ((index * 17) % 54)}%` } as CSSProperties}
-          />
+          <i key={index} style={{ '--bar': `${16 + ((index * 17) % 54)}%` } as CSSProperties} />
         ))}
       </div>
     </section>
