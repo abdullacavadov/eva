@@ -474,53 +474,108 @@ a.settings {
 .orb-sphere {
   position: relative;
   z-index: 3;
-  width: min(280px, 45vw);
+  height: 70%;
+  top: -40px;
+  perspective: 700px;
   aspect-ratio: 1;
   border-radius: 50%;
   overflow: hidden;
-  border: 1px solid rgba(104, 220, 255, 0.45);
-  background: radial-gradient(
-    circle at 42% 36%,
-    rgba(112, 224, 255, 0.16),
-    rgba(3, 26, 39, 0.72) 43%,
-    rgba(1, 8, 13, 0.95) 70%
-  );
+  background: transparent;
+  border: none;
   box-shadow:
-    0 0 30px rgba(55, 206, 255, 0.12),
-    inset 0 0 45px rgba(37, 183, 233, 0.11);
+    inset 0 0 40px rgba(69, 217, 255, 0.35),
+    inset 8px -8px 30px rgba(0, 0, 0, 0.6),
+    0 0 2px 1px rgba(120, 230, 255, 0.9),
+    0 0 25px rgba(69, 217, 255, 0.5);
   animation: breathe 4s ease-in-out infinite;
 }
-.orb-sphere::before,
-.orb-sphere::after {
-  content: '';
+
+
+.orb-wire {
   position: absolute;
-  inset: 8%;
+  inset: 0;
   border-radius: 50%;
-  border: 1px dashed rgba(113, 226, 255, 0.24);
-  transform: rotate(35deg) scaleX(0.42);
+  transform-style: preserve-3d;
+  animation: spin-globe 20s linear infinite;
 }
-.orb-sphere::after {
-  transform: rotate(-35deg) scaleX(0.42);
-}
-.orb-grid {
+.orb-wire .meridian {
   position: absolute;
-  inset: -20%;
-  background:
-    repeating-linear-gradient(
-      0deg,
-      transparent 0 14px,
-      rgba(83, 218, 255, 0.11) 15px 16px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0 20px,
-      rgba(83, 218, 255, 0.08) 21px 22px
-    );
+  inset: 0;
+  border: 1px solid rgba(120, 230, 255, 0.3);
   border-radius: 50%;
-  transform: rotate(13deg);
-  mask-image: radial-gradient(circle, black 42%, transparent 71%);
-  animation: grid-shift 9s linear infinite;
 }
+.orb-wire .meridian:nth-child(1) {
+  transform: rotateY(0deg);
+}
+.orb-wire .meridian:nth-child(2) {
+  transform: rotateY(20deg);
+}
+.orb-wire .meridian:nth-child(3) {
+  transform: rotateY(40deg);
+}
+.orb-wire .meridian:nth-child(4) {
+  transform: rotateY(60deg);
+}
+.orb-wire .meridian:nth-child(5) {
+  transform: rotateY(80deg);
+}
+.orb-wire .meridian:nth-child(6) {
+  transform: rotateY(100deg);
+}
+.orb-wire .meridian:nth-child(7) {
+  transform: rotateY(120deg);
+}
+.orb-wire .meridian:nth-child(8) {
+  transform: rotateY(140deg);
+}
+.orb-wire .meridian:nth-child(9) {
+  transform: rotateY(160deg);
+}
+
+.orb-wire .latitude {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border: 1px solid rgba(120, 230, 255, 0.26);
+  border-radius: 50%;
+  transform-origin: center;
+}
+.orb-wire .latitude:nth-child(10) {
+  width: 94%;
+  height: 94%;
+  transform: translate(-50%, -50%) translateY(0) rotateX(90deg);
+}
+.orb-wire .latitude:nth-child(11) {
+  width: 78%;
+  height: 78%;
+  transform: translate(-50%, -50%) translateY(-22%) rotateX(90deg);
+}
+.orb-wire .latitude:nth-child(12) {
+  width: 78%;
+  height: 78%;
+  transform: translate(-50%, -50%) translateY(22%) rotateX(90deg);
+}
+.orb-wire .latitude:nth-child(13) {
+  width: 46%;
+  height: 46%;
+  transform: translate(-50%, -50%) translateY(-40%) rotateX(90deg);
+}
+.orb-wire .latitude:nth-child(14) {
+  width: 46%;
+  height: 46%;
+  transform: translate(-50%, -50%) translateY(40%) rotateX(90deg);
+}
+
+@keyframes spin-globe {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+
 .orb-particles {
   position: absolute;
   inset: 11%;
