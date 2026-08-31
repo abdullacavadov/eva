@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { EvaState } from '../types/eva';
+import '../styles/eva-orb-state.css';
 
 const stateLabel: Record<EvaState, string> = {
   IDLE: 'HAZIRDIR',
@@ -83,9 +84,7 @@ export function EvaOrb({ state, paused = false, microphoneMuted = false }: EvaOr
         {Array.from({ length: 28 }, (_, index) => (
           <i
             key={index}
-            style={
-              { '--bar': `${16 + ((index * 17) % 54)}%` } as CSSProperties
-            }
+            style={{ '--bar': `${16 + ((index * 17) % 54)}%` } as CSSProperties}
           />
         ))}
       </div>
