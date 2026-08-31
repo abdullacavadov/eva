@@ -38,6 +38,7 @@ import { useEvaConnection } from './services/useEvaConnection';
 import type { DashboardData } from './types/dashboard';
 import type { ActivityItem, EvaContext, EvaEvent, EvaState } from './types/eva';
 import './styles/globals.css';
+import './styles/eva-orb-states.css';
 import './styles/responsive.css';
 import { height } from '@fortawesome/free-solid-svg-icons/fa0';
 
@@ -64,11 +65,15 @@ const emptyDashboard: DashboardData = {
 const stateStatusLabel: Record<EvaState, string> = {
   IDLE: 'SİSTEM HAZIRDIR',
   LISTENING: 'EVA DİNLƏYİR',
+  SPEAKING: 'EVA DANIŞIR',
   THINKING: 'EVA DÜŞÜNÜR',
   EXECUTING: 'EVA İCRA EDİR',
   WAITING_CONFIRMATION: 'TƏSDİQ GÖZLƏNİLİR',
   SUCCESS: 'ƏMƏLİYYAT TAMAMLANDI',
+  MUTED: 'MİKROFON SÖNÜLÜB',
+  PAUSED: 'EVA PAUZADADIR',
   ERROR: 'SİSTEM XƏTASI',
+  INITIALISING: 'EVA BAŞLADILIR',
 };
 const formatClock = (date: Date) =>
   date.toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' });
@@ -402,7 +407,10 @@ export default function App() {
               <span>SÜNİ İNTELLEKT NÜVƏSİ / HOLOQRAFİK İNTERFEYS</span>
               <span>v6.1</span>
             </div>
-            <EvaOrb state={state} />
+            <EvaOrb
+              state={state}
+              control={{ paused, microphone_muted: microphoneMuted }}
+            />
             <ConversationPanel messages={messages} onSubmit={handleSubmit} />
           </section>
           <div className="right-stack">
