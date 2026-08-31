@@ -13,6 +13,7 @@ from pathlib import Path
 
 from core.dashboard_api import get_dashboard_data
 from core.proactive import ProactiveEngine, ProactiveScheduler
+from core.settings_runtime import install_settings_bridge
 from core.ui_bridge import UiBridge
 from main import JarvisLive
 from ui import JarvisUI
@@ -119,7 +120,6 @@ def main():
     frontend_process = _start_react_frontend()
 
     # React UI açılışına paralel startup SFX.
-
     ui.sound.play_startup()
     print(
         f"[E.V.A] 🔊 Startup SFX: enabled={ui.sound._enabled}, "
@@ -176,6 +176,7 @@ def main():
 
         ui.on_control_command = handle_control
         bridge = UiBridge(ui, tool_executor=jarvis._tool_executor)
+        install_settings_bridge(bridge, ui)
 
         proactive_scheduler = None
         if str(os.getenv("EVA_PROACTIVE_ENABLED", "true")).strip().lower() not in {"0", "false", "no", "off"}:
