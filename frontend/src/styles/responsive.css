@@ -249,9 +249,7 @@
     overflow-y: auto;
   }
 
-  .weather-panel {
-    flex: 0 0 140px !important;
-  }
+  
 }
 
 @media (min-width: 861px) and (max-width: 1180px) {

@@ -23,7 +23,7 @@ import {
   faHardDrive,
   faWifi,
   faVolumeHigh,
-  faGear
+  faGear,
 } from '@fortawesome/free-solid-svg-icons';
 import { ActivityFeed } from './components/ActivityFeed';
 import { ContextPanel } from './components/ContextPanel';
@@ -90,7 +90,7 @@ function getWeatherIcon(weatherCode: number | undefined) {
   switch (weatherCode) {
     case 0:
       return 1;
-    case 1: 
+    case 1:
       return 2;
     case 2:
       return 4;
@@ -154,7 +154,7 @@ export default function App() {
           id: `runtime-${index}-${message.type}`,
           role: message.type === 'conversation.user' ? 'user' : 'assistant',
           text: message.text,
-        })),
+        }))
       );
       setActivities(event.activities ?? []);
       if (event.context) setContext(event.context);
@@ -182,9 +182,12 @@ export default function App() {
     }
     if (event.type === 'state.changed' && event.state) setState(event.state);
     if (event.type === 'control.state') {
-      if (event.control.paused !== undefined) setPaused(Boolean(event.control.paused));
-      if (event.control.camera_active !== undefined) setCameraActive(Boolean(event.control.camera_active));
-      if (event.control.microphone_muted !== undefined) setMicrophoneMuted(Boolean(event.control.microphone_muted));
+      if (event.control.paused !== undefined)
+        setPaused(Boolean(event.control.paused));
+      if (event.control.camera_active !== undefined)
+        setCameraActive(Boolean(event.control.camera_active));
+      if (event.control.microphone_muted !== undefined)
+        setMicrophoneMuted(Boolean(event.control.microphone_muted));
     }
     if (event.type === 'conversation.user' && event.text)
       setMessages((items) => [
@@ -237,7 +240,8 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+    const sleep = (ms: number) =>
+      new Promise((resolve) => window.setTimeout(resolve, ms));
 
     const poll = async () => {
       while (!cancelled) {
@@ -333,11 +337,7 @@ export default function App() {
             <span className="eyebrow">E.V.A</span>
             <h1>Enhanced Virtual Assistant</h1>
           </div>
-          <div className="system-status">
-            <span className={`online-dot ${online ? '' : 'offline'}`} />
-            {statusText}
-            <small>{online ? 'CORE FOR WINDOWS' : 'MƏLUMAT KANALI GÖZLƏNİLİR'}</small>
-          </div>
+
           <div
             className="clock"
             aria-label={`Cari vaxt ${formatClock(now)}, ${formatDate(now)}`}
@@ -347,7 +347,9 @@ export default function App() {
           </div>
 
           <div className="settings">
-            <a className="settings"><FontAwesomeIcon icon={faGear} /></a>
+            <a className="settings">
+              <FontAwesomeIcon icon={faGear} />
+            </a>
           </div>
         </header>
         <div className="dashboard-grid">
@@ -408,85 +410,94 @@ export default function App() {
               <span>v6.1</span>
             </div>
             <EvaOrb state={state} />
-            <ConversationPanel messages={messages} onSubmit={handleSubmit} />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', height: '210px'}}>
+              <section className="panel system-panel">
+                <div className="panel-heading">
+                  <span>
+                    <FontAwesomeIcon icon={faMicrochip} /> SİSTEM
+                  </span>
+                  <small>LOKAL</small>
+                </div>
+                {systemRows.map(([name, percent, label, icon]) => (
+                  <div className="system-metric" key={name}>
+                    <span>
+                      <span className="icon">
+                        <FontAwesomeIcon icon={icon} />
+                      </span>{' '}
+                      {name}
+                    </span>
+
+                    <div>
+                      <i style={{ width: `${percent ?? 0}%` }} />
+                    </div>
+
+                    <strong>
+                      {name === 'ŞƏBƏKƏ' ? label : displayValue(percent, '%')}
+                    </strong>
+                  </div>
+                ))}
+              </section>
+
+              <section className="panel weather-panel">
+                <div className="panel-heading">
+                  <span>HAVA PROQNOZU</span>
+                  <small>
+                    {weather.city
+                      ? `${weather.city.toUpperCase()}, AZ`
+                      : 'BAKI, AZ'}
+                  </small>
+                </div>
+                <div className="weather-main">
+                  <strong>{displayValue(weather.temperature, '°C')}</strong>
+                  <div
+                    className="weather-icon"
+                    aria-label={weather.condition || 'Hava məlumatı yoxdur'}
+                  >
+                    <img
+                      src={`https://cdn.fmi.fi/symbol-images/smartsymbol/v3/p/${getWeatherIcon(weather.weather_code)}.svg`}
+                      alt={
+                        weather.condition
+                          ? `Weather condition: ${weather.condition}`
+                          : 'Current weather conditions unavailable'
+                      }
+                      style={{ height: '70px' }}
+                    />
+                    <small>{weather.condition || 'Məlumat yoxdur'}</small>
+                  </div>
+                </div>
+                <div className="weather-meta">
+                  <span>
+                    <i>
+                      <FontAwesomeIcon icon={faTemperatureLow} />
+                    </i>{' '}
+                    Hiss edilən: {displayValue(weather.feels_like, '°C')}
+                  </span>
+                  <span>
+                    <i>
+                      <FontAwesomeIcon icon={faWind} />
+                    </i>{' '}
+                    Külək: {displayValue(weather.wind_speed, ' km/saat')},{' '}
+                    {weather.wind_direction || '—'}
+                  </span>
+                  <span>
+                    <i>
+                      <FontAwesomeIcon icon={faDroplet} />
+                    </i>{' '}
+                    Rütubət: {displayValue(weather.humidity, '%')}
+                  </span>
+                  <span>
+                    <i>
+                      <FontAwesomeIcon icon={faGaugeHigh} />
+                    </i>{' '}
+                    Təzyiq: {displayValue(weather.pressure, ' hPa')}
+                  </span>
+                </div>
+              </section>
+            </div>
           </section>
           <div className="right-stack">
-            <section className="panel system-panel">
-              <div className="panel-heading">
-                <span>
-                  <FontAwesomeIcon icon={faMicrochip} /> SİSTEM
-                </span>
-                <small>LOKAL</small>
-              </div>
-              {systemRows.map(([name, percent, label, icon]) => (
-                <div className="system-metric" key={name}>
-                  <span>
-                    <span className="icon">
-                      <FontAwesomeIcon icon={icon} />
-                    </span>{' '}
-                    {name}
-                  </span>
-
-                  <div>
-                    <i style={{ width: `${percent ?? 0}%` }} />
-                  </div>
-
-                  <strong>
-                    {name === 'ŞƏBƏKƏ' ? label : displayValue(percent, '%')}
-                  </strong>
-                </div>
-              ))}
-            </section>
-
-            <section className="panel weather-panel">
-              <div className="panel-heading">
-                <span>HAVA PROQNOZU</span>
-                <small>
-                  {weather.city
-                    ? `${weather.city.toUpperCase()}, AZ`
-                    : 'BAKI, AZ'}
-                </small>
-              </div>
-              <div className="weather-main">
-                <strong>{displayValue(weather.temperature, '°C')}</strong>
-                <div
-                  className="weather-icon"
-                  aria-label={weather.condition || 'Hava məlumatı yoxdur'}
-                >
-                  <img src={`https://cdn.fmi.fi/symbol-images/smartsymbol/v3/p/${getWeatherIcon(weather.weather_code)}.svg`} 
-                       alt={weather.condition ? `Weather condition: ${weather.condition}` : 'Current weather conditions unavailable'} 
-                       style={{height: '70px'}}/>
-                  <small>{weather.condition || 'Məlumat yoxdur'}</small>
-                </div>
-              </div>
-              <div className="weather-meta">
-                <span>
-                  <i>
-                    <FontAwesomeIcon icon={faTemperatureLow} />
-                  </i>{' '}
-                  Hiss edilən: {displayValue(weather.feels_like, '°C')}
-                </span>
-                <span>
-                  <i>
-                    <FontAwesomeIcon icon={faWind} />
-                  </i>{' '}
-                  Külək: {displayValue(weather.wind_speed, ' km/saat')},{' '}
-                  {weather.wind_direction || '—'}
-                </span>
-                <span>
-                  <i>
-                    <FontAwesomeIcon icon={faDroplet} />
-                  </i>{' '}
-                  Rütubət: {displayValue(weather.humidity, '%')}
-                </span>
-                <span>
-                  <i>
-                    <FontAwesomeIcon icon={faGaugeHigh} />
-                  </i>{' '}
-                  Təzyiq: {displayValue(weather.pressure, ' hPa')}
-                </span>
-              </div>
-            </section>
+            <ConversationPanel messages={messages} onSubmit={handleSubmit} />
           </div>
         </div>
       </main>

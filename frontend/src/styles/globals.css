@@ -400,6 +400,7 @@ a.settings {
 }
 .system-panel {
   padding-bottom: 14px;
+  width: 49%;
 }
 
 .metric i {
@@ -776,18 +777,22 @@ a.settings {
 .messages {
   flex: 1;
   min-height: 62px;
-  max-height: 135px;
+  max-height: 82%;
   overflow: auto;
   padding: 0 14px 5px;
 }
 .message {
   margin: 7px 0;
   padding: 7px 10px;
-  border-left: 2px solid var(--line-strong);
+  border-left: 2px solid rgba(69, 217, 255, 0.35);
   background: rgba(69, 217, 255, 0.025);
+  border-radius: 0 10px 10px 10px;
 }
 .message.user {
-  border-left-color: rgba(255, 255, 255, 0.18);
+  border-right: 2px solid rgba(217, 119, 6, 0.35);
+  border-left: none;
+  text-align: end;
+  border-radius: 10px 0 10px 10px;
 }
 .message-role {
   color: var(--cyan);
@@ -795,7 +800,7 @@ a.settings {
   letter-spacing: 0.17em;
 }
 .message.user .message-role {
-  color: #899ba4;
+  color: var(--amber);
 }
 .message p {
   margin: 4px 0 0;
@@ -817,6 +822,9 @@ a.settings {
   border-radius: 8px;
   background: rgba(1, 8, 13, 0.72);
   box-shadow: inset 0 0 20px rgba(69, 217, 255, 0.025);
+  position: fixed;
+  bottom: 0;
+  width: 92%;
 }
 .command-input input {
   flex: 1;
@@ -946,6 +954,7 @@ a.settings {
 }
 .weather-panel {
   min-height: fit-content !important;
+  width: 49%;
 }
 
 .weather-main {
