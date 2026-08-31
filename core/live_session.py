@@ -24,9 +24,11 @@ class _ResilientLiveSession:
         self._reconnect_task: asyncio.Task | None = None
         self._reconnect_lock = asyncio.Lock()
         self._reconnect_delay = 1.0
-        # Real-time audio latency ölçümü üçün yalnız son input chunk saxlanılır.
         self._last_audio_input_at: float | None = None
         self._awaiting_first_audio = False
+        self._last_input_transcript_at: float | None = None
+        self._last_tool_call_at: float | None = None
+        self._turn_id = 0
 
     @property
     def _session_config(self):
@@ -176,17 +178,61 @@ class _ResilientLiveSession:
                             await self._reconnect(force_fresh=True)
                         break
 
-                    # İlk output audio chunk-ına qədər olan vaxtı ölçürük.
-                    # Bu ölçü istifadəçinin danışığını bitirməsindən EVA-nın
-                    # ilk səs baytını almasınadək olan əsas Live latency-dir.
-                    if getattr(message, "data", None) and self._awaiting_first_audio:
+                    now = time.monotonic()
+                    data = getattr(message, "data", None)
+                    if data and self._awaiting_first_audio:
                         if self._last_audio_input_at is not None:
-                            latency_ms = (time.monotonic() - self._last_audio_input_at) * 1000.0
+                            latency_ms = (now - self._last_audio_input_at) * 1000.0
                             print(
-                                f"[LATENCY] input-end -> first-audio: {latency_ms:.0f} ms",
+                                f"[LATENCY] last-audio-chunk -> first-audio: {latency_ms:.0f} ms",
                                 flush=True,
                             )
                         self._awaiting_first_audio = False
+
+                    sc = getattr(message, "server_content", None)
+                    if sc is not None:
+                        input_transcription = getattr(sc, "input_transcription", None)
+                        input_text = str(getattr(input_transcription, "text", "") or "").strip()
+                        if input_text:
+                            self._last_input_transcript_at = now
+                            if self._last_audio_input_at is not None:
+                                print(
+                                    f"[LATENCY] input-transcription: {(now - self._last_audio_input_at) * 1000.0:.0f} ms",
+                                    flush=True,
+                                )
+                            else:
+                                print("[LATENCY] input-transcription received", flush=True)
+
+                        if bool(getattr(sc, "turn_complete", False)):
+                            self._turn_id += 1
+                            if self._last_audio_input_at is not None:
+                                print(
+                                    f"[LATENCY] turn-complete #{self._turn_id}: {(now - self._last_audio_input_at) * 1000.0:.0f} ms from last audio chunk",
+                                    flush=True,
+                                )
+                            if self._last_input_transcript_at is not None:
+                                print(
+                                    f"[LATENCY] transcript -> turn-complete: {(now - self._last_input_transcript_at) * 1000.0:.0f} ms",
+                                    flush=True,
+                                )
+                            self._last_input_transcript_at = None
+
+                    tool_call = getattr(message, "tool_call", None)
+                    if tool_call is not None:
+                        self._last_tool_call_at = now
+                        if self._last_audio_input_at is not None:
+                            print(
+                                f"[LATENCY] tool-call: {(now - self._last_audio_input_at) * 1000.0:.0f} ms from last audio chunk",
+                                flush=True,
+                            )
+                        else:
+                            print("[LATENCY] tool-call received", flush=True)
+
+                    if self._last_tool_call_at is not None and tool_call is None:
+                        gap_ms = (now - self._last_tool_call_at) * 1000.0
+                        if gap_ms >= 50:
+                            print(f"[LATENCY] post-tool-response gap: {gap_ms:.0f} ms", flush=True)
+                            self._last_tool_call_at = None
 
                     self._resume_handle = self._update_resume_handle(
                         self._manager, self._resume_handle, message
