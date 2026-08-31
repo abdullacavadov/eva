@@ -39,6 +39,7 @@ import type { DashboardData } from './types/dashboard';
 import type { ActivityItem, EvaContext, EvaEvent, EvaState } from './types/eva';
 import './styles/globals.css';
 import './styles/responsive.css';
+import { height } from '@fortawesome/free-solid-svg-icons/fa0';
 
 const initialContext: EvaContext = { items: [] };
 const emptyDashboard: DashboardData = {
@@ -83,37 +84,45 @@ const displayValue = (value: number | null | undefined, suffix = '') =>
 function getWeatherIcon(weatherCode: number | undefined) {
   switch (weatherCode) {
     case 0:
-      return faSun;
-    case 1:
+      return 1;
+    case 1: 
+      return 2;
     case 2:
-      return faCloudSun;
+      return 4;
     case 3:
-      return faCloud;
+      return 7;
     case 45:
     case 48:
-      return faSmog;
+      return 9;
     case 51:
     case 53:
     case 55:
-      return faCloudRain;
+      return 9;
     case 61:
+      return 37;
     case 63:
+      return 38;
     case 65:
-      return faCloudRain;
+      return 39;
     case 71:
+      return 57;
     case 73:
+      return 58;
     case 75:
-      return faSnowflake;
+      return 59;
     case 80:
+      return 31;
     case 81:
+      return 32;
     case 82:
-      return faCloudShowersHeavy;
+      return 33;
     case 95:
+      return 77;
     case 96:
     case 99:
-      return faCloudBolt;
+      return 17;
     default:
-      return faCloudSun;
+      return 4;
   }
 }
 
@@ -439,10 +448,9 @@ export default function App() {
                   className="weather-icon"
                   aria-label={weather.condition || 'Hava məlumatı yoxdur'}
                 >
-                  <FontAwesomeIcon
-                    icon={getWeatherIcon(weather.weather_code)}
-                    aria-hidden="true"
-                  />
+                  <img src={`https://cdn.fmi.fi/symbol-images/smartsymbol/v3/p/${getWeatherIcon(weather.weather_code)}.svg`} 
+                       alt={weather.condition ? `Weather condition: ${weather.condition}` : 'Current weather conditions unavailable'} 
+                       style={{height: '70px'}}/>
                   <small>{weather.condition || 'Məlumat yoxdur'}</small>
                 </div>
               </div>

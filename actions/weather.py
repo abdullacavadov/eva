@@ -96,7 +96,7 @@ def get_weather_summary(location: str | None = None) -> dict:
             45: "Dumanlı",
             48: "Çənli",
             51: "Zəif çiskin",
-            53: "Çiskin",
+            53: "Çiskin", 
             55: "Güclü çiskin",
             61: "Zəif yağış",
             63: "Yağış",
