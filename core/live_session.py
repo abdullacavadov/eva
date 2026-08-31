@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from contextlib import asynccontextmanager
 
 from google import genai
@@ -23,6 +24,9 @@ class _ResilientLiveSession:
         self._reconnect_task: asyncio.Task | None = None
         self._reconnect_lock = asyncio.Lock()
         self._reconnect_delay = 1.0
+        # Real-time audio latency ölçümü üçün yalnız son input chunk saxlanılır.
+        self._last_audio_input_at: float | None = None
+        self._awaiting_first_audio = False
 
     @property
     def _session_config(self):
@@ -171,6 +175,19 @@ class _ResilientLiveSession:
                         if not self._closed:
                             await self._reconnect(force_fresh=True)
                         break
+
+                    # İlk output audio chunk-ına qədər olan vaxtı ölçürük.
+                    # Bu ölçü istifadəçinin danışığını bitirməsindən EVA-nın
+                    # ilk səs baytını almasınadək olan əsas Live latency-dir.
+                    if getattr(message, "data", None) and self._awaiting_first_audio:
+                        if self._last_audio_input_at is not None:
+                            latency_ms = (time.monotonic() - self._last_audio_input_at) * 1000.0
+                            print(
+                                f"[LATENCY] input-end -> first-audio: {latency_ms:.0f} ms",
+                                flush=True,
+                            )
+                        self._awaiting_first_audio = False
+
                     self._resume_handle = self._update_resume_handle(
                         self._manager, self._resume_handle, message
                     )
@@ -191,7 +208,15 @@ class _ResilientLiveSession:
                 if session is None:
                     await self._reconnect()
                     session = self._session
-                return await getattr(session, method_name)(**kwargs)
+                started_at = time.monotonic()
+                result = await getattr(session, method_name)(**kwargs)
+                elapsed_ms = (time.monotonic() - started_at) * 1000.0
+                if method_name == "send_realtime_input" and elapsed_ms >= 100:
+                    print(
+                        f"[LATENCY] send_realtime_input: {elapsed_ms:.0f} ms",
+                        flush=True,
+                    )
+                return result
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -202,6 +227,10 @@ class _ResilientLiveSession:
         raise last_error  # type: ignore[misc]
 
     async def send_realtime_input(self, **kwargs):
+        media = kwargs.get("media")
+        if isinstance(media, dict) and media.get("mime_type") == "audio/pcm":
+            self._last_audio_input_at = time.monotonic()
+            self._awaiting_first_audio = True
         return await self._call_with_reconnect("send_realtime_input", **kwargs)
 
     async def send_client_content(self, **kwargs):
