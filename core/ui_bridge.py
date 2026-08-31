@@ -129,7 +129,7 @@ class UiBridge:
 
     @staticmethod
     def _normalize_state(state: str) -> str:
-        return {"SPEAKING": "LISTENING", "INITIALISING": "THINKING"}.get(str(state), str(state))
+        return {"INITIALISING": "THINKING"}.get(str(state), str(state))
 
     def _emit_log_event(self, text: str) -> None:
         clean = str(text or "").strip()
