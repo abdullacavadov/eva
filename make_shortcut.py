@@ -7,7 +7,7 @@ bunların karşılığı .lnk kısayollarıdır:
   - Açılışta başlat     → Başlangıç klasörü\\EVA.lnk
 
 PowerShell WScript.Shell kullanılır, ek bağımlılık gerekmez.
-Kısayollar pythonw.exe ile main.py'yi konsolsuz başlatır.
+Kısayollar launcher.py ile E.V.A-nı vahid giriş nöqtəsindən başladır.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def _startup_dir() -> Path:
 
 
 def _pythonw() -> str:
-    """Konsolsuz başlatma için pythonw.exe, yoksa python.exe."""
+    """Konsolsuz başlatma üçün pythonw.exe, yoxdursa python.exe."""
     exe = Path(sys.executable)
     pyw = exe.with_name("pythonw.exe")
     return str(pyw if pyw.exists() else exe)
@@ -53,7 +53,7 @@ def _write_shortcut(link_path: Path) -> Path:
     """Verilen yola EVA .lnk kısayolu yazar."""
     link_path.parent.mkdir(parents=True, exist_ok=True)
     target = _pythonw()
-    main_py = BASE_DIR / "main.py"
+    launcher_py = BASE_DIR / "launcher.py"
 
     icon_line = ""
     ico_candidate = BASE_DIR / "Icon" / "logo_ico.ico"
@@ -64,7 +64,7 @@ def _write_shortcut(link_path: Path) -> Path:
         "$ws = New-Object -ComObject WScript.Shell; "
         f"$s = $ws.CreateShortcut('{link_path}'); "
         f"$s.TargetPath = '{target}'; "
-        f"$s.Arguments = '\"{main_py}\"'; "
+        f"$s.Arguments = '\"{launcher_py}\"'; "
         f"$s.WorkingDirectory = '{BASE_DIR}'; "
         f"$s.Description = 'E.V.A'; "
         f"{icon_line}"
