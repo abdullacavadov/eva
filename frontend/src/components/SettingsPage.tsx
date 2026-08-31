@@ -9,7 +9,6 @@ import {
   faKey,
   faMicrophone,
   faVolumeHigh,
-  faBell,
   faBolt,
   faUser,
 } from '@fortawesome/free-solid-svg-icons';
@@ -17,6 +16,7 @@ import '../styles/settings.css';
 
 const WS_URL = import.meta.env.VITE_EVA_WS_URL || `ws://${window.location.hostname || '127.0.0.1'}:8765`;
 const VOICES = ['Charon', 'Puck', 'Aoede', 'Kore', 'Fenrir', 'Leda', 'Orus', 'Zephyr'];
+const SECRET_MASK = '••••';
 
 type Settings = {
   gemini_api_key: string;
@@ -57,9 +57,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
     socket.onmessage = (message) => {
       try {
         const event = JSON.parse(message.data);
-        if (event.type === 'settings.state') {
-          setSettings({ ...defaults, ...event.settings });
-        }
+        if (event.type === 'settings.state') setSettings({ ...defaults, ...event.settings });
       } catch {
         // Ignore malformed bridge messages.
       }
@@ -72,13 +70,15 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
     setStatus('');
   };
 
+  const clearSecretForEdit = (key: 'gemini_api_key' | 'youtube_api_key') => {
+    if (settings[key].startsWith(SECRET_MASK)) update(key, '');
+  };
+
   const save = () => {
     setSaving(true);
     setStatus('YADDA SAXLANIR...');
     const socket = new WebSocket(WS_URL);
-    socket.onopen = () => {
-      socket.send(JSON.stringify({ type: 'settings.update', settings }));
-    };
+    socket.onopen = () => socket.send(JSON.stringify({ type: 'settings.update', settings }));
     socket.onmessage = (message) => {
       try {
         const event = JSON.parse(message.data);
@@ -111,9 +111,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
     <div className="settings-screen">
       <div className="settings-grid-bg" />
       <header className="settings-header">
-        <button className="settings-back" onClick={onClose} aria-label="Geri">
-          <FontAwesomeIcon icon={faArrowLeft} />
-        </button>
+        <button className="settings-back" onClick={onClose} aria-label="Geri"><FontAwesomeIcon icon={faArrowLeft} /></button>
         <div>
           <span className="settings-eyebrow">E.V.A / CONFIGURATION</span>
           <h1>PARAMETRLƏR</h1>
@@ -129,7 +127,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
             <label className="settings-field">
               <span>Gemini API Key</span>
               <div className="secret-input">
-                <input type={showGemini ? 'text' : 'password'} value={settings.gemini_api_key} placeholder="Dəyişmək üçün yeni açar daxil et" onChange={(e) => update('gemini_api_key', e.target.value)} />
+                <input type={showGemini ? 'text' : 'password'} value={settings.gemini_api_key} placeholder="Dəyişmək üçün yeni açar daxil et" onFocus={() => clearSecretForEdit('gemini_api_key')} onChange={(e) => update('gemini_api_key', e.target.value)} />
                 <button type="button" onClick={() => setShowGemini((value) => !value)}><FontAwesomeIcon icon={showGemini ? faEyeSlash : faEye} /></button>
               </div>
               <small>Boş saxlanılarsa mövcud açar dəyişdirilmir.</small>
@@ -137,7 +135,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
             <label className="settings-field">
               <span>YouTube API Key</span>
               <div className="secret-input">
-                <input type={showYoutube ? 'text' : 'password'} value={settings.youtube_api_key} placeholder="Dəyişmək üçün yeni açar daxil et" onChange={(e) => update('youtube_api_key', e.target.value)} />
+                <input type={showYoutube ? 'text' : 'password'} value={settings.youtube_api_key} placeholder="Dəyişmək üçün yeni açar daxil et" onFocus={() => clearSecretForEdit('youtube_api_key')} onChange={(e) => update('youtube_api_key', e.target.value)} />
                 <button type="button" onClick={() => setShowYoutube((value) => !value)}><FontAwesomeIcon icon={showYoutube ? faEyeSlash : faEye} /></button>
               </div>
               <small>API açarı brauzerə tam formada qaytarılmır.</small>
@@ -154,17 +152,13 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
           <div className="settings-form-grid">
             <label className="settings-field">
               <span>EVA səsi</span>
-              <select value={settings.voice} onChange={(e) => update('voice', e.target.value)}>
-                {VOICES.map((voice) => <option key={voice} value={voice}>{voice}</option>)}
-              </select>
+              <select value={settings.voice} onChange={(e) => update('voice', e.target.value)}>{VOICES.map((voice) => <option key={voice} value={voice}>{voice}</option>)}</select>
               <small>Səs seçimi növbəti Live session-da tətbiq olunur.</small>
             </label>
             <label className="settings-field">
               <span>Dil</span>
               <select value={settings.language} onChange={(e) => update('language', e.target.value)}>
-                <option value="az-AZ">Azərbaycan dili</option>
-                <option value="en-US">English</option>
-                <option value="tr-TR">Türkçe</option>
+                <option value="az-AZ">Azərbaycan dili</option><option value="en-US">English</option><option value="tr-TR">Türkçe</option>
               </select>
             </label>
           </div>
@@ -172,14 +166,8 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
 
         <section className="settings-section">
           <div className="settings-section-title"><FontAwesomeIcon icon={faVolumeHigh} /><span>SFX</span><small>AUDIO FEEDBACK</small></div>
-          <div className="settings-control-row">
-            <div><strong>SFX səsləri</strong><small>HUD, startup, thinking, success və error səsləri</small></div>
-            <button className={`toggle ${settings.sfx_enabled ? 'on' : ''}`} onClick={() => update('sfx_enabled', !settings.sfx_enabled)}><span /></button>
-          </div>
-          <label className="settings-range">
-            <div><span>SFX səs səviyyəsi</span><strong>{sfxLabel}</strong></div>
-            <input type="range" min="0" max="100" value={settings.sfx_volume} disabled={!settings.sfx_enabled} onChange={(e) => update('sfx_volume', Number(e.target.value))} />
-          </label>
+          <div className="settings-control-row"><div><strong>SFX səsləri</strong><small>HUD, startup, thinking, success və error səsləri</small></div><button className={`toggle ${settings.sfx_enabled ? 'on' : ''}`} onClick={() => update('sfx_enabled', !settings.sfx_enabled)}><span /></button></div>
+          <label className="settings-range"><div><span>SFX səs səviyyəsi</span><strong>{sfxLabel}</strong></div><input type="range" min="0" max="100" value={settings.sfx_volume} disabled={!settings.sfx_enabled} onChange={(e) => update('sfx_volume', Number(e.target.value))} /></label>
         </section>
 
         <section className="settings-section">
