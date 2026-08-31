@@ -13,7 +13,7 @@ class FakeWebSocket:
 
 def make_bridge(callback):
     bridge = UiBridge.__new__(UiBridge)
-    bridge.ui = type("UI", (), {"on_control_command": callback})()
+    bridge.ui = type("UI", (), {"on_control_command": staticmethod(callback)})()
     bridge._control_state = {
         "paused": False,
         "camera_active": False,
