@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { EvaControlState, EvaState } from '../types/eva';
-import '../styles/eva-orb-state.css';
+//import '../styles/eva-orb-state.css';
 
 const stateLabel: Record<EvaState, string> = {
   IDLE: 'HAZIRDIR',
