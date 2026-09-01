@@ -34,6 +34,7 @@ export function EvaOrb({ state }: EvaOrbProps) {
   }, []);
 
   const visualState: EvaState = control.paused ? 'PAUSED' : control.microphone_muted ? 'MUTED' : state;
+  const isSpeaking = visualState === 'SPEAKING';
   const colorByState: Record<EvaState, string> = { ...defaultColors,
     LISTENING: visualSettings.orb_listening_color || defaultColors.LISTENING,
     SPEAKING: visualSettings.orb_speaking_color || defaultColors.SPEAKING,
@@ -49,6 +50,6 @@ export function EvaOrb({ state }: EvaOrbProps) {
     <div className="orb-orbit orbit-a" /><div className="orb-orbit orbit-b" /><div className="orb-orbit orbit-c" /><div className="orb-glow" />
     <div className="orb-sphere"><div className="orb-particles particles-a" /><div className="orb-particles particles-b" /><div className="orb-wire">{Array.from({ length: 9 }, (_, index) => <span className="meridian" key={`m-${index}`} />)}{Array.from({ length: 5 }, (_, index) => <span className="latitude" key={`l-${index}`} />)}</div><span className="orb-wordmark">E.V.A</span></div>
     <div className="orb-beam" /><div className="orb-platform"><i /><i /><i /><i /></div><div className="orb-status"><span className="status-dot" />{stateLabel[visualState]}</div>
-    <div className="orb-waveform" aria-hidden="true">{Array.from({ length: 28 }, (_, index) => <i key={index} style={{ '--bar': `${16 + ((index * 17) % 54)}%` } as CSSProperties} />)}</div>
+    <div className={`orb-waveform ${isSpeaking ? 'is-speaking' : 'is-flat'}`} aria-hidden="true">{Array.from({ length: 28 }, (_, index) => <i key={index} style={{ '--bar': `${16 + ((index * 17) % 54)}%` } as CSSProperties} />)}</div>
   </section>;
 }
