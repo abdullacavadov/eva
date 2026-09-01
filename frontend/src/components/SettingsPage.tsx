@@ -1,142 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-  faArrowLeft, faCheck, faEye, faEyeSlash, faGear, faKey,
-  faMicrophone, faVolumeHigh, faBolt, faUser,
-} from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faCheck, faEye, faEyeSlash, faGear, faGoogle, faMicrophone, faVolumeHigh, faBolt, faUser } from '@fortawesome/free-solid-svg-icons';
 import '../styles/settings.css';
 
 const WS_URL = import.meta.env.VITE_EVA_WS_URL || `ws://${window.location.hostname || '127.0.0.1'}:8765`;
 const VOICES = ['Charon', 'Puck', 'Aoede', 'Kore', 'Fenrir', 'Leda', 'Orus', 'Zephyr'];
 const SECRET_MASK = '••••';
-
-type GoogleAccount = { connected: boolean; email: string | null };
-type Settings = {
-  gemini_api_key: string; youtube_api_key: string; youtube_channel_handle: string;
-  voice: string; sfx_enabled: boolean; sfx_volume: number; proactive_enabled: boolean;
-  language: string; wake_listener_enabled: boolean; auto_start: boolean; google_account: GoogleAccount;
-};
-const defaults: Settings = {
-  gemini_api_key: '', youtube_api_key: '', youtube_channel_handle: '', voice: 'Charon',
-  sfx_enabled: true, sfx_volume: 20, proactive_enabled: true, language: 'az-AZ',
-  wake_listener_enabled: true, auto_start: false, google_account: { connected: false, email: null },
-};
+type GoogleAccount = { connected: boolean; email: string | null; picture?: string | null };
+type Settings = { gemini_api_key: string; youtube_api_key: string; youtube_channel_handle: string; voice: string; sfx_enabled: boolean; sfx_volume: number; proactive_enabled: boolean; language: string; wake_listener_enabled: boolean; auto_start: boolean; google_account: GoogleAccount };
+const defaults: Settings = { gemini_api_key: '', youtube_api_key: '', youtube_channel_handle: '', voice: 'Charon', sfx_enabled: true, sfx_volume: 20, proactive_enabled: true, language: 'az-AZ', wake_listener_enabled: true, auto_start: false, google_account: { connected: false, email: null, picture: null } };
 
 function SettingsPage({ onClose }: { onClose: () => void }) {
   const [settings, setSettings] = useState<Settings>(defaults);
-  const [showGemini, setShowGemini] = useState(false);
-  const [showYoutube, setShowYoutube] = useState(false);
-  const [status, setStatus] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [googleBusy, setGoogleBusy] = useState(false);
-
-  useEffect(() => {
-    const socket = new WebSocket(WS_URL);
-    socket.onopen = () => socket.send(JSON.stringify({ type: 'settings.get' }));
-    socket.onmessage = (message) => {
-      try { const event = JSON.parse(message.data); if (event.type === 'settings.state') setSettings({ ...defaults, ...event.settings }); } catch { /* Ignore malformed bridge messages. */ }
-    };
-    return () => socket.close();
-  }, []);
-
+  const [showGemini, setShowGemini] = useState(false); const [showYoutube, setShowYoutube] = useState(false);
+  const [status, setStatus] = useState(''); const [saving, setSaving] = useState(false); const [googleBusy, setGoogleBusy] = useState(false);
+  useEffect(() => { const socket = new WebSocket(WS_URL); socket.onopen = () => socket.send(JSON.stringify({ type: 'settings.get' })); socket.onmessage = (message) => { try { const event = JSON.parse(message.data); if (event.type === 'settings.state') setSettings({ ...defaults, ...event.settings, google_account: { ...defaults.google_account, ...(event.settings.google_account || {}) } }); } catch { /* Ignore malformed bridge messages. */ } }; return () => socket.close(); }, []);
   const update = <K extends keyof Settings>(key: K, value: Settings[K]) => { setSettings((current) => ({ ...current, [key]: value })); setStatus(''); };
   const clearSecretForEdit = (key: 'gemini_api_key' | 'youtube_api_key') => { if (settings[key].startsWith(SECRET_MASK)) update(key, ''); };
-
-  const googleAction = (type: 'google.connect' | 'google.disconnect') => {
-    setGoogleBusy(true); setStatus(type === 'google.connect' ? 'GOOGLE GİRİŞİ GÖZLƏNİLİR...' : 'GOOGLE HESABI AYRILIR...');
-    const socket = new WebSocket(WS_URL);
-    socket.onopen = () => socket.send(JSON.stringify({ type }));
-    socket.onmessage = (message) => {
-      try {
-        const event = JSON.parse(message.data);
-        if (event.type === 'google.account') {
-          update('google_account', event.account); setStatus(event.account?.connected ? 'GOOGLE HESABI QOŞULDU' : 'GOOGLE HESABI AYRILDI'); setGoogleBusy(false); socket.close();
-        } else if (event.type === 'bridge.error') { setStatus(event.message || 'GOOGLE ƏMƏLİYYATI UĞURSUZ OLDU'); setGoogleBusy(false); socket.close(); }
-      } catch { setStatus('GOOGLE ƏMƏLİYYATI UĞURSUZ OLDU'); setGoogleBusy(false); socket.close(); }
-    };
-    socket.onerror = () => { setStatus('EVA RUNTIME BAĞLANTISI YOXDUR'); setGoogleBusy(false); };
-  };
-
-  const save = () => {
-    setSaving(true); setStatus('YADDA SAXLANIR...');
-    const socket = new WebSocket(WS_URL);
-    socket.onopen = () => socket.send(JSON.stringify({ type: 'settings.update', settings }));
-    socket.onmessage = (message) => {
-      try {
-        const event = JSON.parse(message.data);
-        if (event.type === 'settings.saved') { setSettings((current) => ({ ...current, ...event.settings })); setStatus('PARAMETRLƏR YADDA SAXLANILDI'); setSaving(false); socket.close(); }
-        if (event.type === 'bridge.error') { setStatus(event.message || 'SAXLAMA XƏTASI'); setSaving(false); socket.close(); }
-      } catch { setStatus('SAXLAMA XƏTASI'); setSaving(false); socket.close(); }
-    };
-    socket.onerror = () => { setStatus('EVA RUNTIME BAĞLANTISI YOXDUR'); setSaving(false); };
-  };
-
+  const googleAction = (type: 'google.connect' | 'google.disconnect') => { setGoogleBusy(true); setStatus(type === 'google.connect' ? 'GOOGLE GİRİŞİ GÖZLƏNİLİR...' : 'GOOGLE HESABI AYRILIR...'); const socket = new WebSocket(WS_URL); socket.onopen = () => socket.send(JSON.stringify({ type })); socket.onmessage = (message) => { try { const event = JSON.parse(message.data); if (event.type === 'google.account') { update('google_account', event.account); setStatus(event.account?.connected ? 'GOOGLE HESABI QOŞULDU' : 'GOOGLE HESABI AYRILDI'); setGoogleBusy(false); socket.close(); } else if (event.type === 'bridge.error') { setStatus(event.message || 'GOOGLE ƏMƏLİYYATI UĞURSUZ OLDU'); setGoogleBusy(false); socket.close(); } } catch { setStatus('GOOGLE ƏMƏLİYYATI UĞURSUZ OLDU'); setGoogleBusy(false); socket.close(); } }; socket.onerror = () => { setStatus('EVA RUNTIME BAĞLANTISI YOXDUR'); setGoogleBusy(false); }; };
+  const save = () => { setSaving(true); setStatus('YADDA SAXLANIR...'); const socket = new WebSocket(WS_URL); socket.onopen = () => socket.send(JSON.stringify({ type: 'settings.update', settings })); socket.onmessage = (message) => { try { const event = JSON.parse(message.data); if (event.type === 'settings.saved') { setSettings((current) => ({ ...current, ...event.settings })); setStatus('PARAMETRLƏR YADDA SAXLANILDI'); setSaving(false); socket.close(); } if (event.type === 'bridge.error') { setStatus(event.message || 'SAXLAMA XƏTASI'); setSaving(false); socket.close(); } } catch { setStatus('SAXLAMA XƏTASI'); setSaving(false); socket.close(); } }; socket.onerror = () => { setStatus('EVA RUNTIME BAĞLANTISI YOXDUR'); setSaving(false); }; };
   const sfxLabel = useMemo(() => `${settings.sfx_volume}%`, [settings.sfx_volume]);
-
-  return (
-    <div className="settings-screen">
-      <div className="settings-grid-bg" />
-      <header className="settings-header">
-        <button className="settings-back" onClick={onClose} aria-label="Geri"><FontAwesomeIcon icon={faArrowLeft} /></button>
-        <div><span className="settings-eyebrow">E.V.A / CONFIGURATION</span><h1>PARAMETRLƏR</h1><p>EVA-nın davranışını, səsini və inteqrasiyalarını idarə et.</p></div>
-        <div className="settings-header-icon"><FontAwesomeIcon icon={faGear} /></div>
-      </header>
-
-      <main className="settings-content">
-        <section className="settings-section">
-          <div className="settings-section-title"><FontAwesomeIcon icon={faKey} /><span>API AÇARLARI</span><small>SECURE</small></div>
-          <div className="settings-form-grid">
-            <label className="settings-field"><span>Gemini API Key</span><div className="secret-input"><input type={showGemini ? 'text' : 'password'} value={settings.gemini_api_key} placeholder="Dəyişmək üçün yeni açar daxil et" onFocus={() => clearSecretForEdit('gemini_api_key')} onChange={(e) => update('gemini_api_key', e.target.value)} /><button type="button" onClick={() => setShowGemini((value) => !value)}><FontAwesomeIcon icon={showGemini ? faEyeSlash : faEye} /></button></div><small>Boş saxlanılarsa mövcud açar dəyişdirilmir.</small></label>
-            <label className="settings-field"><span>YouTube API Key</span><div className="secret-input"><input type={showYoutube ? 'text' : 'password'} value={settings.youtube_api_key} placeholder="Dəyişmək üçün yeni açar daxil et" onFocus={() => clearSecretForEdit('youtube_api_key')} onChange={(e) => update('youtube_api_key', e.target.value)} /><button type="button" onClick={() => setShowYoutube((value) => !value)}><FontAwesomeIcon icon={showYoutube ? faEyeSlash : faEye} /></button></div><small>API açarı brauzerə tam formada qaytarılmır.</small></label>
-            <label className="settings-field"><span>YouTube Channel Handle</span><input value={settings.youtube_channel_handle} placeholder="@kanal" onChange={(e) => update('youtube_channel_handle', e.target.value)} /></label>
-          </div>
-        </section>
-
-        <section className="settings-section">
-          <div className="settings-section-title"><FontAwesomeIcon icon={faKey} /><span>GOOGLE HESABI</span><small>OAUTH 2.0</small></div>
-          <div className="settings-control-row google-account-row">
-            <div><strong>{settings.google_account.connected ? (settings.google_account.email || 'Google hesabı qoşulub') : 'Google hesabı qoşulmayıb'}</strong><small>{settings.google_account.connected ? 'Gmail · Calendar · Contacts · Tasks aktivdir' : 'EVA inteqrasiyalarını aktivləşdirmək üçün hesabını bir dəfə qoş.'}</small></div>
-            {settings.google_account.connected ? <button className="settings-action secondary" disabled={googleBusy} onClick={() => googleAction('google.disconnect')}>{googleBusy ? 'GÖZLƏ...' : 'HESABDAN ÇIX'}</button> : <button className="settings-action" disabled={googleBusy} onClick={() => googleAction('google.connect')}>{googleBusy ? 'GOOGLE AÇILIR...' : 'GOOGLE HESABINI QOŞ'}</button>}
-          </div>
-        </section>
-
-        <section className="settings-section">
-          <div className="settings-section-title"><FontAwesomeIcon icon={faMicrophone} /><span>SƏS</span><small>LIVE AUDIO</small></div>
-          <div className="settings-form-grid">
-            <label className="settings-field"><span>EVA səsi</span><select value={settings.voice} onChange={(e) => update('voice', e.target.value)}>{VOICES.map((voice) => <option key={voice} value={voice}>{voice}</option>)}</select><small>Səs seçimi növbəti Live session-da tətbiq olunur.</small></label>
-            <label className="settings-field"><span>Dil</span><select value={settings.language} onChange={(e) => update('language', e.target.value)}><option value="az-AZ">Azərbaycan dili</option><option value="en-US">English</option><option value="tr-TR">Türkçe</option></select></label>
-          </div>
-        </section>
-
-        <section className="settings-section">
-          <div className="settings-section-title"><FontAwesomeIcon icon={faVolumeHigh} /><span>SFX</span><small>AUDIO FEEDBACK</small></div>
-          <div className="settings-control-row"><div><strong>SFX səsləri</strong><small>HUD, startup, thinking, success və error səsləri</small></div><button className={`toggle ${settings.sfx_enabled ? 'on' : ''}`} onClick={() => update('sfx_enabled', !settings.sfx_enabled)}><span /></button></div>
-          <label className="settings-range"><div><span>SFX səs səviyyəsi</span><strong>{sfxLabel}</strong></div><input type="range" min="0" max="100" value={settings.sfx_volume} disabled={!settings.sfx_enabled} onChange={(e) => update('sfx_volume', Number(e.target.value))} /></label>
-        </section>
-
-        <section className="settings-section">
-          <div className="settings-section-title"><FontAwesomeIcon icon={faBolt} /><span>EVA DAVRANIŞI</span><small>RUNTIME</small></div>
-          <div className="settings-toggle-grid">
-            <label className="settings-control-row compact"><div><strong>Proaktiv bildirişlər</strong><small>EVA özü bildiriş yarada bilər</small></div><button className={`toggle ${settings.proactive_enabled ? 'on' : ''}`} onClick={() => update('proactive_enabled', !settings.proactive_enabled)}><span /></button></label>
-            <label className="settings-control-row compact"><div><strong>Wake listener</strong><small>Wake gesture/listener aktiv olsun</small></div><button className={`toggle ${settings.wake_listener_enabled ? 'on' : ''}`} onClick={() => update('wake_listener_enabled', !settings.wake_listener_enabled)}><span /></button></label>
-            <label className="settings-control-row compact"><div><strong>Avtomatik başlatma</strong><small>Sistem açılışında EVA-nı işə sal</small></div><button className={`toggle ${settings.auto_start ? 'on' : ''}`} onClick={() => update('auto_start', !settings.auto_start)}><span /></button></label>
-          </div>
-        </section>
-
-        <section className="settings-section"><div className="settings-section-title"><FontAwesomeIcon icon={faUser} /><span>ŞƏXSİLƏŞDİRMƏ</span><small>PROFILE</small></div><div className="settings-info">Bu bölmə genişləndiriləcək: istifadəçi adı, cavab üslubu, proaktivlik həddi, orb davranışı və digər UI parametrləri burada mərkəzləşdiriləcək.</div></section>
-      </main>
-
-      <footer className="settings-footer"><span className={status.includes('YADDA') || status.includes('QOŞULDU') ? 'success' : ''}>{status || 'Dəyişikliklər hazırdır'}</span><button className="save-settings" disabled={saving} onClick={save}><FontAwesomeIcon icon={saving ? faGear : faCheck} /> {saving ? 'YADDA SAXLANILIR' : 'YADDA SAXLA'}</button></footer>
-    </div>
-  );
+  return <div className="settings-screen"><div className="settings-grid-bg" /><header className="settings-header"><button className="settings-back" onClick={onClose} aria-label="Geri"><FontAwesomeIcon icon={faArrowLeft} /></button><div><span className="settings-eyebrow">E.V.A / CONFIGURATION</span><h1>PARAMETRLƏR</h1><p>EVA-nın davranışını, səsini və inteqrasiyalarını idarə et.</p></div><div className="settings-header-icon"><FontAwesomeIcon icon={faGear} /></div></header><main className="settings-content">
+    <section className="settings-section"><div className="settings-section-title"><FontAwesomeIcon icon={faGoogle} /><span>GOOGLE HESABI</span><small>OAUTH 2.0</small></div><div className="settings-control-row google-account-row"><div className="google-account-info">{settings.google_account.connected && <div className="google-avatar">{settings.google_account.picture ? <img src={settings.google_account.picture} alt="Google profil şəkli" /> : <span>G</span>}</div>}<div><strong>{settings.google_account.connected ? (settings.google_account.email || 'Google hesabı qoşulub') : 'Google hesabı qoşulmayıb'}</strong><small>{settings.google_account.connected ? 'Gmail · Calendar · Contacts · Tasks aktivdir' : 'EVA inteqrasiyalarını aktivləşdirmək üçün hesabını bir dəfə qoş.'}</small></div></div>{settings.google_account.connected ? <button className="settings-action secondary" disabled={googleBusy} onClick={() => googleAction('google.disconnect')}>{googleBusy ? 'GÖZLƏ...' : 'HESABDAN ÇIX'}</button> : <button className="settings-action" disabled={googleBusy} onClick={() => googleAction('google.connect')}>{googleBusy ? 'GOOGLE AÇILIR...' : 'GOOGLE HESABINI QOŞ'}</button>}</div></section>
+    <section className="settings-section"><div className="settings-section-title"><FontAwesomeIcon icon={faKey} /><span>API AÇARLARI</span><small>SECURE</small></div><div className="settings-form-grid"><label className="settings-field"><span>Gemini API Key</span><div className="secret-input"><input type={showGemini ? 'text' : 'password'} value={settings.gemini_api_key} placeholder="Dəyişmək üçün yeni açar daxil et" onFocus={() => clearSecretForEdit('gemini_api_key')} onChange={(e) => update('gemini_api_key', e.target.value)} /><button type="button" onClick={() => setShowGemini((value) => !value)}><FontAwesomeIcon icon={showGemini ? faEyeSlash : faEye} /></button></div><small>Boş saxlanılarsa mövcud açar dəyişdirilmir.</small></label><label className="settings-field"><span>YouTube API Key</span><div className="secret-input"><input type={showYoutube ? 'text' : 'password'} value={settings.youtube_api_key} placeholder="Dəyişmək üçün yeni açar daxil et" onFocus={() => clearSecretForEdit('youtube_api_key')} onChange={(e) => update('youtube_api_key', e.target.value)} /><button type="button" onClick={() => setShowYoutube((value) => !value)}><FontAwesomeIcon icon={showYoutube ? faEyeSlash : faEye} /></button></div><small>API açarı brauzerə tam formada qaytarılmır.</small></label><label className="settings-field"><span>YouTube Channel Handle</span><input value={settings.youtube_channel_handle} placeholder="@kanal" onChange={(e) => update('youtube_channel_handle', e.target.value)} /></label></div></section>
+    <section className="settings-section"><div className="settings-section-title"><FontAwesomeIcon icon={faMicrophone} /><span>SƏS</span><small>LIVE AUDIO</small></div><div className="settings-form-grid"><label className="settings-field"><span>EVA səsi</span><select value={settings.voice} onChange={(e) => update('voice', e.target.value)}>{VOICES.map((voice) => <option key={voice} value={voice}>{voice}</option>)}</select><small>Səs seçimi növbəti Live session-da tətbiq olunur.</small></label><label className="settings-field"><span>Dil</span><select value={settings.language} onChange={(e) => update('language', e.target.value)}><option value="az-AZ">Azərbaycan dili</option><option value="en-US">English</option><option value="tr-TR">Türkçe</option></select></label></div></section>
+    <section className="settings-section"><div className="settings-section-title"><FontAwesomeIcon icon={faVolumeHigh} /><span>SFX</span><small>AUDIO FEEDBACK</small></div><div className="settings-control-row"><div><strong>SFX səsləri</strong><small>HUD, startup, thinking, success və error səsləri</small></div><button className={`toggle ${settings.sfx_enabled ? 'on' : ''}`} onClick={() => update('sfx_enabled', !settings.sfx_enabled)}><span /></button></div><label className="settings-range"><div><span>SFX səs səviyyəsi</span><strong>{sfxLabel}</strong></div><input type="range" min="0" max="100" value={settings.sfx_volume} disabled={!settings.sfx_enabled} onChange={(e) => update('sfx_volume', Number(e.target.value))} /></label></section>
+    <section className="settings-section"><div className="settings-section-title"><FontAwesomeIcon icon={faBolt} /><span>EVA DAVRANIŞI</span><small>RUNTIME</small></div><div className="settings-toggle-grid"><label className="settings-control-row compact"><div><strong>Proaktiv bildirişlər</strong><small>EVA özü bildiriş yarada bilər</small></div><button className={`toggle ${settings.proactive_enabled ? 'on' : ''}`} onClick={() => update('proactive_enabled', !settings.proactive_enabled)}><span /></button></label><label className="settings-control-row compact"><div><strong>Wake listener</strong><small>Wake gesture/listener aktiv olsun</small></div><button className={`toggle ${settings.wake_listener_enabled ? 'on' : ''}`} onClick={() => update('wake_listener_enabled', !settings.wake_listener_enabled)}><span /></button></label><label className="settings-control-row compact"><div><strong>Avtomatik başlatma</strong><small>Sistem açılışında EVA-nı işə sal</small></div><button className={`toggle ${settings.auto_start ? 'on' : ''}`} onClick={() => update('auto_start', !settings.auto_start)}><span /></button></label></div></section>
+    <section className="settings-section"><div className="settings-section-title"><FontAwesomeIcon icon={faUser} /><span>ŞƏXSİLƏŞDİRMƏ</span><small>PROFILE</small></div><div className="settings-info">Bu bölmə genişləndiriləcək: istifadəçi adı, cavab üslubu, proaktivlik həddi, orb davranışı və digər UI parametrləri burada mərkəzləşdiriləcək.</div></section>
+  </main><footer className="settings-footer"><span className={status.includes('YADDA') || status.includes('QOŞULDU') ? 'success' : ''}>{status || 'Dəyişikliklər hazırdır'}</span><button className="save-settings" disabled={saving} onClick={save}><FontAwesomeIcon icon={saving ? faGear : faCheck} /> {saving ? 'YADDA SAXLANILIR' : 'YADDA SAXLA'}</button></footer></div>;
 }
-
-export function SettingsHost() {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    const handleClick = (event: MouseEvent) => { const target = event.target as HTMLElement | null; if (target?.closest('.settings')) { event.preventDefault(); setOpen(true); } };
-    document.addEventListener('click', handleClick); return () => document.removeEventListener('click', handleClick);
-  }, []);
-  if (!open) return null;
-  return <SettingsPage onClose={() => setOpen(false)} />;
-}
+export function SettingsHost() { const [open, setOpen] = useState(false); useEffect(() => { const handleClick = (event: MouseEvent) => { const target = event.target as HTMLElement | null; if (target?.closest('.settings')) { event.preventDefault(); setOpen(true); } }; document.addEventListener('click', handleClick); return () => document.removeEventListener('click', handleClick); }, []); if (!open) return null; return <SettingsPage onClose={() => setOpen(false)} />; }
