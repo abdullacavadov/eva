@@ -32,6 +32,9 @@
 .settings-action.secondary { color: #9ab0b9; background: rgba(69,217,255,.035); }
 .settings-action:disabled { opacity: .55; cursor: wait; }
 .google-account-row { min-height: 74px; }
+.google-account-info { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.google-avatar { width: 42px; height: 42px; flex: 0 0 42px; overflow: hidden; border: 1px solid rgba(69,217,255,.25); border-radius: 50%; display: grid; place-items: center; background: rgba(69,217,255,.08); color: var(--cyan); font-size: 18px; font-weight: 500; box-shadow: 0 0 18px rgba(69,217,255,.08); }
+.google-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .toggle { width: 42px; height: 22px; flex: 0 0 auto; padding: 2px; border: 1px solid rgba(64,191,232,.22); border-radius: 99px; background: #07131b; cursor: pointer; }
 .toggle span { display: block; width: 16px; height: 16px; border-radius: 50%; background: #506872; transition: .18s ease; }
 .toggle.on { border-color: rgba(69,217,255,.45); background: rgba(69,217,255,.12); }
