@@ -1,16 +1,57 @@
-.settings-section-title svg { margin-right: 9px; }
-.settings-field textarea { width: 100%; resize: vertical; min-height: 92px; box-sizing: border-box; }
-.settings-form-grid .settings-control-row.compact { min-width: 0; }
-.sfx-mini-range { width: 120px; accent-color: var(--cyan); }
-.settings-toggle-grid { gap: 10px; }
-.settings-control-row.compact { min-height: 54px; }
-.settings-range { margin-top: 14px; }
-.orb-no-glow .orb-glow { opacity: 0 !important; }
-.orb-no-glow .orb-sphere { box-shadow: inset 0 0 40px rgba(var(--orb-rgb), 0.12) !important; }
-.orb-no-pulse .orb-sphere { animation: none !important; }
-.orb-no-particles-animation .orb-particles { animation: none !important; }
-.orb-no-particles-animation .orb-wire { animation: none !important; }
-.orb-no-audio-reactive .orb-waveform { opacity: 0.35; }
-.eva-core .orb-particles { opacity: calc(0.35 + (var(--orb-density) * 0.65)); animation-duration: calc(18s / var(--orb-speed)); }
-.eva-core .orb-wire { animation-duration: calc(20s / var(--orb-speed)); }
-.eva-core .orb-sphere { box-shadow: inset 0 0 40px rgba(var(--orb-rgb), calc(0.35 * var(--orb-glow))), inset 8px -8px 30px rgba(0,0,0,0.6), 0 0 2px 1px rgba(var(--orb-rgb), calc(0.9 * var(--orb-glow))), 0 0 25px rgba(var(--orb-rgb), calc(0.5 * var(--orb-glow))); }
+.settings-section-title svg {
+  margin-right: 9px;
+}
+.settings-field textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 92px;
+  box-sizing: border-box;
+}
+.settings-form-grid .settings-control-row.compact {
+  min-width: 0;
+}
+.sfx-mini-range {
+  width: 120px;
+  accent-color: var(--cyan);
+}
+.settings-toggle-grid {
+  gap: 10px;
+}
+.settings-control-row.compact {
+  min-height: 54px;
+}
+.settings-range {
+  margin-top: 14px;
+}
+.orb-no-glow .orb-glow {
+  opacity: 0 !important;
+}
+.orb-no-glow .orb-sphere {
+  box-shadow: inset 0 0 40px rgba(var(--orb-rgb), 0.12) !important;
+}
+.orb-no-pulse .orb-sphere {
+  animation: none !important;
+}
+.orb-no-particles-animation .orb-particles {
+  animation: none !important;
+}
+.orb-no-particles-animation .orb-wire {
+  animation: none !important;
+}
+.orb-no-audio-reactive .orb-waveform {
+  opacity: 0.35;
+}
+.eva-core .orb-particles {
+  opacity: calc(0.35 + (var(--orb-density) * 0.65));
+  animation-duration: calc(18s / var(--orb-speed));
+}
+.eva-core .orb-wire {
+  animation-duration: calc(20s / var(--orb-speed));
+}
+.eva-core .orb-sphere {
+  box-shadow:
+    inset 0 0 40px rgba(var(--orb-rgb), calc(0.35 * var(--orb-glow))),
+    inset 8px -8px 30px rgba(0, 0, 0, 0.6),
+    0 0 2px 1px rgba(var(--orb-rgb), calc(0.9 * var(--orb-glow))),
+    0 0 25px rgba(var(--orb-rgb), calc(0.5 * var(--orb-glow)));
+}

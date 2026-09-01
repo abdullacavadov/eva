@@ -17,11 +17,12 @@ interface ControlPanelProps {
 }
 
 const controls = [
-  { command: 'restart' as const, label: 'YENİDƏN BAŞLAT', icon: faRotate, tone: 'restart' },
-  { command: 'shutdown' as const, label: 'SÖNDÜR', icon: faPowerOff, tone: 'danger' },
-  { command: 'pause' as const, label: 'FASİLƏ', icon: faPause, tone: 'warning' },
   { command: 'camera' as const, label: 'KAMERA', icon: faCamera, tone: 'camera' },
   { command: 'microphone' as const, label: 'MİKRAFON', icon: faMicrophone, tone: 'microphone' },
+  { command: 'pause' as const, label: 'FASİLƏ', icon: faPause, tone: 'warning' },
+  { command: 'restart' as const, label: 'YENİDƏN BAŞLAT', icon: faRotate, tone: 'restart' },
+  { command: 'shutdown' as const, label: 'SÖNDÜR', icon: faPowerOff, tone: 'danger' },
+
 ]
 
 export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted, cameraPreview = null, disabled = false }: ControlPanelProps) {
