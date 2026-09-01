@@ -1,8 +1,11 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { EvaControlState, EvaState } from '../types/eva';
 import '../styles/settings-extended.css';
 
 const WS_URL = import.meta.env.VITE_EVA_WS_URL || `ws://${window.location.hostname || '127.0.0.1'}:8765`;
+const WAVEFORM_BARS = 28;
+const WAVEFORM_MAX_HEIGHT = 34;
+const WAVEFORM_RECONNECT_MS = 1000;
 const stateLabel: Record<EvaState, string> = {
   IDLE: 'HAZIRDIR', LISTENING: 'DİNLƏYİR', SPEAKING: 'DANIŞIR', THINKING: 'DÜŞÜNÜR', EXECUTING: 'İCRA EDİR',
   WAITING_CONFIRMATION: 'TƏSDİQ TƏLƏB OLUNUR', SUCCESS: 'TAMAMLANDI', MUTED: 'SƏS SÖNDÜRÜLÜB', PAUSED: 'DAYANDIRILIB', ERROR: 'SİSTEM XƏTASI', INITIALISING: 'BAŞLADILIR',
@@ -16,31 +19,80 @@ type OrbSettings = {
   particle_density?: number; particle_speed?: number; glow_intensity?: number; particle_animation_enabled?: boolean;
   glow_enabled?: boolean; pulse_enabled?: boolean; audio_reactive_enabled?: boolean;
 };
-interface EvaOrbProps { state: EvaState; }
+interface OrbProps { state: EvaState; }
 
-export function EvaOrb({ state }: EvaOrbProps) {
+export function EvaOrb({ state }: OrbProps) {
   const [control, setControl] = useState<EvaControlState>({});
   const [visualSettings, setVisualSettings] = useState<OrbSettings>({});
-  const [waveformLevels, setWaveformLevels] = useState<number[]>(Array(28).fill(0));
+  const [waveformLevels, setWaveformLevels] = useState<number[]>(Array(WAVEFORM_BARS).fill(0));
+  const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    const handleControlState = (event: Event) => { const detail = (event as CustomEvent<EvaControlState>).detail; if (detail && typeof detail === 'object') setControl(detail); };
-    const handleSettings = (event: Event) => { const detail = (event as CustomEvent<OrbSettings>).detail; if (detail && typeof detail === 'object') setVisualSettings(detail); };
+    mountedRef.current = true;
+    const handleControlState = (event: Event) => {
+      const detail = (event as CustomEvent<EvaControlState>).detail;
+      if (detail && typeof detail === 'object') setControl(detail);
+    };
+    const handleSettings = (event: Event) => {
+      const detail = (event as CustomEvent<OrbSettings>).detail;
+      if (detail && typeof detail === 'object') setVisualSettings(detail);
+    };
+
     window.addEventListener('eva:control-state', handleControlState);
     window.addEventListener('eva:settings', handleSettings);
-    const socket = new WebSocket(WS_URL);
-    socket.onopen = () => socket.send(JSON.stringify({ type: 'settings.get' }));
-    socket.onmessage = event => {
-      try {
-        const message = JSON.parse(event.data);
-        if (message.type === 'settings.state') setVisualSettings(message.settings || {});
-        if (message.type === 'audio.level') {
-          const level = Math.max(0, Math.min(1, Number(message.level) || 0));
-          setWaveformLevels(prev => [...prev.slice(-27), level]);
+
+    const connect = () => {
+      if (!mountedRef.current) return;
+      if (socketRef.current && socketRef.current.readyState <= WebSocket.OPEN) return;
+
+      const socket = new WebSocket(WS_URL);
+      socketRef.current = socket;
+
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ type: 'settings.get' }));
+      };
+
+      socket.onmessage = event => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'settings.state') {
+            setVisualSettings(message.settings || {});
+            return;
+          }
+          if (message.type === 'audio.level') {
+            const level = Math.max(0, Math.min(1, Number(message.level) || 0));
+            setWaveformLevels(prev => [...prev.slice(-(WAVEFORM_BARS - 1)), level]);
+          }
+        } catch {
+          // Yanlış WebSocket mesajlarını UI-ı pozmadan keç.
         }
-      } catch { /* Ignore malformed settings/audio messages. */ }
+      };
+
+      socket.onclose = () => {
+        if (socketRef.current === socket) socketRef.current = null;
+        if (mountedRef.current) {
+          reconnectTimerRef.current = window.setTimeout(connect, WAVEFORM_RECONNECT_MS);
+        }
+      };
+
+      socket.onerror = () => {
+        socket.close();
+      };
     };
-    return () => { window.removeEventListener('eva:control-state', handleControlState); window.removeEventListener('eva:settings', handleSettings); socket.close(); };
+
+    connect();
+
+    return () => {
+      mountedRef.current = false;
+      window.removeEventListener('eva:control-state', handleControlState);
+      window.removeEventListener('eva:settings', handleSettings);
+      if (reconnectTimerRef.current !== null) window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+      socketRef.current?.close();
+      socketRef.current = null;
+    };
   }, []);
 
   const visualState: EvaState = control.paused ? 'PAUSED' : control.microphone_muted ? 'MUTED' : state;
@@ -57,10 +109,7 @@ export function EvaOrb({ state }: EvaOrbProps) {
   const glow = Math.max(0, Math.min(100, Number(visualSettings.glow_intensity ?? 100))) / 100;
   const orbStyle = { '--orb-rgb': colorByState[visualState], '--orb-density': `${density / 100}`, '--orb-speed': `${speed}`, '--orb-glow': `${glow}` } as CSSProperties;
   const waveformVisible = isSpeaking && audioReactive;
-  const waveformStyle: CSSProperties = {
-    opacity: waveformVisible ? 0.8 : 0.8,
-    animation: 'none',
-  };
+  const waveformStyle: CSSProperties = { opacity: 0.8, animation: 'none' };
 
   return <section className={`eva-core state-${visualState.toLowerCase()} ${visualSettings.particle_animation_enabled === false ? 'orb-no-particles-animation' : ''} ${visualSettings.glow_enabled === false ? 'orb-no-glow' : ''} ${visualSettings.pulse_enabled === false ? 'orb-no-pulse' : ''} ${visualSettings.audio_reactive_enabled === false ? 'orb-no-audio-reactive' : ''}`} style={orbStyle} aria-label={`EVA ${stateLabel[visualState]}`}>
     <div className="orb-orbit orbit-a" /><div className="orb-orbit orbit-b" /><div className="orb-orbit orbit-c" /><div className="orb-glow" />
@@ -69,7 +118,9 @@ export function EvaOrb({ state }: EvaOrbProps) {
     <div className={`orb-waveform ${waveformVisible ? 'is-speaking' : 'is-flat'}`} style={waveformStyle} aria-hidden="true">
       {waveformLevels.map((level, index) => {
         const visibleLevel = waveformVisible ? level : 0;
-        const height = `${Math.max(2, Math.round(visibleLevel * 30))}px`;
+        // Aşağı səviyyəli danışıq səslərini də görünən etmək üçün yumşaq gamma tətbiq edilir.
+        const normalized = Math.pow(Math.max(0, Math.min(1, visibleLevel)), 0.55);
+        const height = `${Math.max(2, Math.round(normalized * WAVEFORM_MAX_HEIGHT))}px`;
         return <i key={index} style={{ '--bar': height, height, minHeight: height, animation: 'none', transform: 'none' } as CSSProperties} />;
       })}
     </div>
