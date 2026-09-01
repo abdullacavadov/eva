@@ -146,25 +146,27 @@
   box-shadow: 0 0 10px var(--red);
 }
 
-/* Waveform yalnız EVA real olaraq danışarkən hərəkət edir. */
+/* Waveform yalnız real EVA audio səviyyəsi gəldikdə dəyişir. */
 .eva-core .orb-waveform.is-flat {
   opacity: 0.8;
   animation: none !important;
 }
 
 .eva-core .orb-waveform.is-flat i {
-  height: 2px;
-  min-height: 2px;
+  height: 2px !important;
+  min-height: 2px !important;
   animation: none !important;
   transform: none !important;
 }
 
 .eva-core .orb-waveform.is-speaking {
   opacity: 0.8;
+  animation: none !important;
 }
 
 .eva-core .orb-waveform.is-speaking i {
-  animation: wave 1s ease-in-out infinite alternate;
+  animation: none !important;
+  transform: none !important;
 }
 
 .eva-core.state-muted .orb-waveform,
