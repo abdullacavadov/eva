@@ -45,11 +45,21 @@ export function EvaOrb({ state }: EvaOrbProps) {
   const speed = Math.max(0.25, Number(visualSettings.particle_speed ?? 100) / 100);
   const glow = Math.max(0, Math.min(100, Number(visualSettings.glow_intensity ?? 100))) / 100;
   const orbStyle = { '--orb-rgb': colorByState[visualState], '--orb-density': `${density / 100}`, '--orb-speed': `${speed}`, '--orb-glow': `${glow}` } as CSSProperties;
+  const waveformStyle: CSSProperties = {
+    opacity: 0.8,
+    animation: 'none',
+  };
+  const waveformBarStyle: CSSProperties = {
+    height: isSpeaking ? undefined : '2px',
+    minHeight: isSpeaking ? undefined : '2px',
+    animation: isSpeaking ? 'wave 1s ease-in-out infinite alternate' : 'none',
+    transform: isSpeaking ? undefined : 'none',
+  };
 
   return <section className={`eva-core state-${visualState.toLowerCase()} ${visualSettings.particle_animation_enabled === false ? 'orb-no-particles-animation' : ''} ${visualSettings.glow_enabled === false ? 'orb-no-glow' : ''} ${visualSettings.pulse_enabled === false ? 'orb-no-pulse' : ''} ${visualSettings.audio_reactive_enabled === false ? 'orb-no-audio-reactive' : ''}`} style={orbStyle} aria-label={`EVA ${stateLabel[visualState]}`}>
     <div className="orb-orbit orbit-a" /><div className="orb-orbit orbit-b" /><div className="orb-orbit orbit-c" /><div className="orb-glow" />
     <div className="orb-sphere"><div className="orb-particles particles-a" /><div className="orb-particles particles-b" /><div className="orb-wire">{Array.from({ length: 9 }, (_, index) => <span className="meridian" key={`m-${index}`} />)}{Array.from({ length: 5 }, (_, index) => <span className="latitude" key={`l-${index}`} />)}</div><span className="orb-wordmark">E.V.A</span></div>
     <div className="orb-beam" /><div className="orb-platform"><i /><i /><i /><i /></div><div className="orb-status"><span className="status-dot" />{stateLabel[visualState]}</div>
-    <div className={`orb-waveform ${isSpeaking ? 'is-speaking' : 'is-flat'}`} aria-hidden="true">{Array.from({ length: 28 }, (_, index) => <i key={index} style={{ '--bar': `${16 + ((index * 17) % 54)}%` } as CSSProperties} />)}</div>
+    <div className={`orb-waveform ${isSpeaking ? 'is-speaking' : 'is-flat'}`} style={waveformStyle} aria-hidden="true">{Array.from({ length: 28 }, (_, index) => <i key={index} style={{ '--bar': `${16 + ((index * 17) % 54)}%`, ...waveformBarStyle } as CSSProperties} />)}</div>
   </section>;
 }
