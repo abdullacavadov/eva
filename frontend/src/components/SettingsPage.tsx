@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faCheck, faEye, faEyeSlash, faGear, faMicrophone, faVolumeHigh, faBolt, faUser } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faCheck, faEye, faEyeSlash, faGear, faKey, faMicrophone, faVolumeHigh, faBolt, faUser } from '@fortawesome/free-solid-svg-icons';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import '../styles/settings.css';
 
