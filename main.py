@@ -242,7 +242,7 @@ class JarvisLive:
             parts.append(mem_str + "\n\n")
         parts.append(sys_p)
         if not self._greeting_sent:
-            parts.append('\n\nİlk dəfə bu EVA runtime prosesi başladıqda istifadəçini "Salam, Ser!" ifadəsi ilə qarşıla; sonrakı Live reconnect sessiyalarında avtomatik salamlaşma etmə.')
+            parts.append('\n\nİlk dəfə bu EVA runtime prosesi başladıqda istifadəçini "Salam, ser!" ifadəsi ilə qarşıla; sonrakı Live reconnect sessiyalarında avtomatik salamlaşma etmə.')
         return types.LiveConnectConfig(
             response_modalities=["AUDIO"],
             output_audio_transcription={},
