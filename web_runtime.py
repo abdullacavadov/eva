@@ -4,6 +4,7 @@
 import json
 import os
 import subprocess
+import sys
 import threading
 import time
 import tkinter as tk
@@ -45,6 +46,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         except Exception as exc:
             payload = json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False).encode("utf-8")
             self.send_response(400)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
@@ -152,6 +154,18 @@ def main():
         ui.root.after(0, ui.root.withdraw)
         jarvis = JarvisLive(ui)
 
+        def cleanup_frontend_and_api() -> None:
+            if frontend_process is not None and frontend_process.poll() is None:
+                try:
+                    frontend_process.terminate()
+                except Exception:
+                    pass
+            try:
+                dashboard_server.shutdown()
+                dashboard_server.server_close()
+            except Exception:
+                pass
+
         def handle_control(command: str) -> dict:
             command = str(command or "").strip().lower()
             if command == "pause":
@@ -175,11 +189,23 @@ def main():
                 muted = bool(ui.muted)
                 ui.write_log(f"SYS: Mikrofon {'səssizdir' if muted else 'aktivdir'}.")
                 return {"microphone_muted": muted}
+            if command == "restart":
+                ui.write_log("SYS: EVA yenidən başladılır...")
+                jarvis._webcam_streamer.stop()
+                jarvis._stop_music()
+                cleanup_frontend_and_api()
+                os.execv(sys.executable, [sys.executable, *sys.argv])
+                return {}
             if command == "shutdown":
                 ui.write_log("SYS: EVA bağlanır...")
                 jarvis._webcam_streamer.stop()
                 jarvis._stop_music()
-                ui.root.after(0, ui.root.destroy)
+                cleanup_frontend_and_api()
+                try:
+                    ui.root.after(0, ui.root.destroy)
+                except Exception:
+                    pass
+                threading.Thread(target=lambda: (time.sleep(0.15), os._exit(0)), daemon=True).start()
                 return {"paused": True, "camera_active": False, "microphone_muted": True}
             raise ValueError("Naməlum idarəetmə əmri.")
 
