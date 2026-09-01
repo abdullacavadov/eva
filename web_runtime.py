@@ -47,7 +47,6 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             payload = json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False).encode("utf-8")
             self.send_response(400)
             self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
             self.wfile.write(payload)
@@ -157,7 +156,15 @@ def main():
         def cleanup_frontend_and_api() -> None:
             if frontend_process is not None and frontend_process.poll() is None:
                 try:
-                    frontend_process.terminate()
+                    if os.name == "nt":
+                        subprocess.run(
+                            ["taskkill", "/PID", str(frontend_process.pid), "/T", "/F"],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            check=False,
+                        )
+                    else:
+                        frontend_process.terminate()
                 except Exception:
                     pass
             try:
