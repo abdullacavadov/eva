@@ -19,7 +19,6 @@ import {
   faClock,
   faCalendarDay,
 } from '@fortawesome/free-solid-svg-icons';
-import { ActivityFeed } from './components/ActivityFeed';
 import { ContextPanel } from './components/ContextPanel';
 import {
   ConversationPanel,
@@ -33,8 +32,7 @@ import type { DashboardData } from './types/dashboard';
 import type { ActivityItem, EvaContext, EvaEvent, EvaState } from './types/eva';
 import './styles/globals.css';
 import './styles/responsive.css';
-import { height } from '@fortawesome/free-solid-svg-icons/fa0';
-import AzCalendar from './components/calendar';
+import AzCalendar from './components/Calendar';
 
 
 
