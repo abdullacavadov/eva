@@ -3,6 +3,7 @@ from __future__ import annotations
 import requests
 from core.location_runtime import get_current_location
 
+
 def _resolve_location(target: str | None) -> tuple[float, float, str]:
     if target and str(target).strip():
         name = str(target).strip()
@@ -24,6 +25,7 @@ def _resolve_location(target: str | None) -> tuple[float, float, str]:
     except Exception:
         return 40.4093, 49.8671, "Bakı"
 
+
 def get_weather_summary(location: str | None = None) -> dict:
     try:
         latitude, longitude, city_name = _resolve_location(location)
@@ -41,3 +43,13 @@ def get_weather_summary(location: str | None = None) -> dict:
         return {"success": True, "city": city_name, "temperature": current.get("temperature_2m"), "feels_like": current.get("apparent_temperature"), "humidity": current.get("relative_humidity_2m"), "pressure": current.get("surface_pressure"), "wind_speed": current.get("wind_speed_10m"), "wind_direction": wind_direction, "weather_code": code, "condition": descriptions.get(code, "Hava şəraiti müəyyən edilmədi")}
     except Exception:
         return {"success": False, "city": city_name}
+
+try:
+    import tool_defs
+    for declaration in tool_defs.TOOL_DECLARATIONS:
+        if declaration.get("name") == "get_weather":
+            declaration["description"] = "Cari hava vəziyyətini alır. Məkan göstərilməzsə istifadəçinin cari geolokasiyasını istifadə edir; istifadəçi şəhər və ya rayon adı deyərsə həmin məkanın havasını alır."
+            declaration["parameters"]["properties"]["location"]["description"] = "İstənilən şəhər və ya rayon. Boş saxlanılarsa cari geolokasiya istifadə olunur."
+            break
+except Exception:
+    pass
