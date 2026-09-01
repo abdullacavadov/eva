@@ -16,6 +16,8 @@ import {
   faWifi,
   faVolumeHigh,
   faGear,
+  faClock,
+  faCalendarDay,
 } from '@fortawesome/free-solid-svg-icons';
 import { ActivityFeed } from './components/ActivityFeed';
 import { ContextPanel } from './components/ContextPanel';
@@ -71,13 +73,13 @@ const stateStatusLabel: Record<EvaState, string> = {
 };
 
 const formatClock = (date: Date) =>
-  date.toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' });
+  date.toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).split(':').join(':');
 const formatDate = (date: Date) =>
-  date.toLocaleDateString('az-AZ', {
+  date.toLocaleDateString('eu-EU', {
     day: '2-digit',
-    month: 'short',
+    month: '2-digit',
     year: 'numeric',
-  });
+  }).split('.').join('.');
 const displayValue = (value: number | null | undefined, suffix = '') =>
   value == null ? '—' : `${Math.round(value)}${suffix}`;
 
@@ -330,18 +332,18 @@ export default function App() {
         <header className="topbar">
           <div>
             <span className="eyebrow">E.V.A</span>
-            <h1>Enhanced Virtual Assistant</h1>
+            <h3>Enhanced Virtual Assistant</h3>
           </div>
 
           <div
             className="clock"
             aria-label={`Cari vaxt ${formatClock(now)}, ${formatDate(now)}`}
           >
-            <strong>{formatClock(now)}</strong>
-            <small>{formatDate(now)}</small>
+            <span style={{ marginRight: '10px' }}><FontAwesomeIcon icon={faClock} /> {formatClock(now)}</span>
+            <span><FontAwesomeIcon icon={faCalendarDay} /> {formatDate(now)}</span>
           </div>
 
-          <div className="settings">
+          <div className="settings-block">
             <a className="settings">
               <FontAwesomeIcon icon={faGear} />
             </a>
@@ -401,8 +403,8 @@ export default function App() {
           </div>
           <section className="core-column">
             <div className="core-meta">
-              <span>SÜNİ İNTELLEKT NÜVƏSİ / HOLOQRAFİK İNTERFEYS</span>
-              <span>v6.1</span>
+              <span>HOLOQRAFİK İNTERFEYS</span>
+              <span>v2.1</span>
             </div>
             <EvaOrb state={state} />
 

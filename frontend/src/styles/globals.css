@@ -219,8 +219,11 @@ nav {
   font-size: 16px;
   opacity: 0.85;
 }
-.settings {
-  margin-top: auto;
+.settings-block {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  height: 100%;
 }
 .profile {
   display: flex;
@@ -258,21 +261,19 @@ nav {
   padding: 20px 22px 24px;
 }
 .topbar {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  display: inline-flex;
+  justify-content: space-between;
   align-items: center;
   gap: 34px;
-  height: 74px;
+  height: 60px;
   padding: 0 4px 15px;
   border-bottom: 1px solid var(--line);
 }
 a.settings {
-  display: flex;
-  align-items: center;
   background-color: transparent;
-  color: var(--text);
+  color: var(--cyan);
   border: none;
-  font-size: 45px;
+  font-size: 35px;
   cursor: pointer;
 }
 .eyebrow {
@@ -280,12 +281,12 @@ a.settings {
   font-size: 9px;
   letter-spacing: 0.25em;
   opacity: 0.72;
+  margin-bottom: 6px;
 }
-.topbar h1 {
-  margin: 5px 0 0;
-  font-size: 23px;
+.topbar h3 {
+  font-size: 18px;
   font-weight: 400;
-  letter-spacing: 0.04em;
+  margin-top: 2px;
 }
 .system-status {
   display: grid;
@@ -850,6 +851,7 @@ a.settings {
 
 .context-panel {
   min-height: 250px;
+  height: 100% !important;
 }
 .context-title {
   padding: 0 15px 10px;
@@ -1130,9 +1132,7 @@ a.settings {
   .sidebar {
     display: none;
   }
-  .topbar {
-    grid-template-columns: 1fr auto;
-  }
+
   .system-status {
     display: none;
   }
