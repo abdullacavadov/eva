@@ -115,6 +115,37 @@
   animation-play-state: paused;
 }
 
+.eva-core.state-thinking .orb-sphere {
+  animation: think 1.5s ease-in-out infinite;
+}
+
+.eva-core.state-waiting_confirmation .orb-glow {
+  background: rgba(255, 200, 87, 0.15);
+}
+
+.eva-core.state-waiting_confirmation .status-dot {
+  background: var(--amber);
+  box-shadow: 0 0 10px var(--amber);
+}
+
+.eva-core.state-success .orb-glow {
+  background: rgba(67, 230, 170, 0.16);
+}
+
+.eva-core.state-success .status-dot {
+  background: var(--green);
+  box-shadow: 0 0 10px var(--green);
+}
+
+.eva-core.state-error .orb-glow {
+  background: rgba(255, 89, 106, 0.16);
+}
+
+.eva-core.state-error .status-dot {
+  background: var(--red);
+  box-shadow: 0 0 10px var(--red);
+}
+
 /* Waveform yalnız EVA real olaraq danışarkən hərəkət edir. */
 .eva-core .orb-waveform {
   opacity: 1;
