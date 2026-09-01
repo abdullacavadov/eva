@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft, faCheck, faEye, faEyeSlash, faGear, faKey,
-  faMicrophone, faVolumeHigh, faBolt, faUser, faGoogle,
+  faMicrophone, faVolumeHigh, faBolt, faUser,
 } from '@fortawesome/free-solid-svg-icons';
 import '../styles/settings.css';
 
@@ -34,50 +34,27 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
     const socket = new WebSocket(WS_URL);
     socket.onopen = () => socket.send(JSON.stringify({ type: 'settings.get' }));
     socket.onmessage = (message) => {
-      try {
-        const event = JSON.parse(message.data);
-        if (event.type === 'settings.state') setSettings({ ...defaults, ...event.settings });
-      } catch { /* Ignore malformed bridge messages. */ }
+      try { const event = JSON.parse(message.data); if (event.type === 'settings.state') setSettings({ ...defaults, ...event.settings }); } catch { /* Ignore malformed bridge messages. */ }
     };
     return () => socket.close();
   }, []);
 
-  const update = <K extends keyof Settings>(key: K, value: Settings[K]) => {
-    setSettings((current) => ({ ...current, [key]: value }));
-    setStatus('');
-  };
-  const clearSecretForEdit = (key: 'gemini_api_key' | 'youtube_api_key') => {
-    if (settings[key].startsWith(SECRET_MASK)) update(key, '');
-  };
+  const update = <K extends keyof Settings>(key: K, value: Settings[K]) => { setSettings((current) => ({ ...current, [key]: value })); setStatus(''); };
+  const clearSecretForEdit = (key: 'gemini_api_key' | 'youtube_api_key') => { if (settings[key].startsWith(SECRET_MASK)) update(key, ''); };
 
   const googleAction = (type: 'google.connect' | 'google.disconnect') => {
-    setGoogleBusy(true);
-    setStatus(type === 'google.connect' ? 'GOOGLE GİRİŞİ GÖZLƏNİLİR...' : 'GOOGLE HESABI AYRILIR...');
+    setGoogleBusy(true); setStatus(type === 'google.connect' ? 'GOOGLE GİRİŞİ GÖZLƏNİLİR...' : 'GOOGLE HESABI AYRILIR...');
     const socket = new WebSocket(WS_URL);
     socket.onopen = () => socket.send(JSON.stringify({ type }));
     socket.onmessage = (message) => {
       try {
         const event = JSON.parse(message.data);
         if (event.type === 'google.account') {
-          update('google_account', event.account);
-          setStatus(event.account?.connected ? 'GOOGLE HESABI QOŞULDU' : 'GOOGLE HESABI AYRILDI');
-          setGoogleBusy(false);
-          socket.close();
-        } else if (event.type === 'bridge.error') {
-          setStatus(event.message || 'GOOGLE ƏMƏLİYYATI UĞURSUZ OLDU');
-          setGoogleBusy(false);
-          socket.close();
-        }
-      } catch {
-        setStatus('GOOGLE ƏMƏLİYYATI UĞURSUZ OLDU');
-        setGoogleBusy(false);
-        socket.close();
-      }
+          update('google_account', event.account); setStatus(event.account?.connected ? 'GOOGLE HESABI QOŞULDU' : 'GOOGLE HESABI AYRILDI'); setGoogleBusy(false); socket.close();
+        } else if (event.type === 'bridge.error') { setStatus(event.message || 'GOOGLE ƏMƏLİYYATI UĞURSUZ OLDU'); setGoogleBusy(false); socket.close(); }
+      } catch { setStatus('GOOGLE ƏMƏLİYYATI UĞURSUZ OLDU'); setGoogleBusy(false); socket.close(); }
     };
-    socket.onerror = () => {
-      setStatus('EVA RUNTIME BAĞLANTISI YOXDUR');
-      setGoogleBusy(false);
-    };
+    socket.onerror = () => { setStatus('EVA RUNTIME BAĞLANTISI YOXDUR'); setGoogleBusy(false); };
   };
 
   const save = () => {
@@ -87,9 +64,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
     socket.onmessage = (message) => {
       try {
         const event = JSON.parse(message.data);
-        if (event.type === 'settings.saved') {
-          setSettings((current) => ({ ...current, ...event.settings })); setStatus('PARAMETRLƏR YADDA SAXLANILDI'); setSaving(false); socket.close();
-        }
+        if (event.type === 'settings.saved') { setSettings((current) => ({ ...current, ...event.settings })); setStatus('PARAMETRLƏR YADDA SAXLANILDI'); setSaving(false); socket.close(); }
         if (event.type === 'bridge.error') { setStatus(event.message || 'SAXLAMA XƏTASI'); setSaving(false); socket.close(); }
       } catch { setStatus('SAXLAMA XƏTASI'); setSaving(false); socket.close(); }
     };
@@ -118,7 +93,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
         </section>
 
         <section className="settings-section">
-          <div className="settings-section-title"><FontAwesomeIcon icon={faGoogle} /><span>GOOGLE HESABI</span><small>OAUTH 2.0</small></div>
+          <div className="settings-section-title"><FontAwesomeIcon icon={faKey} /><span>GOOGLE HESABI</span><small>OAUTH 2.0</small></div>
           <div className="settings-control-row google-account-row">
             <div><strong>{settings.google_account.connected ? (settings.google_account.email || 'Google hesabı qoşulub') : 'Google hesabı qoşulmayıb'}</strong><small>{settings.google_account.connected ? 'Gmail · Calendar · Contacts · Tasks aktivdir' : 'EVA inteqrasiyalarını aktivləşdirmək üçün hesabını bir dəfə qoş.'}</small></div>
             {settings.google_account.connected ? <button className="settings-action secondary" disabled={googleBusy} onClick={() => googleAction('google.disconnect')}>{googleBusy ? 'GÖZLƏ...' : 'HESABDAN ÇIX'}</button> : <button className="settings-action" disabled={googleBusy} onClick={() => googleAction('google.connect')}>{googleBusy ? 'GOOGLE AÇILIR...' : 'GOOGLE HESABINI QOŞ'}</button>}
