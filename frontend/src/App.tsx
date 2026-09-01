@@ -5,14 +5,6 @@ import {
   faWind,
   faDroplet,
   faGaugeHigh,
-  faSun,
-  faCloud,
-  faCloudSun,
-  faCloudRain,
-  faCloudShowersHeavy,
-  faSnowflake,
-  faSmog,
-  faCloudBolt,
   faMicrochip,
   faCalendarDays,
   faListCheck,
@@ -40,6 +32,9 @@ import type { ActivityItem, EvaContext, EvaEvent, EvaState } from './types/eva';
 import './styles/globals.css';
 import './styles/responsive.css';
 import { height } from '@fortawesome/free-solid-svg-icons/fa0';
+import AzCalendar from './components/calendar';
+
+
 
 const initialContext: EvaContext = { items: [] };
 const emptyDashboard: DashboardData = {
@@ -328,7 +323,7 @@ export default function App() {
       <div className="ambient ambient-a" />
       <div className="ambient ambient-b" />
       <aside>
-        <ActivityFeed items={activities} />
+        <AzCalendar />
         <ContextPanel context={context} />
       </aside>
       <main className="workspace">
