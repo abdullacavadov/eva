@@ -50,6 +50,9 @@ export async function fetchDashboard(): Promise<DashboardData | null> {
     if (!data || typeof data !== 'object' || !data.overview || !data.system || !data.weather) throw new Error('Dashboard cavabı yanlışdır.')
     const coordinates = await getBrowserCoordinates()
     if (coordinates) {
+      try {
+        await fetch('/api/location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(coordinates) })
+      } catch { /* runtime location is optional for the dashboard */ }
       const localWeather = await getLocalWeather(coordinates.latitude, coordinates.longitude)
       if (localWeather) data.weather = { ...data.weather, ...localWeather }
     }
