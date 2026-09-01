@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from app_config import load_app_config, save_app_config
+from integrations.google.auth import (
+    disconnect_google,
+    get_google_account_email,
+    get_google_credentials,
+    is_google_connected,
+)
 
 
 PUBLIC_KEYS = {
@@ -28,12 +35,28 @@ def _mask_secret(value: Any) -> str:
     return f"{MASK}{text[-4:]}"
 
 
+def _google_account() -> dict[str, Any]:
+    if not is_google_connected():
+        return {"connected": False, "email": None}
+    email = None
+    try:
+        email = get_google_account_email()
+    except Exception:
+        pass
+    return {"connected": True, "email": email}
+
+
 def _public_settings() -> dict[str, Any]:
     config = load_app_config()
     result = {key: config.get(key) for key in PUBLIC_KEYS}
     for key in SECRET_KEYS:
         result[key] = _mask_secret(config.get(key))
+    result["google_account"] = _google_account()
     return result
+
+
+def _send(websocket, event: dict[str, Any]) -> None:
+    websocket.send(json.dumps(event, ensure_ascii=False))
 
 
 def _apply_sound_settings(ui, config: dict[str, Any]) -> None:
@@ -50,12 +73,10 @@ def apply_saved_settings(ui) -> None:
 
 
 def install_settings_bridge(bridge, ui) -> None:
-    """UiBridge-in settings.get/settings.update hadisələrini dəstəkləməsi üçün genişləndirir."""
+    """UiBridge-in settings və Google OAuth hadisələrini dəstəkləməsi üçün genişləndirir."""
     original_handle_message = bridge._handle_message
 
     def handle_message(websocket, raw_message):
-        import json
-
         if isinstance(raw_message, bytes):
             raw_message = raw_message.decode("utf-8", errors="replace")
         try:
@@ -67,19 +88,44 @@ def install_settings_bridge(bridge, ui) -> None:
 
         message_type = str(message.get("type") or "")
         if message_type == "settings.get":
-            websocket.send(json.dumps({
-                "type": "settings.state",
-                "settings": _public_settings(),
-            }, ensure_ascii=False))
+            _send(websocket, {"type": "settings.state", "settings": _public_settings()})
+            return
+
+        if message_type == "google.connect":
+            try:
+                credentials = get_google_credentials()
+                email = get_google_account_email(credentials)
+                _send(websocket, {
+                    "type": "google.account",
+                    "account": {"connected": True, "email": email},
+                })
+                try:
+                    bridge.emit_activity("Google hesabı qoşuldu", "success", email)
+                except Exception:
+                    pass
+            except Exception as exc:
+                _send(websocket, {"type": "bridge.error", "message": f"Google hesabı qoşula bilmədi: {exc}"})
+            return
+
+        if message_type == "google.disconnect":
+            try:
+                disconnect_google()
+                _send(websocket, {
+                    "type": "google.account",
+                    "account": {"connected": False, "email": None},
+                })
+                try:
+                    bridge.emit_activity("Google hesabı ayrıldı", "success")
+                except Exception:
+                    pass
+            except Exception as exc:
+                _send(websocket, {"type": "bridge.error", "message": str(exc)})
             return
 
         if message_type == "settings.update":
             requested = message.get("settings")
             if not isinstance(requested, dict):
-                websocket.send(json.dumps({
-                    "type": "bridge.error",
-                    "message": "Settings obyekti tələb olunur.",
-                }, ensure_ascii=False))
+                _send(websocket, {"type": "bridge.error", "message": "Settings obyekti tələb olunur."})
                 return
 
             updates: dict[str, Any] = {}
@@ -94,10 +140,7 @@ def install_settings_bridge(bridge, ui) -> None:
 
             config = save_app_config(updates)
             _apply_sound_settings(ui, config)
-            websocket.send(json.dumps({
-                "type": "settings.saved",
-                "settings": _public_settings(),
-            }, ensure_ascii=False))
+            _send(websocket, {"type": "settings.saved", "settings": _public_settings()})
             try:
                 bridge.emit_activity("Settings yeniləndi", "success")
             except Exception:
