@@ -15,14 +15,19 @@ from integrations.google.auth import (
 
 
 PUBLIC_KEYS = {
-    "youtube_channel_handle",
-    "voice",
-    "sfx_enabled",
-    "sfx_volume",
-    "proactive_enabled",
-    "language",
-    "wake_listener_enabled",
-    "auto_start",
+    "youtube_channel_handle", "voice", "sfx_enabled", "sfx_volume",
+    "sfx_startup_enabled", "sfx_listening_enabled", "sfx_thinking_enabled",
+    "sfx_success_enabled", "sfx_error_enabled", "sfx_notification_enabled",
+    "sfx_startup_volume", "sfx_listening_volume", "sfx_thinking_volume",
+    "sfx_success_volume", "sfx_error_volume", "sfx_notification_volume",
+    "proactive_enabled", "language", "wake_listener_enabled", "auto_start",
+    "user_name", "address_style", "response_length", "humor_level",
+    "proactivity_level", "voice_tone", "persona_prompt", "voice_volume",
+    "speech_speed", "interrupt_enabled", "auto_duck_music", "fallback_voice",
+    "orb_style", "particle_density", "particle_speed", "glow_intensity",
+    "orb_listening_color", "orb_speaking_color", "orb_thinking_color",
+    "orb_muted_color", "particle_animation_enabled", "glow_enabled",
+    "pulse_enabled", "audio_reactive_enabled",
 }
 SECRET_KEYS = {"gemini_api_key", "youtube_api_key"}
 MASK = "••••"
@@ -95,10 +100,7 @@ def install_settings_bridge(bridge, ui) -> None:
             try:
                 credentials = get_google_credentials()
                 email = get_google_account_email(credentials)
-                _send(websocket, {
-                    "type": "google.account",
-                    "account": {"connected": True, "email": email},
-                })
+                _send(websocket, {"type": "google.account", "account": {"connected": True, "email": email}})
                 try:
                     bridge.emit_activity("Google hesabı qoşuldu", "success", email)
                 except Exception:
@@ -110,10 +112,7 @@ def install_settings_bridge(bridge, ui) -> None:
         if message_type == "google.disconnect":
             try:
                 disconnect_google()
-                _send(websocket, {
-                    "type": "google.account",
-                    "account": {"connected": False, "email": None},
-                })
+                _send(websocket, {"type": "google.account", "account": {"connected": False, "email": None}})
                 try:
                     bridge.emit_activity("Google hesabı ayrıldı", "success")
                 except Exception:
@@ -127,7 +126,6 @@ def install_settings_bridge(bridge, ui) -> None:
             if not isinstance(requested, dict):
                 _send(websocket, {"type": "bridge.error", "message": "Settings obyekti tələb olunur."})
                 return
-
             updates: dict[str, Any] = {}
             for key in PUBLIC_KEYS:
                 if key in requested:
@@ -137,7 +135,6 @@ def install_settings_bridge(bridge, ui) -> None:
                     value = str(requested.get(key) or "").strip()
                     if value and not value.startswith(MASK):
                         updates[key] = value
-
             config = save_app_config(updates)
             _apply_sound_settings(ui, config)
             _send(websocket, {"type": "settings.saved", "settings": _public_settings()})
