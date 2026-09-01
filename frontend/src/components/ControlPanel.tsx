@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faCamera, faMicrophone, faPause, faPlay, faPowerOff, faXmark } from '@fortawesome/free-solid-svg-icons'
+import { faCamera, faMicrophone, faPause, faPlay, faPowerOff, faRotate, faXmark } from '@fortawesome/free-solid-svg-icons'
 import '../styles/control-panel.css'
 
-type ControlCommand = 'shutdown' | 'pause' | 'camera' | 'microphone'
+type ControlCommand = 'shutdown' | 'restart' | 'pause' | 'camera' | 'microphone'
+
+type ConfirmAction = 'restart' | 'shutdown' | null
 
 interface ControlPanelProps {
   onCommand: (command: ControlCommand) => void
@@ -15,6 +17,7 @@ interface ControlPanelProps {
 }
 
 const controls = [
+  { command: 'restart' as const, label: 'YENİDƏN BAŞLAT', icon: faRotate, tone: 'restart' },
   { command: 'shutdown' as const, label: 'SÖNDÜR', icon: faPowerOff, tone: 'danger' },
   { command: 'pause' as const, label: 'FASİLƏ', icon: faPause, tone: 'warning' },
   { command: 'camera' as const, label: 'KAMERA', icon: faCamera, tone: 'camera' },
@@ -24,6 +27,7 @@ const controls = [
 export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted, cameraPreview = null, disabled = false }: ControlPanelProps) {
   const [cameraModalOpen, setCameraModalOpen] = useState(false)
   const [cameraClosing, setCameraClosing] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
   const [preview, setPreview] = useState<string | null>(cameraPreview)
   const closeTimerRef = useRef<number | null>(null)
 
@@ -79,19 +83,39 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
     if (cameraActive) onCommand('camera')
   }
 
+  const requestConfirm = (action: ConfirmAction) => {
+    if (disabled) return
+    setConfirmAction(action)
+  }
+
+  const cancelConfirm = () => setConfirmAction(null)
+
+  const confirmCommand = () => {
+    if (!confirmAction || disabled) return
+    const action = confirmAction
+    setConfirmAction(null)
+    onCommand(action)
+  }
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && cameraModalOpen && !cameraClosing) closeCameraModal()
+      if (event.key !== 'Escape') return
+      if (confirmAction) {
+        cancelConfirm()
+        return
+      }
+      if (cameraModalOpen && !cameraClosing) closeCameraModal()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [cameraModalOpen, cameraClosing, cameraActive])
+  }, [confirmAction, cameraModalOpen, cameraClosing, cameraActive])
 
   const labels: Record<ControlCommand, string> = {
+    restart: 'YENİDƏN BAŞLAT',
     shutdown: 'SHUTDOWN',
     pause: paused ? 'DAVAM' : 'FASILƏ',
     camera: cameraActive ? 'KAMERA (AÇIQ)' : 'KAMERA (BAĞLI)',
-    microphone: microphoneMuted ? 'MİKRAFON (SƏSSİZ)' : 'MİKRAFON (AÇIQ)',
+    microphone: microphoneMuted ? 'MİKROFON (SƏSSİZ)' : 'MİKROFON (AÇIQ)',
   }
 
   return (
@@ -101,15 +125,22 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
         <div className="control-grid">
           {controls.map(({ command, icon, tone }) => {
             const active = (command === 'pause' && paused) || (command === 'camera' && cameraActive) || (command === 'microphone' && !microphoneMuted)
+            const requiresConfirm = command === 'restart' || command === 'shutdown'
             return (
               <button
                 className={`control-button control-button-${tone} ${active ? 'is-active' : ''}`}
                 key={command}
                 type="button"
                 aria-label={labels[command]}
-                aria-pressed={command === 'shutdown' ? undefined : active}
+                aria-pressed={requiresConfirm ? undefined : active}
                 disabled={disabled}
-                onClick={command === 'camera' ? toggleCamera : () => onCommand(command)}
+                onClick={
+                  command === 'camera'
+                    ? toggleCamera
+                    : requiresConfirm
+                      ? () => requestConfirm(command)
+                      : () => onCommand(command)
+                }
               >
                 <FontAwesomeIcon icon={command === 'pause' ? (paused ? faPlay : faPause) : icon} aria-hidden="true" />
                 <span>{labels[command]}</span>
@@ -118,6 +149,46 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
           })}
         </div>
       </section>
+
+      {confirmAction && (
+        <div
+          className="confirm-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-modal-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) cancelConfirm()
+          }}
+        >
+          <div className={`confirm-modal confirm-modal-${confirmAction}`}>
+            <div className="confirm-modal-header">
+              <span className="confirm-modal-eyebrow">E.V.A / SİSTEM NƏZARƏTİ</span>
+              <button className="confirm-modal-close" type="button" aria-label="Bağla" onClick={cancelConfirm}>
+                <FontAwesomeIcon icon={faXmark} />
+              </button>
+            </div>
+            <div className="confirm-modal-body">
+              <div className="confirm-modal-icon">
+                <FontAwesomeIcon icon={confirmAction === 'restart' ? faRotate : faPowerOff} />
+              </div>
+              <h2 id="confirm-modal-title">
+                {confirmAction === 'restart' ? 'EVA yenidən başlatılsın?' : 'EVA söndürülsün?'}
+              </h2>
+              <p>
+                {confirmAction === 'restart'
+                  ? 'Sistem yenidən başladılacaq və dəyişdirilmiş settings tətbiq olunacaq.'
+                  : 'EVA prosesi tamamilə dayandırılacaq.'}
+              </p>
+            </div>
+            <div className="confirm-modal-actions">
+              <button className="confirm-button confirm-button-cancel" type="button" onClick={cancelConfirm}>LƏĞV ET</button>
+              <button className={`confirm-button confirm-button-${confirmAction}`} type="button" onClick={confirmCommand}>
+                {confirmAction === 'restart' ? 'YENİDƏN BAŞLAT' : 'SÖNDÜR'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {cameraModalOpen && (
         <div
