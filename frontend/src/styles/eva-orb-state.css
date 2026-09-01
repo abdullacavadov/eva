@@ -147,18 +147,16 @@
 }
 
 /* Waveform yalnız EVA real olaraq danışarkən hərəkət edir. */
-.eva-core .orb-waveform {
-  opacity: 1;
-}
-
 .eva-core .orb-waveform.is-flat {
   opacity: 0.8;
+  animation: none !important;
 }
 
 .eva-core .orb-waveform.is-flat i {
   height: 2px;
   min-height: 2px;
-  animation: none;
+  animation: none !important;
+  transform: none !important;
 }
 
 .eva-core .orb-waveform.is-speaking {
@@ -172,4 +170,10 @@
 .eva-core.state-muted .orb-waveform,
 .eva-core.state-paused .orb-waveform {
   opacity: 0;
+  animation: none !important;
+}
+
+.eva-core.state-muted .orb-waveform i,
+.eva-core.state-paused .orb-waveform i {
+  animation: none !important;
 }
