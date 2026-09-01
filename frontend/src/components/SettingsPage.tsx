@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faCheck, faEye, faEyeSlash, faGear, faGoogle, faMicrophone, faVolumeHigh, faBolt, faUser } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faCheck, faEye, faEyeSlash, faGear, faMicrophone, faVolumeHigh, faBolt, faUser } from '@fortawesome/free-solid-svg-icons';
+import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import '../styles/settings.css';
 
 const WS_URL = import.meta.env.VITE_EVA_WS_URL || `ws://${window.location.hostname || '127.0.0.1'}:8765`;
