@@ -56,7 +56,7 @@
     0 0 25px rgba(var(--orb-rgb), calc(0.5 * var(--orb-glow)));
 }
 
-/* Audio waveform: real PCM amplitude drives the ribbon height; no synthetic animation. */
+/* Audio waveform: real PCM amplitude controls a spatially stable luminous ribbon. */
 .eva-core .orb-waveform {
   position: absolute;
   z-index: 4;
@@ -64,10 +64,10 @@
   right: 7%;
   bottom: 41px;
   width: 86%;
-  height: 76px;
+  height: 82px;
   display: block;
   overflow: visible;
-  opacity: 0.82;
+  opacity: 0.86;
   pointer-events: none;
   transition: opacity 0.2s ease;
 }
@@ -75,11 +75,16 @@
 .eva-core .orb-waveform .orb-wave-strand {
   fill: none;
   stroke: url(#eva-wave-gradient);
-  stroke-width: 1.15;
+  stroke-width: 1.35;
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
-  filter: drop-shadow(0 0 3px rgb(var(--orb-rgb) / 0.48));
+  filter: url(#eva-wave-glow);
+}
+
+.eva-core .orb-waveform .orb-wave-particle {
+  fill: url(#eva-wave-gradient);
+  filter: drop-shadow(0 0 2.5px rgba(180, 130, 255, 0.95));
 }
 
 .eva-core .orb-waveform.is-flat {
@@ -87,11 +92,12 @@
 }
 
 .eva-core .orb-waveform.is-speaking {
-  opacity: 0.92;
+  opacity: 1;
 }
 
 .eva-core .orb-waveform.is-flat .orb-wave-strand,
-.eva-core .orb-waveform.is-speaking .orb-wave-strand {
+.eva-core .orb-waveform.is-speaking .orb-wave-strand,
+.eva-core .orb-waveform .orb-wave-particle {
   animation: none !important;
   transform: none !important;
 }
