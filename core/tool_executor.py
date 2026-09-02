@@ -24,6 +24,7 @@ from actions.media import play_media
 from actions.weather import get_weather_summary
 from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
+from core.action_confirmation import consume_confirmation, issue_confirmation
 from core.result_store import ResultStore
 from core.result_resolver import FollowUpAction, ResultResolutionError, resolve_item, resolve_reference
 from core.follow_up_mutation import build_follow_up_mutation
@@ -85,32 +86,24 @@ def build_follow_up_dispatch(action: FollowUpAction) -> FollowUpDispatch:
     """FollowUpAction-ı təhlükəsiz tool dispatch planına çevirir."""
     item = action.item
     item_id = str(item.get("id", ""))
-
     if action.action == "show":
         if item_id.startswith("email:"):
             return FollowUpDispatch("read_email", {"message_id": _email_identity(item)}, item)
         return FollowUpDispatch(None, {}, item)
-
     if action.action == "reply":
-        message_id = _email_identity(item)
-        body = _email_reply_body(action)
+        message_id = _email_identity(item); body = _email_reply_body(action)
         return FollowUpDispatch("prepare_email_reply", {"message_id": message_id, "body": body}, item, True)
-
     if action.action == "complete":
         task_id, list_name = _task_identity(item)
         return FollowUpDispatch("complete_reminder", {"task_id": task_id, "list_name": list_name}, item)
-
     if action.action == "delete":
         if item_id.startswith("email:"):
             return FollowUpDispatch("prepare_trash_emails", {"message_id": _email_identity(item)}, item, True)
         task_id, list_name = _task_identity(item)
         return FollowUpDispatch("delete_reminder", {"task_id": task_id, "list_name": list_name}, item, True)
-
     if action.action == "update":
-        task_id, list_name = _task_identity(item)
-        mutation = build_follow_up_mutation(action)
+        task_id, list_name = _task_identity(item); mutation = build_follow_up_mutation(action)
         return FollowUpDispatch("update_reminder", {"task_id": task_id, "list_name": list_name, **mutation.fields}, item)
-
     raise ResultResolutionError("Follow-up üçün dəstəklənməyən əməl")
 
 
@@ -120,48 +113,55 @@ class ToolExecutor:
     CONTROL_TOKEN_RE = re.compile(r"<ctrl\d+>", re.IGNORECASE)
 
     def __init__(self, ui, webcam_streamer, focus_ui_section: Callable[[str, dict], None], speak_error: Callable[[str, str], None], result_store: ResultStore | None = None):
-        self.ui = ui
-        self.webcam_streamer = webcam_streamer
-        self.focus_ui_section = focus_ui_section
-        self.speak_error = speak_error
-        self.result_store = result_store or ResultStore()
+        self.ui = ui; self.webcam_streamer = webcam_streamer; self.focus_ui_section = focus_ui_section; self.speak_error = speak_error; self.result_store = result_store or ResultStore()
 
     def resolve_follow_up(self, query: str) -> dict:
         context = self.result_store.current()
-        if context is None:
-            raise ResultResolutionError("Əvvəlki nəticə tapılmadı")
-        selected = self.result_store.selected(context.result_id)
-        item = resolve_reference(context, query, selected_item=selected)
-        self.result_store.select(context.result_id, item["id"])
+        if context is None: raise ResultResolutionError("Əvvəlki nəticə tapılmadı")
+        selected = self.result_store.selected(context.result_id); item = resolve_reference(context, query, selected_item=selected); self.result_store.select(context.result_id, item["id"])
         return item
 
     @staticmethod
     def result_looks_like_error(result) -> bool:
         text = str(result or "").strip().lower()
-        if not text:
-            return False
+        if not text: return False
         return any(marker in text for marker in ("hata", "error", "xəta", "alinamadi", "alınamadı", "bulunamadi", "bulunamadı", "acilamadi", "açılamadı", "tamamlanamadi", "tamamlanamadı", "gecersiz", "geçərsiz", "izin gerekiyor", "izin gerekli", "baglanti", "bağlantı", "gerekli.", "mümkün olmadı"))
 
     @staticmethod
     def should_play_success_sfx(tool_name: str, args: dict, result) -> bool:
         action_tools = {"open_app", "add_calendar_event", "add_reminder", "update_reminder", "complete_reminder", "delete_reminder", "add_agenda_item", "delete_agenda_item", "create_contact", "update_contact", "delete_contact", "trash_emails", "delete_email", "delete_calendar_event", "remove_calendar_event"}
-        if tool_name in action_tools:
-            return True
+        if tool_name in action_tools: return True
         if tool_name == "send_whatsapp_message":
-            text = str(result or "").lower()
-            return bool(args.get("send_now", False)) and ("göndərildi" in text or "gonderildi" in text)
+            text = str(result or "").lower(); return bool(args.get("send_now", False)) and ("göndərildi" in text or "gonderildi" in text)
         return False
 
+    @staticmethod
+    def _confirmation_payload(name: str, args: dict) -> dict:
+        return {key: value for key, value in args.items() if key != "confirmation_id"}
+
+    def _gate_risky_action(self, name: str, args: dict):
+        risky = {"delete_calendar_event", "delete_reminder", "delete_contact"}
+        if name == "send_whatsapp_message" and bool(args.get("send_now", False)): risky.add(name)
+        if name not in risky: return None
+        confirmation_id = str(args.get("confirmation_id", "")).strip()
+        payload = self._confirmation_payload(name, args)
+        if not confirmation_id:
+            token = issue_confirmation(name, payload)
+            return {"type": "confirmation", "status": "needs_confirmation", "data": [], "count": 0,
+                    "meta": {"requires_confirmation": True, "confirmation_id": token, "confirmation_action": name,
+                              "confirmation_message": "Bu əməliyyat geri qaytarılması çətin olan dəyişiklik yaradır. Açıq təsdiq tələb olunur."}}
+        consume_confirmation(confirmation_id, name, payload)
+        return None
+
     async def execute(self, fc) -> types.FunctionResponse:
-        name = fc.name
-        args = dict(fc.args or {})
-        print(f"[E.V.A] 🔧 {name} {args}")
-        self.ui.set_state("THINKING")
-        loop = asyncio.get_event_loop()
-        result = "Tamam."
-        had_exception = False
+        name = fc.name; args = dict(fc.args or {})
+        print(f"[E.V.A] 🔧 {name} {args}"); self.ui.set_state("THINKING")
+        loop = asyncio.get_event_loop(); result = "Tamam."; had_exception = False
         try:
-            if name == "save_memory":
+            gated = self._gate_risky_action(name, args)
+            if gated is not None:
+                result = gated
+            elif name == "save_memory":
                 cat, key, val = args.get("category", "notes"), args.get("key", ""), args.get("value", "")
                 if not key or not val: result = "Yaddaşı saxlamaq üçün key və value tələb olunur."
                 else: update_memory({cat: {key: {"value": val}}}); print(f"[Memory] 💾 {cat}/{key} = {val}"); result = "ok"
@@ -192,7 +192,7 @@ class ToolExecutor:
             elif name == "read_email_thread": result = await loop.run_in_executor(None, lambda: read_email_thread(args.get("thread_id", ""))) or "Email thread oxundu."
             elif name == "prepare_email_reply": result = await loop.run_in_executor(None, lambda: prepare_email_reply(args.get("message_id", ""), args.get("body", ""))) or "Email cavabı draft kimi hazırlandı."
             elif name == "prepare_new_email": result = await loop.run_in_executor(None, lambda: prepare_new_email(args.get("to", ""), args.get("subject", ""), args.get("body", ""), args.get("cc", ""), args.get("bcc", ""))) or "Yeni email draft kimi hazırlandı."
-            elif name == "send_email": result = await loop.run_in_executor(None, lambda: send_email(args.get("draft_id", ""))) or "Email göndərildi."
+            elif name == "send_email": result = await loop.run_in_executor(None, lambda: send_email(args.get("draft_id", ""), args.get("confirmation_id", ""))) or "Email göndərildi."
             elif name == "sync_google_contacts": result = await loop.run_in_executor(None, sync_google_contacts) or "Google Contacts sinxronizasiyası tamamlandı."
             elif name == "create_contact": result = await loop.run_in_executor(None, lambda: create_contact(args.get("display_name", ""), args.get("phone_number", ""))) or "Google kontaktı yaradıldı."
             elif name == "update_contact": result = await loop.run_in_executor(None, lambda: update_contact(args.get("resource_name", ""), args.get("display_name", ""), args.get("phone_number", ""))) or "Google kontaktı yeniləndi."
@@ -210,16 +210,13 @@ class ToolExecutor:
                 action = str(args.get("action", "start")).strip().lower()
                 if action == "start":
                     status = self.webcam_streamer.start()
-                    if status == "ok":
-                        self.ui.set_webcam_active(True); result = "Webcam axını başladıldı. Artıq kameranı görürəm — istədiyin vaxt sual verə bilərsən."
+                    if status == "ok": self.ui.set_webcam_active(True); result = "Webcam axını başladıldı. Artıq kameranı görürəm — istədiyin vaxt sual verə bilərsən."
                     elif status == "already_active": result = "Webcam artıq açıqdır, görüntünü alıram."
                     else: result = "Webcam-i başlatmaq mümkün olmadı: opencv-python quraşdırılmayıb."
-                else:
-                    self.webcam_streamer.stop(); self.ui.set_webcam_active(False); result = "Webcam axını dayandırıldı."
+                else: self.webcam_streamer.stop(); self.ui.set_webcam_active(False); result = "Webcam axını dayandırıldı."
             else: result = f"Naməlum alət: {name}"
         except Exception as e:
             result = f"Xəta: {e}"; had_exception = True; traceback.print_exc(); self.speak_error(name, e); self.ui.set_state("ERROR")
-
         tool_failed = self.result_looks_like_error(result)
         if tool_failed:
             if not had_exception: self.ui.set_state("ERROR")
