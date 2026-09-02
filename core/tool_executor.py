@@ -18,6 +18,7 @@ from actions.email import delete_email, prepare_email_deletion, prepare_email_re
 from actions.browser import browser_control
 from actions.shell import shell_run
 from actions.whatsapp import send_whatsapp_message, save_whatsapp_contact
+from actions.whatsapp_meta import send_whatsapp_business_message
 from actions.whatsapp_read_action import read_whatsapp_conversations, read_whatsapp_messages
 from actions.contacts import create_contact, delete_contact, sync_google_contacts, update_contact
 from actions.media import play_media
@@ -106,8 +107,8 @@ class ToolExecutor:
     def should_play_success_sfx(tool_name: str, args: dict, result) -> bool:
         action_tools = {"open_app", "add_calendar_event", "add_reminder", "update_reminder", "complete_reminder", "delete_reminder", "get_eva_reminders", "add_eva_reminder", "update_eva_reminder", "complete_eva_reminder", "delete_eva_reminder", "add_agenda_item", "delete_agenda_item", "create_contact", "update_contact", "delete_contact", "trash_emails", "delete_email", "delete_calendar_event", "remove_calendar_event"}
         if tool_name in action_tools: return True
-        if tool_name == "send_whatsapp_message":
-            text = str(result or "").lower(); return bool(args.get("send_now", False)) and ("göndərildi" in text or "gonderildi" in text)
+        if tool_name in {"send_whatsapp_message", "send_whatsapp_business_message"}:
+            text = str(result or "").lower(); return bool(args.get("send_now", True)) and ("göndərildi" in text or "gonderildi" in text or (isinstance(result, dict) and result.get("status") == "success"))
         return False
 
     @staticmethod
@@ -115,13 +116,14 @@ class ToolExecutor:
         return {key: value for key, value in args.items() if key != "confirmation_id"}
 
     def _gate_risky_action(self, name: str, args: dict):
-        risky = {"delete_calendar_event", "delete_reminder", "delete_contact", "delete_eva_reminder", "send_email"}
+        risky = {"delete_calendar_event", "delete_reminder", "delete_contact", "delete_eva_reminder", "send_email", "send_whatsapp_business_message"}
         if name == "send_whatsapp_message" and bool(args.get("send_now", False)): risky.add(name)
         if name not in risky: return None
         confirmation_id = str(args.get("confirmation_id", "")).strip(); payload = self._confirmation_payload(name, args)
         if not confirmation_id:
             token = issue_confirmation(name, payload); self._pending_confirmations[token] = (name, dict(args))
             return {"type": "confirmation", "status": "needs_confirmation", "data": [], "count": 0, "meta": {"requires_confirmation": True, "confirmation_id": token, "confirmation_action": name, "confirmation_message": "Bu əməliyyat geri qaytarılması çətin olan dəyişiklik yaradır. Açıq təsdiq tələb olunur."}}
+        if name == "send_email": return None
         consume_confirmation(confirmation_id, name, payload); self._pending_confirmations.pop(confirmation_id, None); return None
 
     def _confirmed_action(self, name: str, args: dict):
@@ -131,6 +133,7 @@ class ToolExecutor:
         if name == "delete_eva_reminder": return delete_eva_reminder(args.get("reminder_id", ""))
         if name == "delete_contact": return delete_contact(args.get("resource_name", ""))
         if name == "send_whatsapp_message": return send_whatsapp_message(args.get("message", ""), args.get("phone_number", ""), args.get("recipient_name", ""), True, args.get("app_target", "auto"))
+        if name == "send_whatsapp_business_message": return send_whatsapp_business_message(args.get("message", ""), args.get("phone_number", ""))
         raise ValueError("Naməlum təsdiq əməliyyatı")
 
     async def execute(self, fc) -> types.FunctionResponse:
@@ -139,7 +142,11 @@ class ToolExecutor:
             if name == "confirm_action":
                 token = str(args.get("confirmation_id", "")).strip(); pending = self._pending_confirmations.pop(token, None)
                 if pending is None: raise ValueError("Təsdiq tapılmadı və ya artıq istifadə olunub.")
-                pending_name, pending_args = pending; consume_confirmation(token, pending_name, self._confirmation_payload(pending_name, pending_args)); result = await loop.run_in_executor(None, lambda: self._confirmed_action(pending_name, {**pending_args, "confirmation_id": token}))
+                pending_name, pending_args = pending
+                if pending_name == "send_email":
+                    result = await loop.run_in_executor(None, lambda: self._confirmed_action(pending_name, {**pending_args, "confirmation_id": token}))
+                else:
+                    consume_confirmation(token, pending_name, self._confirmation_payload(pending_name, pending_args)); result = await loop.run_in_executor(None, lambda: self._confirmed_action(pending_name, {**pending_args, "confirmation_id": token}))
             else:
                 gated = self._gate_risky_action(name, args)
                 if gated is not None: result = gated
@@ -167,7 +174,7 @@ class ToolExecutor:
                 elif name == "query_unified_assistant": result = await loop.run_in_executor(None, lambda: execute_unified_query(args.get("query", ""), int(args.get("limit", 8) or 8))) or "Unified sorğu icra edildi."
                 elif name == "open_app": result = await loop.run_in_executor(None, lambda: open_app(args.get("app_name", ""))) or f"{args.get('app_name')} açıldı."
                 elif name == "sys_info": self.focus_ui_section(name, args); result = await loop.run_in_executor(None, lambda: sys_info(args.get("query", "all"))) or "Məlumat alındı."
-                elif name == "get_weather": self.focus_ui_section(name, args); result = await loop.run_in_executor(None, lambda: get_weather_summary(args.get("location") or None)) or "Hava durumu məlumatı alındı."
+                elif name == "get_weather": self.focus_ui_section(name, args); result = await loop.run_in_executor(None, lambda: get_weather_summary(args.get("location") or None)) or "Hava məlumatı alındı."
                 elif name == "get_emails":
                     q, lim, folder = args.get("query", ""), int(args.get("limit", 10) or 10), args.get("folder", ""); result = await loop.run_in_executor(None, lambda: search_emails(q, lim, folder) if folder else search_emails(q, lim)) or "Email məlumatı alındı."
                 elif name == "prepare_trash_emails": result = await loop.run_in_executor(None, lambda: prepare_trash_emails(args.get("folder", ""), args.get("message_id", ""), args.get("query", ""))) or "Email silmə planı hazırlandı."
@@ -189,6 +196,7 @@ class ToolExecutor:
                 elif name == "get_youtube_channel_report": result = await loop.run_in_executor(None, lambda: get_youtube_channel_report(args.get("query", "overview"), args.get("handle", ""), int(args.get("video_limit", 6) or 6))) or "YouTube kanal hesabatı alındı."
                 elif name == "analyze_screen": result = await loop.run_in_executor(None, lambda: analyze_screen(args.get("query", "Ekranda nə var?"), args.get("target", "active_window"))) or "Ekran analizi tamamlandı."
                 elif name == "send_whatsapp_message": result = await loop.run_in_executor(None, lambda: send_whatsapp_message(args.get("message", ""), args.get("phone_number", ""), args.get("recipient_name", ""), bool(args.get("send_now", False)), args.get("app_target", "auto"))) or "WhatsApp əməliyyatı tamamlandı."
+                elif name == "send_whatsapp_business_message": result = await loop.run_in_executor(None, lambda: send_whatsapp_business_message(args.get("message", ""), args.get("phone_number", ""))) or "WhatsApp Business mesajı göndərildi."
                 elif name == "save_whatsapp_contact": result = await loop.run_in_executor(None, lambda: save_whatsapp_contact(args.get("display_name", ""), args.get("phone_number", ""), args.get("aliases", ""))) or "WhatsApp kontaktı yadda saxlanıldı."
                 elif name == "read_whatsapp_conversations": result = await loop.run_in_executor(None, read_whatsapp_conversations) or "WhatsApp söhbətləri oxundu."
                 elif name == "read_whatsapp_messages": result = await loop.run_in_executor(None, lambda: read_whatsapp_messages(args.get("conversation", ""))) or "WhatsApp mesajları oxundu."
