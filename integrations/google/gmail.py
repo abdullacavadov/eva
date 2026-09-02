@@ -30,6 +30,16 @@ def get_gmail_service():
     return build("gmail", "v1", credentials=get_google_credentials())
 
 
+def get_unread_inbox_count() -> int:
+    """Gmail Inbox-dakı oxunmamış mesajların dəqiq sayını qaytarır."""
+    service = get_gmail_service()
+    response = service.users().labels().get(
+        userId="me",
+        id="INBOX",
+    ).execute()
+    return int(response.get("messagesUnread", 0) or 0)
+
+
 def _decode_body(data: str) -> str:
     raw = base64.urlsafe_b64decode(data.encode("ascii"))
     return raw.decode("utf-8", errors="replace")
