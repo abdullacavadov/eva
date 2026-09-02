@@ -50,114 +50,80 @@ interface OrbProps {
 }
 
 const WAVEFORM_WIDTH = 560;
-const WAVEFORM_HEIGHT = 100;
-const WAVEFORM_STRANDS = 11;
-const WAVEFORM_POINTS = 72;
-const WAVEFORM_MAX_AMPLITUDE = 44;
+const WAVEFORM_HEIGHT = 110;
 const WAVEFORM_GAIN = 13;
-const WAVEFORM_PARTICLES = 64;
+const WAVEFORM_STRAND_COUNT = 6;
+const WAVEFORM_DOTS_PER_STRAND = 60;
+const WAVEFORM_MAX_AMPLITUDE = 34;
+const WAVEFORM_DUST_COUNT = 90;
 
-const waveformParticles = Array.from(
-  { length: WAVEFORM_PARTICLES },
-  (_, index) => {
-    const seed = Math.sin(index * 91.17) * 43758.5453;
-    const random = seed - Math.floor(seed);
-    const x = 2 + ((index * 37.7) % 96);
-    const y = 18 + ((index * 53.3 + random * 24) % 64);
-    const radius = 0.45 + random * 1.15;
-    return { x, y, radius, opacity: 0.18 + random * 0.5 };
-  }
-);
+// Arxa fonda üzən toz hissəcikləri (statik yerləşim, yalnız parıltısı canlıdır).
+const waveformDust = Array.from({ length: WAVEFORM_DUST_COUNT }, (_, index) => {
+  const seed = Math.sin(index * 91.17) * 43758.5453;
+  const random = seed - Math.floor(seed);
+  const seed2 = Math.sin(index * 53.9 + 12.3) * 12543.117;
+  const random2 = seed2 - Math.floor(seed2);
+  return {
+    x: 2 + random * 96,
+    y: 6 + random2 * 88,
+    radius: 0.35 + random2 * 0.9,
+    baseOpacity: 0.08 + random * 0.22,
+    twinkle: 0.4 + random2 * 1.6,
+  };
+});
 
-function buildWavePath(level: number, strandIndex: number): string {
+// Hər lent (strand) üçün sabit "şəxsiyyət": faza, tezlik və şaquli sürüşmə,
+// beləcə lentlər bir-birini fərqli nöqtələrdə kəsib "toxunmuş mesh" effekti verir.
+const waveformStrands = Array.from({ length: WAVEFORM_STRAND_COUNT }, (_, index) => {
+  const layer = index / Math.max(1, WAVEFORM_STRAND_COUNT - 1);
+  return {
+    phase: index * 1.7 + Math.sin(index * 2.3) * 0.9,
+    freq1: 1.4 + layer * 0.9,
+    freq2: 2.6 - layer * 0.6,
+    verticalOffset: (layer - 0.5) * WAVEFORM_HEIGHT * 0.32,
+    relativeAmplitude: 0.55 + Math.sin(index * 1.9) * 0.3,
+    hue: layer, // 0 = mavi/cyan tərəf, 1 = bənövşəyi/çəhrayı tərəf
+  };
+});
+
+function getStrandPoints(
+  level: number,
+  strand: (typeof waveformStrands)[number]
+) {
   const amplifiedLevel = Math.min(1, Math.max(0, level) * WAVEFORM_GAIN);
-  const normalizedLevel = Math.pow(amplifiedLevel, 0.48);
+  const normalizedLevel = Math.pow(amplifiedLevel, 0.45);
+  const idleLevel = 0.16; // audio olmasa belə lent tam düz qalmasın
 
-  const layer = (strandIndex / Math.max(1, WAVEFORM_STRANDS - 1)) * 2 - 1;
-
-  // Hər strand üçün fərqli phase və amplitude.
-  const strandPhase = layer * 0.48 + Math.sin(strandIndex * 2.17) * 0.32;
-
-  const strandAmplitude = 0.68 + Math.sin(strandIndex * 1.73) * 0.22;
-
-  const points = Array.from({ length: WAVEFORM_POINTS }, (_, index) => {
-    const x = index / (WAVEFORM_POINTS - 1);
-
-    // Kənarlarda sakit, mərkəzdə güclü amplituda.
-    const envelope = Math.sin(Math.PI * x) ** 0.62;
-
-    // Bir neçə müxtəlif tezlik birlikdə.
-    // Bu, waveform-u sadə sinusdan çıxarıb daha kompleks edir.
+  return Array.from({ length: WAVEFORM_DOTS_PER_STRAND }, (_, i) => {
+    const t = i / (WAVEFORM_DOTS_PER_STRAND - 1);
+    const envelope = Math.sin(Math.PI * t) ** 0.55;
     const shape =
-      Math.sin(Math.PI * x * 2.0 + strandPhase) * 0.46 +
-      Math.sin(Math.PI * x * 2.8 - strandPhase * 1.6) * 0.2 +
-      Math.sin(Math.PI * x * 3.2 - strandPhase * 1.4) * 0.28 +
-      Math.sin(Math.PI * x * 5.0 + strandPhase * 2.1) * 0.18 +
-      Math.sin(Math.PI * x * 7.5 - strandPhase * 1.8) * 0.13 +
-      Math.sin(Math.PI * x * 10.5 + strandPhase * 2.7) * 0.08 +
-      Math.sin(Math.PI * x * 14.0 - strandPhase * 1.2) * 0.045;
+      Math.sin(t * Math.PI * strand.freq1 * 2 + strand.phase) * 0.6 +
+      Math.sin(t * Math.PI * strand.freq2 * 2 - strand.phase * 1.3) * 0.4;
 
-    const y =
-      WAVEFORM_HEIGHT / 2 +
-      shape *
-        normalizedLevel *
-        WAVEFORM_MAX_AMPLITUDE *
-        strandAmplitude *
-        envelope;
+    const amplitude =
+      strand.relativeAmplitude *
+      envelope *
+      Math.max(idleLevel, normalizedLevel) *
+      WAVEFORM_MAX_AMPLITUDE;
 
     return {
-      x: x * WAVEFORM_WIDTH,
-      y,
+      x: t * WAVEFORM_WIDTH,
+      y: WAVEFORM_HEIGHT / 2 + strand.verticalOffset + shape * amplitude,
+      // Dalğanın "təpə"lərində daha sıx/parlaq, "vadi"lərdə daha seyrək hissəcik.
+      density: 0.35 + Math.abs(shape) * 0.65,
     };
   });
+}
 
-  const mirrorY = (point: { x: number; y: number }) => ({
-    x: point.x,
-    y: WAVEFORM_HEIGHT - point.y,
-  });
-
-  const upperPoints = points;
-  const lowerPoints = points.map(mirrorY);
-
-  let path = `M ${upperPoints[0].x.toFixed(1)} ${upperPoints[0].y.toFixed(1)}`;
-
-  for (let index = 1; index < upperPoints.length; index += 1) {
-    const previous = upperPoints[index - 1];
-    const current = upperPoints[index];
-    const midX = (previous.x + current.x) / 2;
-    const midY = (previous.y + current.y) / 2;
-
-    path +=
-      ` Q ${previous.x.toFixed(1)} ${previous.y.toFixed(1)} ` +
-      `${midX.toFixed(1)} ${midY.toFixed(1)}`;
+function strandColor(hue: number, coreLine = false): string {
+  // 0 -> mavi/cyan, 0.5 -> ağımtıl mavi, 1 -> bənövşəyi/çəhrayı
+  if (coreLine) return 'rgba(255,255,255,0.9)';
+  if (hue < 0.5) {
+    return `rgba(${64 + hue * 2 * 60}, ${170 + hue * 2 * 40}, 255, 0.9)`;
   }
-
-  const lastUpper = upperPoints[upperPoints.length - 1];
-  const previousUpper = upperPoints[upperPoints.length - 2];
-
-  path +=
-    ` Q ${previousUpper.x.toFixed(1)} ${previousUpper.y.toFixed(1)} ` +
-    `${lastUpper.x.toFixed(1)} ${lastUpper.y.toFixed(1)}`;
-
-  for (let index = lowerPoints.length - 1; index >= 0; index -= 1) {
-    const current = lowerPoints[index];
-    const previous = lowerPoints[Math.min(index + 1, lowerPoints.length - 1)];
-    const midX = (previous.x + current.x) / 2;
-    const midY = (previous.y + current.y) / 2;
-
-    path +=
-      ` Q ${previous.x.toFixed(1)} ${previous.y.toFixed(1)} ` +
-      `${midX.toFixed(1)} ${midY.toFixed(1)}`;
-  }
-
-  const firstLower = lowerPoints[0];
-  const lastLower = lowerPoints[lowerPoints.length - 1];
-
-  path +=
-    ` Q ${lastLower.x.toFixed(1)} ${lastLower.y.toFixed(1)} ` +
-    `${firstLower.x.toFixed(1)} ${firstLower.y.toFixed(1)} Z`;
-
-  return path;
+  const t = (hue - 0.5) * 2;
+  return `rgba(${124 + t * 100}, ${150 - t * 40}, ${255 - t * 30}, 0.9)`;
 }
 
 export function EvaOrb({ state }: OrbProps) {
@@ -317,56 +283,83 @@ export function EvaOrb({ state }: OrbProps) {
         aria-hidden="true"
       >
         <defs>
-          <linearGradient
-            id="eva-wave-gradient"
-            x1="0%"
-            y1="0%"
-            x2="100%"
-            y2="0%"
-          >
-            <stop offset="0%" stopColor="#35a7ff" />
-            <stop offset="45%" stopColor="rgb(var(--orb-rgb))" />
-            <stop offset="75%" stopColor="#9a5cff" />
-            <stop offset="100%" stopColor="#e7a6ff" />
-          </linearGradient>
           <filter
             id="eva-wave-glow"
-            x="-20%"
-            y="-80%"
-            width="140%"
-            height="260%"
+            x="-40%"
+            y="-140%"
+            width="180%"
+            height="380%"
           >
-            <feGaussianBlur stdDeviation="2.8" result="blur" />
+            <feGaussianBlur stdDeviation="1.6" result="softBlur" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="wideBlur" />
             <feMerge>
-              <feMergeNode in="blur" />
+              <feMergeNode in="wideBlur" />
+              <feMergeNode in="softBlur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
         </defs>
-        {Array.from({ length: WAVEFORM_STRANDS }, (_, index) => (
-          <path
-            key={index}
-            d={buildWavePath(renderedLevel, index)}
-            className="orb-wave-strand"
-            style={{
-              opacity: `${0.3 + (1 - Math.abs((index / (WAVEFORM_STRANDS - 1)) * 2 - 1)) * 0.58}`,
-            }}
-          />
-        ))}
-        {waveformParticles.map((particle, index) => (
+
+        {/* Arxa fon tozu - sabit, yalnız parıltısı canlıdır */}
+        {waveformDust.map((particle, index) => (
           <circle
-            key={`wp-${index}`}
-            className="orb-wave-particle"
+            key={`dust-${index}`}
             cx={`${particle.x}%`}
             cy={`${particle.y}%`}
             r={particle.radius}
+            fill="#bcd8ff"
             style={{
               opacity: waveformVisible
-                ? particle.opacity * (0.45 + amplifiedLevel * 0.9)
-                : 0,
+                ? particle.baseOpacity *
+                  (0.5 + amplifiedLevel * particle.twinkle)
+                : particle.baseOpacity * 0.3,
+              transition: 'opacity 220ms ease-out',
             }}
           />
         ))}
+
+        {/* Dalğavari hissəcik lentləri (mesh) */}
+        <g filter="url(#eva-wave-glow)">
+          {waveformStrands.map((strand, strandIndex) => {
+            const points = getStrandPoints(renderedLevel, strand);
+            const linePath = points
+              .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+              .join(' ');
+            return (
+              <g key={`strand-${strandIndex}`}>
+                <path
+                  d={linePath}
+                  fill="none"
+                  stroke={strandColor(strand.hue)}
+                  strokeWidth={0.6}
+                  style={{
+                    opacity: waveformVisible ? 0.35 : 0.14,
+                    transition: 'opacity 160ms ease-out',
+                  }}
+                />
+                {points.map((p, i) => {
+                  if (i % 1 !== 0) return null;
+                  const radius = 0.5 + p.density * 1.5;
+                  return (
+                    <circle
+                      key={`s${strandIndex}-d${i}`}
+                      cx={p.x}
+                      cy={p.y}
+                      r={radius}
+                      fill={strandColor(strand.hue)}
+                      style={{
+                        opacity: waveformVisible
+                          ? 0.35 + p.density * 0.55
+                          : 0.16,
+                        transition: 'cy 90ms ease-out, opacity 140ms ease-out',
+                      }}
+                    />
+                  );
+                })}
+              </g>
+            );
+          })}
+        </g>
       </svg>
     </section>
   );
