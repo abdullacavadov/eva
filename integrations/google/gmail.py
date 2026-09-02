@@ -33,10 +33,7 @@ def get_gmail_service():
 def get_unread_inbox_count() -> int:
     """Gmail Inbox-dakı oxunmamış mesajların dəqiq sayını qaytarır."""
     service = get_gmail_service()
-    response = service.users().labels().get(
-        userId="me",
-        id="INBOX",
-    ).execute()
+    response = service.users().labels().get(userId="me", id="INBOX").execute()
     return int(response.get("messagesUnread", 0) or 0)
 
 
@@ -49,22 +46,6 @@ def _strip_html(value: str) -> str:
     value = re.sub(r"(?is)<(script|style).*?>.*?</\1>", " ", value)
     value = re.sub(r"(?s)<[^>]+>", " ", value)
     return " ".join(html.unescape(value).split())
-
-
-def get_message(message_id: str) -> dict[str, str]:
-    message_id = str(message_id or "").strip()
-    if not message_id:
-        raise ValueError("Email message_id tələb olunur.")
-
-    service = get_gmail_service()
-
-    response = service.users().messages().get(
-        userId="me",
-        id=message_id,
-        format="full",
-    ).execute()
-
-    return _parse_message(response, include_body=True)
 
 
 def _headers(payload: dict[str, Any]) -> dict[str, str]:
@@ -88,118 +69,9 @@ def _extract_body(payload: dict[str, Any]) -> str:
     return ""
 
 
-def list_draft_ids() -> list[str]:
-    service = get_gmail_service()
-    draft_ids: list[str] = []
-    page_token = None
-
-    while True:
-        kwargs = {
-            "userId": "me",
-            "maxResults": 100,
-        }
-        if page_token:
-            kwargs["pageToken"] = page_token
-
-        response = service.users().drafts().list(**kwargs).execute()
-        draft_ids.extend(
-            str(item["id"])
-            for item in response.get("drafts", []) or []
-            if item.get("id")
-        )
-        page_token = response.get("nextPageToken")
-        if not page_token:
-            break
-
-    return draft_ids
-
-
-def get_draft(draft_id: str) -> dict[str, Any]:
-    draft_id = str(draft_id or "").strip()
-    if not draft_id:
-        raise ValueError("Email draft_id tələb olunur.")
-
-    service = get_gmail_service()
-    return service.users().drafts().get(
-        userId="me",
-        id=draft_id,
-        format="metadata",
-    ).execute()
-
-
-def list_message_ids(query: str, include_spam_trash: bool = False) -> list[str]:
-    query = str(query or "").strip()
-    if not query:
-        raise ValueError("Gmail delete query tələb olunur.")
-
-    service = get_gmail_service()
-    message_ids: list[str] = []
-    page_token = None
-    include_scoped_spam_trash = bool(
-        include_spam_trash or "in:spam" in query or "in:trash" in query
-    )
-
-    while True:
-        kwargs = {
-            "userId": "me",
-            "q": query,
-            "maxResults": 100,
-            "includeSpamTrash": include_scoped_spam_trash,
-        }
-        if page_token:
-            kwargs["pageToken"] = page_token
-
-        response = service.users().messages().list(**kwargs).execute()
-        message_ids.extend(
-            str(item["id"])
-            for item in response.get("messages", []) or []
-            if item.get("id")
-        )
-        page_token = response.get("nextPageToken")
-        if not page_token:
-            break
-
-    return message_ids
-
-
-def delete_draft(draft_id: str) -> None:
-    draft_id = str(draft_id or "").strip()
-    if not draft_id:
-        raise ValueError("Email draft_id tələb olunur.")
-
-    service = get_gmail_service()
-    service.users().drafts().delete(
-        userId="me",
-        id=draft_id,
-    ).execute()
-
-
-def delete_drafts(draft_ids: list[str]) -> int:
-    for draft_id in draft_ids:
-        delete_draft(draft_id)
-    return len(draft_ids)
-
-
-def batch_delete_messages(message_ids: list[str]) -> int:
-    message_ids = [str(message_id).strip()
-                   for message_id in message_ids if str(message_id).strip()]
-    if not message_ids:
-        return 0
-
-    service = get_gmail_service()
-    for start in range(0, len(message_ids), 1000):
-        chunk = message_ids[start:start + 1000]
-        service.users().messages().batchDelete(
-            userId="me",
-            body={"ids": chunk},
-        ).execute()
-    return len(message_ids)
-
-
 def _parse_message(message: dict[str, Any], include_body: bool = False) -> dict[str, str]:
     payload = message.get("payload") or {}
     headers = _headers(payload)
-
     result = {
         "id": str(message.get("id", "")),
         "thread_id": str(message.get("threadId", "")),
@@ -214,11 +86,88 @@ def _parse_message(message: dict[str, Any], include_body: bool = False) -> dict[
         "references": headers.get("references", ""),
         "in_reply_to": headers.get("in-reply-to", ""),
     }
-
     if include_body:
         result["body"] = _extract_body(payload)
-
     return result
+
+
+def get_message(message_id: str) -> dict[str, str]:
+    message_id = str(message_id or "").strip()
+    if not message_id:
+        raise ValueError("Email message_id tələb olunur.")
+    service = get_gmail_service()
+    response = service.users().messages().get(
+        userId="me", id=message_id, format="full"
+    ).execute()
+    return _parse_message(response, include_body=True)
+
+
+def list_draft_ids() -> list[str]:
+    service = get_gmail_service()
+    draft_ids: list[str] = []
+    page_token = None
+    while True:
+        kwargs = {"userId": "me", "maxResults": 100}
+        if page_token:
+            kwargs["pageToken"] = page_token
+        response = service.users().drafts().list(**kwargs).execute()
+        draft_ids.extend(str(item["id"]) for item in response.get("drafts", []) or [] if item.get("id"))
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+    return draft_ids
+
+
+def get_draft(draft_id: str) -> dict[str, Any]:
+    draft_id = str(draft_id or "").strip()
+    if not draft_id:
+        raise ValueError("Email draft_id tələb olunur.")
+    service = get_gmail_service()
+    return service.users().drafts().get(userId="me", id=draft_id, format="metadata").execute()
+
+
+def list_message_ids(query: str, include_spam_trash: bool = False) -> list[str]:
+    query = str(query or "").strip()
+    if not query:
+        raise ValueError("Gmail delete query tələb olunur.")
+    service = get_gmail_service()
+    message_ids: list[str] = []
+    page_token = None
+    include_scoped_spam_trash = bool(include_spam_trash or "in:spam" in query or "in:trash" in query)
+    while True:
+        kwargs = {"userId": "me", "q": query, "maxResults": 100, "includeSpamTrash": include_scoped_spam_trash}
+        if page_token:
+            kwargs["pageToken"] = page_token
+        response = service.users().messages().list(**kwargs).execute()
+        message_ids.extend(str(item["id"]) for item in response.get("messages", []) or [] if item.get("id"))
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+    return message_ids
+
+
+def delete_draft(draft_id: str) -> None:
+    draft_id = str(draft_id or "").strip()
+    if not draft_id:
+        raise ValueError("Email draft_id tələb olunur.")
+    get_gmail_service().users().drafts().delete(userId="me", id=draft_id).execute()
+
+
+def delete_drafts(draft_ids: list[str]) -> int:
+    for draft_id in draft_ids:
+        delete_draft(draft_id)
+    return len(draft_ids)
+
+
+def batch_delete_messages(message_ids: list[str]) -> int:
+    message_ids = [str(message_id).strip() for message_id in message_ids if str(message_id).strip()]
+    if not message_ids:
+        return 0
+    service = get_gmail_service()
+    for start in range(0, len(message_ids), 1000):
+        chunk = message_ids[start:start + 1000]
+        service.users().messages().batchDelete(userId="me", body={"ids": chunk}).execute()
+    return len(message_ids)
 
 
 def folder_query(folder: str) -> str:
@@ -233,244 +182,113 @@ def folder_query(folder: str) -> str:
         ) from exc
 
 
-def search_messages(
-    query: str = "",
-    limit: int = 10,
-) -> dict[str, Any]:
-    """Gmail axtarışında mesajları qaytarır və count-u dəqiq hesablayır.
-
-    Gmail messages.list() içindəki resultSizeEstimate yalnız təxmini rəqəmdir.
-    Buna görə bütün nəticə səhifələrini ID səviyyəsində gəzirik, amma yalnız
-    istifadəçinin istədiyi limit qədər mesajın metadata-sını ayrıca yükləyirik.
-    """
+def search_messages(query: str = "", limit: int = 10) -> dict[str, Any]:
+    """Gmail nəticələrini səhifələyərək dəqiq count və limitli metadata qaytarır."""
     limit = max(1, min(int(limit or 10), 100))
     service = get_gmail_service()
     results: list[dict[str, str]] = []
     page_token = None
     total_count = 0
     has_more = False
-
     while True:
-        kwargs = {
-            "userId": "me",
-            "q": str(query or "").strip(),
-            "maxResults": 100,
-        }
+        kwargs = {"userId": "me", "q": str(query or "").strip(), "maxResults": 100}
         if page_token:
             kwargs["pageToken"] = page_token
-
         response = service.users().messages().list(**kwargs).execute()
         page_messages = response.get("messages", []) or []
         total_count += len(page_messages)
-
         if len(results) < limit:
             remaining = limit - len(results)
             for item in page_messages[:remaining]:
                 message = service.users().messages().get(
-                    userId="me",
-                    id=item["id"],
-                    format="metadata",
+                    userId="me", id=item["id"], format="metadata",
                     metadataHeaders=["From", "To", "Subject", "Date"],
                 ).execute()
                 results.append(_parse_message(message))
-
         page_token = response.get("nextPageToken")
         if not page_token:
             break
-
-        if len(results) >= limit:
-            has_more = True
-
-    return {
-        "messages": results,
-        "count": total_count,
-        "returned_count": len(results),
-        "has_more": has_more,
-    }
-
-
-def get_message(message_id: str) -> dict[str, str]:
-    message_id = str(message_id or "").strip()
-    if not message_id:
-        raise ValueError("Email message_id tələb olunur.")
-
-    service = get_gmail_service()
-    message = service.users().messages().get(
-        userId="me",
-        id=message_id,
-        format="full",
-    ).execute()
-
-    return _parse_message(message, include_body=True)
+        has_more = True
+    return {"messages": results, "count": total_count, "returned_count": len(results), "has_more": has_more}
 
 
 def trash_message(message_id: str) -> dict[str, str]:
     message_id = str(message_id or "").strip()
     if not message_id:
         raise ValueError("Email message_id tələb olunur.")
-
-    service = get_gmail_service()
-    response = service.users().messages().trash(
-        userId="me",
-        id=message_id,
-    ).execute()
-
-    return {
-        "message_id": str(response.get("id", message_id)),
-        "thread_id": str(response.get("threadId", "")),
-    }
+    response = get_gmail_service().users().messages().trash(userId="me", id=message_id).execute()
+    return {"message_id": str(response.get("id", message_id)), "thread_id": str(response.get("threadId", ""))}
 
 
 def trash_messages_by_query(query: str) -> dict[str, int]:
     query = str(query or "").strip()
     if not query:
         raise ValueError("Trash əməliyyatı üçün Gmail query tələb olunur.")
-
     service = get_gmail_service()
     page_token = None
     matched = 0
     trashed = 0
-
     while True:
-        kwargs = {
-            "userId": "me",
-            "q": query,
-            "maxResults": 100,
-        }
+        kwargs = {"userId": "me", "q": query, "maxResults": 100}
         if page_token:
             kwargs["pageToken"] = page_token
-
         response = service.users().messages().list(**kwargs).execute()
-        message_ids = [
-            str(item.get("id", ""))
-            for item in response.get("messages", []) or []
-            if item.get("id")
-        ]
+        message_ids = [str(item.get("id", "")) for item in response.get("messages", []) or [] if item.get("id")]
         matched += len(message_ids)
-
         for message_id in message_ids:
-            service.users().messages().trash(
-                userId="me",
-                id=message_id,
-            ).execute()
+            service.users().messages().trash(userId="me", id=message_id).execute()
             trashed += 1
-
         page_token = response.get("nextPageToken")
         if not page_token:
             break
-
-    return {
-        "matched_count": matched,
-        "trashed_count": trashed,
-    }
+    return {"matched_count": matched, "trashed_count": trashed}
 
 
 def get_thread(thread_id: str) -> list[dict[str, str]]:
     thread_id = str(thread_id or "").strip()
     if not thread_id:
         raise ValueError("Email thread_id tələb olunur.")
-
-    service = get_gmail_service()
-
-    response = service.users().threads().get(
-        userId="me",
-        id=thread_id,
-        format="full",
-    ).execute()
-
-    return [
-        _parse_message(message, include_body=True)
-        for message in response.get("messages", []) or []
-    ]
+    response = get_gmail_service().users().threads().get(userId="me", id=thread_id, format="full").execute()
+    return [_parse_message(message, include_body=True) for message in response.get("messages", []) or []]
 
 
-def create_draft(
-    to: str,
-    subject: str,
-    body: str,
-    cc: str = "",
-    bcc: str = "",
-    thread_id: str = "",
-    in_reply_to: str = "",
-    references: str = "",
-) -> dict[str, str]:
+def create_draft(to: str, subject: str, body: str, cc: str = "", bcc: str = "", thread_id: str = "", in_reply_to: str = "", references: str = "") -> dict[str, str]:
     to = str(to or "").strip()
     subject = str(subject or "").strip()
     body = str(body or "")
-
     if not to:
         raise ValueError("Email recipient tələb olunur.")
     if not subject:
         raise ValueError("Email subject tələb olunur.")
     if not body.strip():
         raise ValueError("Email body boş ola bilməz.")
-
     message = EmailMessage()
     message["To"] = to
     message["Subject"] = subject
-
     if cc.strip():
         message["Cc"] = cc.strip()
-
     if bcc.strip():
         message["Bcc"] = bcc.strip()
-
     if in_reply_to.strip():
         message["In-Reply-To"] = in_reply_to.strip()
-
     if references.strip():
         message["References"] = references.strip()
-
     message.set_content(body)
-
-    raw = base64.urlsafe_b64encode(
-        message.as_bytes()
-    ).decode("ascii")
-
-    gmail_message = {
-        "raw": raw,
-    }
-
+    raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
+    gmail_message = {"raw": raw}
     if thread_id.strip():
         gmail_message["threadId"] = thread_id.strip()
-
-    service = get_gmail_service()
-
-    response = service.users().drafts().create(
-        userId="me",
-        body={
-            "message": gmail_message,
-        },
-    ).execute()
-
+    response = get_gmail_service().users().drafts().create(userId="me", body={"message": gmail_message}).execute()
     draft_id = str(response.get("id", ""))
     message_data = response.get("message") or {}
-
     if not draft_id:
         raise RuntimeError("Gmail draft ID qaytarmadı.")
-
-    return {
-        "draft_id": draft_id,
-        "gmail_message_id": str(message_data.get("id", "")),
-        "thread_id": str(message_data.get("threadId", thread_id)),
-    }
+    return {"draft_id": draft_id, "gmail_message_id": str(message_data.get("id", "")), "thread_id": str(message_data.get("threadId", thread_id))}
 
 
 def send_draft(draft_id: str) -> dict[str, str]:
     draft_id = str(draft_id or "").strip()
     if not draft_id:
         raise ValueError("Email draft_id tələb olunur.")
-
-    service = get_gmail_service()
-
-    response = service.users().drafts().send(
-        userId="me",
-        body={
-            "id": draft_id,
-        },
-    ).execute()
-
-    return {
-        "message_id": str(response.get("id", "")),
-        "thread_id": str(response.get("threadId", "")),
-    }
+    response = get_gmail_service().users().drafts().send(userId="me", body={"id": draft_id}).execute()
+    return {"message_id": str(response.get("id", "")), "thread_id": str(response.get("threadId", ""))}
