@@ -60,10 +60,10 @@
 .eva-core .orb-waveform {
   position: absolute;
   z-index: 4;
-  left: 7%;
-  right: 7%;
+  left: 50%;
+  transform: translateX(-50%);
   bottom: 41px;
-  width: 86%;
+  width: 50%;
   height: 82px;
   display: block;
   overflow: visible;
