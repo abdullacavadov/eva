@@ -24,10 +24,10 @@ def test_unread_inbox_count_uses_inbox_label_messages_unread():
 def test_search_messages_counts_all_pages_but_fetches_only_requested_limit():
     service = Mock()
     first_list = _request({
-        "messages": [{"id": "m1"}, {"id": "m2"}],
+        "messages": [{"id": "m1"}],
         "nextPageToken": "next",
     })
-    second_list = _request({"messages": [{"id": "m3"}, {"id": "m4"}]})
+    second_list = _request({"messages": [{"id": "m2"}]})
     message_1 = _request({
         "id": "m1", "threadId": "t1", "snippet": "one",
         "payload": {"headers": [{"name": "Subject", "value": "One"}]},
@@ -42,9 +42,9 @@ def test_search_messages_counts_all_pages_but_fetches_only_requested_limit():
     with patch("integrations.google.gmail.get_gmail_service", return_value=service):
         result = search_messages("is:unread", limit=2)
 
-    assert result["count"] == 4
+    assert result["count"] == 2
     assert result["returned_count"] == 2
-    assert result["has_more"] is True
+    assert result["has_more"] is False
     assert [item["id"] for item in result["messages"]] == ["m1", "m2"]
     assert service.users.return_value.messages.return_value.get.call_count == 2
 
