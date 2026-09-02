@@ -93,6 +93,9 @@ def prepare_new_email(to: str, subject: str, body: str, cc: str = "", bcc: str =
 
 def send_email(draft_id: str, confirmation_id: str = "") -> dict:
     if not str(draft_id or "").strip(): raise ValueError("Email draft_id tələb olunur.")
+    if confirmation_id:
+        from core.action_confirmation import consume_confirmation
+        consume_confirmation(confirmation_id, "send_email", {"draft_id": draft_id})
     try:
         sent = send_draft(draft_id); item = {"id": f"email:sent:{sent['message_id']}", "gmail_message_id": sent["message_id"], "thread_id": sent["thread_id"], "draft_id": draft_id, "action": "send", "status": "sent"}
         return success("email", [item], {"draft_id": draft_id}, {"selected_id": item["id"], "confirmed": bool(confirmation_id)})
