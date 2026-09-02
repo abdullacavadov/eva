@@ -23,10 +23,22 @@ const WAVEFORM_WIDTH = 560;
 const WAVEFORM_HEIGHT = 100;
 const WAVEFORM_STRANDS = 11;
 const WAVEFORM_POINTS = 72;
-const WAVEFORM_MAX_AMPLITUDE = 39;
+const WAVEFORM_MAX_AMPLITUDE = 44;
+const WAVEFORM_GAIN = 8;
+const WAVEFORM_PARTICLES = 64;
+
+const waveformParticles = Array.from({ length: WAVEFORM_PARTICLES }, (_, index) => {
+  const seed = Math.sin(index * 91.17) * 43758.5453;
+  const random = seed - Math.floor(seed);
+  const x = 2 + ((index * 37.7) % 96);
+  const y = 18 + ((index * 53.3 + random * 24) % 64);
+  const radius = 0.45 + random * 1.15;
+  return { x, y, radius, opacity: 0.18 + random * 0.5 };
+});
 
 function buildWavePath(level: number, strandIndex: number): string {
-  const normalizedLevel = Math.pow(Math.max(0, Math.min(1, level)), 0.55);
+  const amplifiedLevel = Math.min(1, Math.max(0, level) * WAVEFORM_GAIN);
+  const normalizedLevel = Math.pow(amplifiedLevel, 0.55);
   const layer = strandIndex / Math.max(1, WAVEFORM_STRANDS - 1) * 2 - 1;
   const phase = layer * 0.34;
   const layerScale = 0.55 + (1 - Math.abs(layer)) * 0.45;
@@ -145,6 +157,7 @@ export function EvaOrb({ state }: OrbProps) {
   const orbStyle = { '--orb-rgb': colorByState[visualState], '--orb-density': `${density / 100}`, '--orb-speed': `${speed}`, '--orb-glow': `${glow}` } as CSSProperties;
   const waveformVisible = isSpeaking && audioReactive;
   const renderedLevel = waveformVisible ? waveformLevel : 0;
+  const amplifiedLevel = Math.min(1, renderedLevel * WAVEFORM_GAIN);
   const waveformStyle: CSSProperties = { opacity: 0.8, animation: 'none' };
 
   return <section className={`eva-core state-${visualState.toLowerCase()} ${visualSettings.particle_animation_enabled === false ? 'orb-no-particles-animation' : ''} ${visualSettings.glow_enabled === false ? 'orb-no-glow' : ''} ${visualSettings.pulse_enabled === false ? 'orb-no-pulse' : ''} ${visualSettings.audio_reactive_enabled === false ? 'orb-no-audio-reactive' : ''}`} style={orbStyle} aria-label={`EVA ${stateLabel[visualState]}`}>
@@ -154,17 +167,32 @@ export function EvaOrb({ state }: OrbProps) {
     <svg className={`orb-waveform ${waveformVisible ? 'is-speaking' : 'is-flat'}`} style={waveformStyle} viewBox={`0 0 ${WAVEFORM_WIDTH} ${WAVEFORM_HEIGHT}`} preserveAspectRatio="none" aria-hidden="true">
       <defs>
         <linearGradient id="eva-wave-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="rgb(var(--orb-rgb))" />
-          <stop offset="52%" stopColor="rgb(var(--orb-rgb))" />
-          <stop offset="100%" stopColor="#c48cff" />
+          <stop offset="0%" stopColor="#35a7ff" />
+          <stop offset="45%" stopColor="rgb(var(--orb-rgb))" />
+          <stop offset="75%" stopColor="#9a5cff" />
+          <stop offset="100%" stopColor="#e7a6ff" />
         </linearGradient>
+        <filter id="eva-wave-glow" x="-20%" y="-80%" width="140%" height="260%">
+          <feGaussianBlur stdDeviation="2.8" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
       </defs>
       {Array.from({ length: WAVEFORM_STRANDS }, (_, index) => (
         <path
           key={index}
           d={buildWavePath(renderedLevel, index)}
           className="orb-wave-strand"
-          style={{ opacity: `${0.34 + (1 - Math.abs(index / (WAVEFORM_STRANDS - 1) * 2 - 1)) * 0.44}` }}
+          style={{ opacity: `${0.30 + (1 - Math.abs(index / (WAVEFORM_STRANDS - 1) * 2 - 1)) * 0.58}` }}
+        />
+      ))}
+      {waveformParticles.map((particle, index) => (
+        <circle
+          key={`wp-${index}`}
+          className="orb-wave-particle"
+          cx={`${particle.x}%`}
+          cy={`${particle.y}%`}
+          r={particle.radius}
+          style={{ opacity: waveformVisible ? particle.opacity * (0.45 + amplifiedLevel * 0.9) : 0 }}
         />
       ))}
     </svg>
