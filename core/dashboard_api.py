@@ -9,7 +9,7 @@ from actions.agenda import get_daily_agenda
 from actions.email import search_emails
 from actions.weather import get_weather_summary
 from actions.sys_info import sys_info
-from integrations.google.gmail import get_unread_inbox_count
+from integrations.google.gmail import list_message_ids
 
 
 def _percent_from_sys_info(text: str, prefix: str) -> float | None:
@@ -127,7 +127,8 @@ def get_dashboard_data() -> dict[str, Any]:
         errors["system"] = str(exc)
 
     try:
-        data["overview"]["unread_messages"] = get_unread_inbox_count()
+        # Gmail resultSizeEstimate təxminidir. Bütün səhifələri oxuyaraq dəqiq sayırıq.
+        data["overview"]["unread_messages"] = len(list_message_ids("is:unread"))
     except Exception as exc:
         errors["gmail"] = str(exc)
 
