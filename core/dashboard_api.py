@@ -127,8 +127,10 @@ def get_dashboard_data() -> dict[str, Any]:
         errors["system"] = str(exc)
 
     try:
-        # Gmail resultSizeEstimate təxminidir. Bütün səhifələri oxuyaraq dəqiq sayırıq.
-        data["overview"]["unread_messages"] = len(list_message_ids("is:unread"))
+        # Dashboard-dakı say Gmail-in əsas Inbox qutusundakı oxunmamış mesajlardır.
+        data["overview"]["unread_messages"] = len(
+            list_message_ids("in:inbox is:unread")
+        )
     except Exception as exc:
         errors["gmail"] = str(exc)
 
