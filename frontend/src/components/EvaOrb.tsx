@@ -52,10 +52,16 @@ interface OrbProps {
 const WAVEFORM_WIDTH = 560;
 const WAVEFORM_HEIGHT = 110;
 const WAVEFORM_GAIN = 13;
-const WAVEFORM_STRAND_COUNT = 6;
-const WAVEFORM_DOTS_PER_STRAND = 60;
-const WAVEFORM_MAX_AMPLITUDE = 34;
-const WAVEFORM_DUST_COUNT = 90;
+const WAVEFORM_STRAND_COUNT = 5;
+const WAVEFORM_DOTS_PER_STRAND = 80;
+const WAVEFORM_MAX_AMPLITUDE = 30;
+const WAVEFORM_DUST_COUNT = 60;
+// Böyük, ümumi dalğa forması (bütün lentlərin BİRGƏ izlədiyi macro əyri).
+const WAVEFORM_MACRO_FREQ_1 = 1.05;
+const WAVEFORM_MACRO_FREQ_2 = 1.7;
+// Lentlərin bir-birini keçib "hörülmə" effekti üçün yerli fırlanma (twist).
+const WAVEFORM_TWIST_FREQ = 3.4;
+const WAVEFORM_TWIST_SPEED = 0.55;
 
 // Arxa fonda üzən toz hissəcikləri (statik yerləşim, yalnız parıltısı canlıdır).
 const waveformDust = Array.from({ length: WAVEFORM_DUST_COUNT }, (_, index) => {
@@ -65,53 +71,65 @@ const waveformDust = Array.from({ length: WAVEFORM_DUST_COUNT }, (_, index) => {
   const random2 = seed2 - Math.floor(seed2);
   return {
     x: 2 + random * 96,
-    y: 6 + random2 * 88,
-    radius: 0.35 + random2 * 0.9,
-    baseOpacity: 0.08 + random * 0.22,
+    y: 10 + random2 * 80,
+    radius: 0.3 + random2 * 0.8,
+    baseOpacity: 0.06 + random * 0.16,
     twinkle: 0.4 + random2 * 1.6,
   };
 });
 
-// Hər lent (strand) üçün sabit "şəxsiyyət": faza, tezlik və şaquli sürüşmə,
-// beləcə lentlər bir-birini fərqli nöqtələrdə kəsib "toxunmuş mesh" effekti verir.
+// Bütün lentlər EYNİ böyük dalğanı (macro) izləyir, lakin hər birinin öz
+// "twist" fazası var — sanki lent bir ip kimi öz oxu ətrafında burulur və
+// bu burulma zamanla fırlanır (WAVEFORM_TWIST_SPEED). Nəticə: ayrı-ayrı
+// laylar yox, TƏK, hörülmüş, real vaxtda hərəkət edən bir lent görünüşü.
 const waveformStrands = Array.from({ length: WAVEFORM_STRAND_COUNT }, (_, index) => {
-  const layer = index / Math.max(1, WAVEFORM_STRAND_COUNT - 1);
+  const twistPhase = (index / WAVEFORM_STRAND_COUNT) * Math.PI * 2;
   return {
-    phase: index * 1.7 + Math.sin(index * 2.3) * 0.9,
-    freq1: 1.4 + layer * 0.9,
-    freq2: 2.6 - layer * 0.6,
-    verticalOffset: (layer - 0.5) * WAVEFORM_HEIGHT * 0.32,
-    relativeAmplitude: 0.55 + Math.sin(index * 1.9) * 0.3,
-    hue: layer, // 0 = mavi/cyan tərəf, 1 = bənövşəyi/çəhrayı tərəf
+    twistPhase,
+    hue: index / Math.max(1, WAVEFORM_STRAND_COUNT - 1),
   };
 });
 
 function getStrandPoints(
   level: number,
-  strand: (typeof waveformStrands)[number]
+  strand: (typeof waveformStrands)[number],
+  time: number
 ) {
   const amplifiedLevel = Math.min(1, Math.max(0, level) * WAVEFORM_GAIN);
   const normalizedLevel = Math.pow(amplifiedLevel, 0.45);
-  const idleLevel = 0.16; // audio olmasa belə lent tam düz qalmasın
+  const idleLevel = 0.18; // audio olmasa belə lent tam düz qalmasın
+  const levelFactor = Math.max(idleLevel, normalizedLevel);
 
   return Array.from({ length: WAVEFORM_DOTS_PER_STRAND }, (_, i) => {
     const t = i / (WAVEFORM_DOTS_PER_STRAND - 1);
-    const envelope = Math.sin(Math.PI * t) ** 0.55;
-    const shape =
-      Math.sin(t * Math.PI * strand.freq1 * 2 + strand.phase) * 0.6 +
-      Math.sin(t * Math.PI * strand.freq2 * 2 - strand.phase * 1.3) * 0.4;
+    // Uclarda nazikləşən, mərkəzdə güclü zərf (edge-də lent demək olar ki yox olur).
+    const envelope = Math.sin(Math.PI * t) ** 0.7;
 
-    const amplitude =
-      strand.relativeAmplitude *
-      envelope *
-      Math.max(idleLevel, normalizedLevel) *
-      WAVEFORM_MAX_AMPLITUDE;
+    // Ümumi (macro) dalğa forması — bütün lentlər buna tabedir.
+    // İki fərqli sürətlə zamanla sürüşür ki, forma da dəyişsin, sadəcə axmasın.
+    const macroShape =
+      Math.sin(t * Math.PI * WAVEFORM_MACRO_FREQ_1 * 2 + time * 0.32) * 0.65 +
+      Math.sin(t * Math.PI * WAVEFORM_MACRO_FREQ_2 * 2 - time * 0.21) * 0.35;
+
+    // Yerli burulma (twist) — hər lentin öz fazası ilə eyni sürətdə fırlanır,
+    // bu da lentlərin real vaxtda bir-birini keçməsinə səbəb olur.
+    const twistShape = Math.sin(
+      t * Math.PI * WAVEFORM_TWIST_FREQ * 2 +
+        strand.twistPhase +
+        time * WAVEFORM_TWIST_SPEED
+    );
+
+    const macroAmplitude = WAVEFORM_MAX_AMPLITUDE * 0.75 * envelope * levelFactor;
+    const twistAmplitude = WAVEFORM_MAX_AMPLITUDE * 0.4 * envelope * levelFactor;
 
     return {
       x: t * WAVEFORM_WIDTH,
-      y: WAVEFORM_HEIGHT / 2 + strand.verticalOffset + shape * amplitude,
-      // Dalğanın "təpə"lərində daha sıx/parlaq, "vadi"lərdə daha seyrək hissəcik.
-      density: 0.35 + Math.abs(shape) * 0.65,
+      y:
+        WAVEFORM_HEIGHT / 2 +
+        macroShape * macroAmplitude +
+        twistShape * twistAmplitude,
+      // Lentin özü ilə kəsişdiyi (twist pik) nöqtələrdə daha sıx/parlaq nöqtə.
+      density: 0.3 + Math.abs(twistShape) * 0.7,
     };
   });
 }
@@ -130,9 +148,33 @@ export function EvaOrb({ state }: OrbProps) {
   const [control, setControl] = useState<EvaControlState>({});
   const [visualSettings, setVisualSettings] = useState<OrbSettings>({});
   const [waveformLevel, setWaveformLevel] = useState(0);
+  const [waveTime, setWaveTime] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
+  const waveAnimationRef = useRef<number | null>(null);
+  const lastFrameRef = useRef<number | null>(null);
+
+  // Dalğaların faktiki AXMASI üçün zaman-əsaslı animasiya loop-u.
+  // Səs səviyyəsi yalnız amplitudanı idarə edir, hərəkəti yox.
+  useEffect(() => {
+    const FRAME_INTERVAL = 1000 / 30; // ~30fps kifayətdir, hamar görünür
+    const tick = (timestamp: number) => {
+      if (lastFrameRef.current === null) lastFrameRef.current = timestamp;
+      const elapsed = timestamp - lastFrameRef.current;
+      if (elapsed >= FRAME_INTERVAL) {
+        lastFrameRef.current = timestamp;
+        setWaveTime((previous) => previous + elapsed / 1000);
+      }
+      waveAnimationRef.current = requestAnimationFrame(tick);
+    };
+    waveAnimationRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (waveAnimationRef.current !== null)
+        cancelAnimationFrame(waveAnimationRef.current);
+      lastFrameRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -321,7 +363,7 @@ export function EvaOrb({ state }: OrbProps) {
         {/* Dalğavari hissəcik lentləri (mesh) */}
         <g filter="url(#eva-wave-glow)">
           {waveformStrands.map((strand, strandIndex) => {
-            const points = getStrandPoints(renderedLevel, strand);
+            const points = getStrandPoints(renderedLevel, strand, waveTime);
             const linePath = points
               .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
               .join(' ');
@@ -362,6 +404,5 @@ export function EvaOrb({ state }: OrbProps) {
         </g>
       </svg>
     </section>
-    
   );
 }
