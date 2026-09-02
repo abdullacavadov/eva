@@ -3,7 +3,6 @@ import type { EvaControlState, EvaState } from '../types/eva';
 import '../styles/settings-extended.css';
 
 const WS_URL = import.meta.env.VITE_EVA_WS_URL || `ws://${window.location.hostname || '127.0.0.1'}:8765`;
-const WAVEFORM_BARS = 28;
 const WAVEFORM_RECONNECT_MS = 1000;
 const stateLabel: Record<EvaState, string> = {
   IDLE: 'HAZIRDIR', LISTENING: 'DİNLƏYİR', SPEAKING: 'DANIŞIR', THINKING: 'DÜŞÜNÜR', EXECUTING: 'İCRA EDİR',
@@ -23,17 +22,24 @@ interface OrbProps { state: EvaState; }
 const WAVEFORM_WIDTH = 560;
 const WAVEFORM_HEIGHT = 100;
 const WAVEFORM_STRANDS = 11;
-const WAVEFORM_MAX_AMPLITUDE = 42;
+const WAVEFORM_POINTS = 72;
+const WAVEFORM_MAX_AMPLITUDE = 39;
 
-function buildWavePath(levels: number[], strandOffset: number): string {
-  const points = levels.map((level, index) => {
-    const x = (index / Math.max(1, levels.length - 1)) * WAVEFORM_WIDTH;
-    const normalized = Math.pow(Math.max(0, Math.min(1, level)), 0.55);
-    const y = WAVEFORM_HEIGHT / 2 + strandOffset * normalized * WAVEFORM_MAX_AMPLITUDE;
-    return { x, y };
+function buildWavePath(level: number, strandIndex: number): string {
+  const normalizedLevel = Math.pow(Math.max(0, Math.min(1, level)), 0.55);
+  const layer = strandIndex / Math.max(1, WAVEFORM_STRANDS - 1) * 2 - 1;
+  const phase = layer * 0.34;
+  const layerScale = 0.55 + (1 - Math.abs(layer)) * 0.45;
+  const points = Array.from({ length: WAVEFORM_POINTS }, (_, index) => {
+    const x = index / (WAVEFORM_POINTS - 1);
+    const envelope = Math.sin(Math.PI * x) ** 0.72;
+    const shape =
+      Math.sin(Math.PI * x * 2 + phase) * 0.72 +
+      Math.sin(Math.PI * x * 4 - phase * 1.7) * 0.2 +
+      Math.sin(Math.PI * x * 6 + phase * 2.3) * 0.08;
+    const y = WAVEFORM_HEIGHT / 2 + shape * envelope * normalizedLevel * WAVEFORM_MAX_AMPLITUDE * layerScale;
+    return { x: x * WAVEFORM_WIDTH, y };
   });
-
-  if (points.length === 0) return '';
 
   let path = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
   for (let index = 1; index < points.length; index += 1) {
@@ -45,7 +51,7 @@ function buildWavePath(levels: number[], strandOffset: number): string {
   }
 
   const last = points[points.length - 1];
-  const previous = points[Math.max(0, points.length - 2)];
+  const previous = points[points.length - 2];
   path += ` Q ${previous.x.toFixed(1)} ${previous.y.toFixed(1)} ${last.x.toFixed(1)} ${last.y.toFixed(1)}`;
   return path;
 }
@@ -53,7 +59,7 @@ function buildWavePath(levels: number[], strandOffset: number): string {
 export function EvaOrb({ state }: OrbProps) {
   const [control, setControl] = useState<EvaControlState>({});
   const [visualSettings, setVisualSettings] = useState<OrbSettings>({});
-  const [waveformLevels, setWaveformLevels] = useState<number[]>(Array(WAVEFORM_BARS).fill(0));
+  const [waveformLevel, setWaveformLevel] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
@@ -92,7 +98,7 @@ export function EvaOrb({ state }: OrbProps) {
           }
           if (message.type === 'audio.level') {
             const level = Math.max(0, Math.min(1, Number(message.level) || 0));
-            setWaveformLevels(prev => [...prev.slice(-(WAVEFORM_BARS - 1)), level]);
+            setWaveformLevel(level);
           }
         } catch {
           // Yanlış WebSocket mesajlarını UI-ı pozmadan keç.
@@ -138,11 +144,8 @@ export function EvaOrb({ state }: OrbProps) {
   const glow = Math.max(0, Math.min(100, Number(visualSettings.glow_intensity ?? 100))) / 100;
   const orbStyle = { '--orb-rgb': colorByState[visualState], '--orb-density': `${density / 100}`, '--orb-speed': `${speed}`, '--orb-glow': `${glow}` } as CSSProperties;
   const waveformVisible = isSpeaking && audioReactive;
+  const renderedLevel = waveformVisible ? waveformLevel : 0;
   const waveformStyle: CSSProperties = { opacity: 0.8, animation: 'none' };
-  const waveformLevelsToRender = waveformVisible ? waveformLevels : Array(WAVEFORM_BARS).fill(0);
-  const waveformOffsets = Array.from({ length: WAVEFORM_STRANDS }, (_, index) =>
-    (index / (WAVEFORM_STRANDS - 1)) * 2 - 1,
-  );
 
   return <section className={`eva-core state-${visualState.toLowerCase()} ${visualSettings.particle_animation_enabled === false ? 'orb-no-particles-animation' : ''} ${visualSettings.glow_enabled === false ? 'orb-no-glow' : ''} ${visualSettings.pulse_enabled === false ? 'orb-no-pulse' : ''} ${visualSettings.audio_reactive_enabled === false ? 'orb-no-audio-reactive' : ''}`} style={orbStyle} aria-label={`EVA ${stateLabel[visualState]}`}>
     <div className="orb-orbit orbit-a" /><div className="orb-orbit orbit-b" /><div className="orb-orbit orbit-c" /><div className="orb-glow" />
@@ -156,12 +159,12 @@ export function EvaOrb({ state }: OrbProps) {
           <stop offset="100%" stopColor="#c48cff" />
         </linearGradient>
       </defs>
-      {waveformOffsets.map((offset, index) => (
+      {Array.from({ length: WAVEFORM_STRANDS }, (_, index) => (
         <path
           key={index}
-          d={buildWavePath(waveformLevelsToRender, offset)}
+          d={buildWavePath(renderedLevel, index)}
           className="orb-wave-strand"
-          style={{ opacity: `${0.38 + (1 - Math.abs(offset)) * 0.42}` }}
+          style={{ opacity: `${0.34 + (1 - Math.abs(index / (WAVEFORM_STRANDS - 1) * 2 - 1)) * 0.44}` }}
         />
       ))}
     </svg>
