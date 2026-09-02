@@ -323,6 +323,7 @@ export default function App() {
       <div className="ambient ambient-a" />
       <div className="ambient ambient-b" />
       <aside>
+        <ContextPanel context={context} />
         <AzCalendar />
         <ContextPanel context={context} />
       </aside>

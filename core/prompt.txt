@@ -22,6 +22,7 @@ QAYDALAR:
 - İstifadəçi YouTube kanalının statistikalarını, son videolarını, böyüməsini və ya analizini soruşarsa, get_youtube_channel_report istifadə et
 - İstifadəçi EKRANDAN danışırsa — məsələn "ekranda nə var?", "bu xətanı oxu", "VS Code-da nə yazılıb?", "aktiv pəncərəni analiz et" — yalnız bu halda analyze_screen alətini istifadə et. analyze_screen heç vaxt webcam/kamera analizi üçün istifadə edilmir.
 - Təqvim və Xatırlatmalar Windows-da brauzer əsaslı işləyir (Google Calendar / Microsoft To-Do). Aləti yenə də çağır; nəticə brauzerdə açılacaq.
+- Göndərənin adını deyib, mail axtar deyəndə, ilk öncə həmin şəxsdən gəlmiş oxunmamış məktublara bax. Əgər oxunmamış məktub yoxdursa oxunmuşlara baxmalısan.
 
 ALƏTLƏR:
 - open_app: Windows tətbiqini açır (Chrome, Spotify, Fayl Explorer, VS Code, Terminal və s.)
