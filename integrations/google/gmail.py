@@ -54,7 +54,7 @@ def _strip_html(value: str) -> str:
 def get_message(message_id: str) -> dict[str, str]:
     message_id = str(message_id or "").strip()
     if not message_id:
-        raise ValueError("Email message_id t╔Щl╔Щb olunur.")
+        raise ValueError("Email message_id tələb olunur.")
 
     service = get_gmail_service()
 
@@ -117,7 +117,7 @@ def list_draft_ids() -> list[str]:
 def get_draft(draft_id: str) -> dict[str, Any]:
     draft_id = str(draft_id or "").strip()
     if not draft_id:
-        raise ValueError("Email draft_id t╔Щl╔Щb olunur.")
+        raise ValueError("Email draft_id tələb olunur.")
 
     service = get_gmail_service()
     return service.users().drafts().get(
@@ -130,7 +130,7 @@ def get_draft(draft_id: str) -> dict[str, Any]:
 def list_message_ids(query: str, include_spam_trash: bool = False) -> list[str]:
     query = str(query or "").strip()
     if not query:
-        raise ValueError("Gmail delete query t╔Щl╔Щb olunur.")
+        raise ValueError("Gmail delete query tələb olunur.")
 
     service = get_gmail_service()
     message_ids: list[str] = []
@@ -165,7 +165,7 @@ def list_message_ids(query: str, include_spam_trash: bool = False) -> list[str]:
 def delete_draft(draft_id: str) -> None:
     draft_id = str(draft_id or "").strip()
     if not draft_id:
-        raise ValueError("Email draft_id t╔Щl╔Щb olunur.")
+        raise ValueError("Email draft_id tələb olunur.")
 
     service = get_gmail_service()
     service.users().drafts().delete(
@@ -237,6 +237,12 @@ def search_messages(
     query: str = "",
     limit: int = 10,
 ) -> dict[str, Any]:
+    """Gmail axtarışında mesajları qaytarır və count-u dəqiq hesablayır.
+
+    Gmail messages.list() içindəki resultSizeEstimate yalnız təxmini rəqəmdir.
+    Buna görə bütün nəticə səhifələrini ID səviyyəsində gəzirik, amma yalnız
+    istifadəçinin istədiyi limit qədər mesajın metadata-sını ayrıca yükləyirik.
+    """
     limit = max(1, min(int(limit or 10), 100))
     service = get_gmail_service()
     results: list[dict[str, str]] = []
@@ -244,44 +250,36 @@ def search_messages(
     total_count = 0
     has_more = False
 
-    while len(results) < limit:
+    while True:
         kwargs = {
             "userId": "me",
             "q": str(query or "").strip(),
-            "maxResults": min(100, limit - len(results)),
+            "maxResults": 100,
         }
         if page_token:
             kwargs["pageToken"] = page_token
 
         response = service.users().messages().list(**kwargs).execute()
-        total_count = int(
-            response.get(
-                "resultSizeEstimate",
-                total_count,
-            )
-            or 0
-        )
+        page_messages = response.get("messages", []) or []
+        total_count += len(page_messages)
 
-        for item in response.get("messages", []) or []:
-            message = service.users().messages().get(
-                userId="me",
-                id=item["id"],
-                format="metadata",
-                metadataHeaders=["From", "To", "Subject", "Date"],
-            ).execute()
-            results.append(_parse_message(message))
-            if len(results) >= limit:
-                break
+        if len(results) < limit:
+            remaining = limit - len(results)
+            for item in page_messages[:remaining]:
+                message = service.users().messages().get(
+                    userId="me",
+                    id=item["id"],
+                    format="metadata",
+                    metadataHeaders=["From", "To", "Subject", "Date"],
+                ).execute()
+                results.append(_parse_message(message))
 
         page_token = response.get("nextPageToken")
         if not page_token:
-            has_more = False
             break
 
-        has_more = len(results) < limit
-
-    if total_count == 0 and results:
-        total_count = len(results)
+        if len(results) >= limit:
+            has_more = True
 
     return {
         "messages": results,
