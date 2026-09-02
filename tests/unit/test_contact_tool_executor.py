@@ -35,8 +35,9 @@ def test_delete_contact_is_confirmation_gated():
     with patch("core.tool_executor.delete_contact", return_value="Google kontaktı silindi.") as mock_action:
         response = asyncio.run(executor.execute(fc))
     mock_action.assert_not_called()
-    assert response.response["type"] == "confirmation"
-    assert response.response["status"] == "needs_confirmation"
+    result = response.response["result"]
+    assert result["type"] == "confirmation"
+    assert result["status"] == "needs_confirmation"
 
 
 def test_structured_action_result_is_saved_and_can_be_selected():
