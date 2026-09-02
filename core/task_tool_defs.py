@@ -5,6 +5,11 @@ _tool_defs.TOOL_DECLARATIONS[:] = [item for item in _tool_defs.TOOL_DECLARATIONS
 
 TASK_TOOL_DECLARATIONS = [
     {
+        "name": "confirm_action",
+        "description": "Əvvəlki riskli əməliyyat üçün istifadəçidən açıq təsdiq alındıqdan sonra verilmiş confirmation_id ilə əməliyyatı icra edir. Yalnız istifadəçi açıq şəkildə təsdiqlədikdən sonra çağır.",
+        "parameters": {"type": "OBJECT", "properties": {"confirmation_id": {"type": "STRING", "description": "Əvvəlki alətin qaytardığı birdəfəlik təsdiq identifikatoru"}}, "required": ["confirmation_id"]},
+    },
+    {
         "name": "update_reminder",
         "description": "Google Tasks-da mövcud tapşırığı yeniləyir. Başlıq, son tarix və ya qeyd dəyişdirilə bilər.",
         "parameters": {"type": "OBJECT", "properties": {"task_id": {"type": "STRING", "description": "Google Tasks task ID"}, "title": {"type": "STRING", "description": "Yeni başlıq"}, "due_iso": {"type": "STRING", "description": "Yeni son tarix/saat, ISO formatında"}, "notes": {"type": "STRING", "description": "Yeni qeyd"}, "list_name": {"type": "STRING", "description": "Task siyahısının adı"}, "all_day": {"type": "BOOLEAN", "description": "Son tarix bütün gün üçündürsə true"}}, "required": ["task_id"]},
@@ -16,8 +21,8 @@ TASK_TOOL_DECLARATIONS = [
     },
     {
         "name": "delete_reminder",
-        "description": "Google Tasks-dan konkret tapşırığı silir. Silmə təsdiqi tələb olunur.",
-        "parameters": {"type": "OBJECT", "properties": {"task_id": {"type": "STRING", "description": "Google Tasks task ID"}, "list_name": {"type": "STRING", "description": "Task siyahısının adı"}}, "required": ["task_id"]},
+        "description": "Google Tasks-dan konkret tapşırığı silir. Əməliyyat üçün əvvəlcə açıq istifadəçi təsdiqi alınmalı və confirm_action çağırılmalıdır.",
+        "parameters": {"type": "OBJECT", "properties": {"task_id": {"type": "STRING", "description": "Google Tasks task ID"}, "list_name": {"type": "STRING", "description": "Task siyahısının adı"}, "confirmation_id": {"type": "STRING", "description": "confirm_action üçün istifadə olunan identifikator"}}, "required": ["task_id"]},
     },
     {
         "name": "get_daily_agenda",
@@ -36,7 +41,7 @@ TASK_TOOL_DECLARATIONS = [
     },
     {
         "name": "query_unified_assistant",
-        "description": "Təbii dildə cross-source məlumat sorğusunu vahid şəkildə planlayır və lazım olan Calendar, Google Tasks, Memory, Gmail və WhatsApp mənbələrini birlikdə yoxlayır. 'Bu gün nə işim var?', 'Sabah nə etməliyəm?', 'Bu gün nə baş verib?', 'Əhmədlə bağlı son nə danışmışıq?', 'Marketə getməyi nə vaxt planlaşdırmışdım?' kimi sorğularda istifadə et. Nəticələri sadəcə dump etmə; mənbələrdən gələn nəticələri vahid cavab üçün istifadə et.",
+        "description": "Təbii dildə cross-source məlumat sorğusunu vahid şəkildə planlayır və lazım olan Calendar, Google Tasks, Memory, Gmail və WhatsApp mənbələrini birlikdə yoxlayır. Nəticələri sadəcə dump etmə; mənbələrdən gələn nəticələri vahid cavab üçün istifadə et.",
         "parameters": {"type": "OBJECT", "properties": {"query": {"type": "STRING", "description": "İstifadəçinin tam təbii dil sorğusu"}, "limit": {"type": "NUMBER", "description": "Hər mənbədən maksimum nəticə sayı"}}, "required": ["query"]},
     },
 ]
