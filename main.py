@@ -236,10 +236,9 @@ class JarvisLive:
     @staticmethod
     def _clean_transcript_text(text: str) -> tuple[str, bool]:
         raw = str(text or "")
-        had_noise = False
         if CONTROL_TOKEN_RE.search(raw):
-            had_noise = True
             raw = CONTROL_TOKEN_RE.sub(" ", raw)
+        had_noise = False
         cleaned = []
         for ch in raw:
             if ch in "\n\r\t" or ord(ch) >= 32:
@@ -364,10 +363,9 @@ class JarvisLive:
                                 if output_noise_samples:
                                     self.ui.write_debug("Qismən süzülmüş səs transkripti: " + " | ".join(output_noise_samples), level="WARN")
                             elif output_noise:
-                                self.ui.write_log("ERR: E.V.A səsli cavabını emal edərkən xəta baş verdi.")
+                                self.ui.write_debug("Səs transkriptində yalnız idarəetmə tokeni/səs-küy alındı; cavab uğurlu audio kimi qəbul edildi.", level="DEBUG")
                                 if output_noise_samples:
-                                    self.ui.write_debug("Süzülmüş xam transkript: " + " | ".join(output_noise_samples), level="WARN")
-                                self.ui.set_state("ERROR")
+                                    self.ui.write_debug("Süzülmüş xam transkript: " + " | ".join(output_noise_samples), level="DEBUG")
                             out_buf = []
                             output_noise = False
                             output_noise_samples = []
@@ -426,7 +424,7 @@ class JarvisLive:
                     self.session = session
                     self._loop = asyncio.get_event_loop()
                     self.audio_in_queue = asyncio.Queue()
-                    self.out_queue = asyncio.Queue(maxsize=10)
+                    self.out_queue = asyncio.Queue(maxsize=4)
                     print("[E.V.A] ✅ Bağlandı.")
                     connect_attempts = 0
                     if not self._greeting_sent:
