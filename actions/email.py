@@ -14,27 +14,18 @@ _PENDING_TRASH_OPERATIONS: dict[str, dict] = {}
 
 
 def _structured_message(message: dict[str, str], include_body: bool = False) -> dict:
-    return {
-        "id": f"email:{message.get('id', '')}", "gmail_message_id": message.get("id", ""), "thread_id": message.get("thread_id", ""),
-        "from": message.get("from", ""), "to": message.get("to", ""), "cc": message.get("cc", ""), "bcc": message.get("bcc", ""),
-        "subject": message.get("subject", ""), "date": message.get("date", ""), "snippet": message.get("snippet", ""),
-        "message_id_header": message.get("message_id_header", ""), "references": message.get("references", ""), "in_reply_to": message.get("in_reply_to", ""),
-        **({"body": message.get("body", "")} if include_body else {}),
-    }
+    return {"id": f"email:{message.get('id', '')}", "gmail_message_id": message.get("id", ""), "thread_id": message.get("thread_id", ""), "from": message.get("from", ""), "to": message.get("to", ""), "cc": message.get("cc", ""), "bcc": message.get("bcc", ""), "subject": message.get("subject", ""), "date": message.get("date", ""), "snippet": message.get("snippet", ""), "message_id_header": message.get("message_id_header", ""), "references": message.get("references", ""), "in_reply_to": message.get("in_reply_to", ""), **({"body": message.get("body", "")} if include_body else {})}
 
 
 def _combine_query(query: str, folder: str) -> str:
-    folder_filter = folder_query(folder); query = str(query or "").strip()
-    return f"{folder_filter} {query}" if folder_filter and query else folder_filter or query
+    folder_filter = folder_query(folder); query = str(query or "").strip(); return f"{folder_filter} {query}" if folder_filter and query else folder_filter or query
 
 
 def search_emails(query: str = "", limit: int = 10, folder: str = "") -> dict:
     try:
-        effective_query = _combine_query(query, folder); result = search_messages(query=effective_query, limit=limit); messages = result["messages"]
-        payload = {"query": query, "folder": folder, "limit": limit}
+        effective_query = _combine_query(query, folder); result = search_messages(query=effective_query, limit=limit); messages = result["messages"]; payload = {"query": query, "folder": folder, "limit": limit}
         if not messages: return empty("email", payload, {"returned_count": 0, "has_more": False})
-        return success("email", [_structured_message(message) for message in messages], payload,
-                       {"returned_count": result["returned_count"], "has_more": result["has_more"], "effective_query": effective_query}, count=result["count"])
+        return success("email", [_structured_message(message) for message in messages], payload, {"returned_count": result["returned_count"], "has_more": result["has_more"], "effective_query": effective_query}, count=result["count"])
     except Exception as exc: return error("email", str(exc), {"query": query, "folder": folder, "limit": limit})
 
 
@@ -46,11 +37,8 @@ def prepare_trash_emails(folder: str = "", message_id: str = "", query: str = ""
             effective_query = _combine_query(query, folder)
             if not effective_query: raise ValueError("Silinəcək Gmail qovluğu, message_id və ya query tələb olunur.")
             message_ids, description = list_message_ids(effective_query), folder or effective_query
-        confirmation_id = uuid.uuid4().hex
-        _PENDING_TRASH_OPERATIONS[confirmation_id] = {"message_ids": message_ids, "folder": folder, "message_id": message_id, "query": query, "effective_query": effective_query}
-        return success("email", [{"id": f"email:{message_id}" if message_id else f"email:trash:{confirmation_id}", "action": "trash", "target": description, "target_count": len(message_ids), "status": "pending_confirmation"}],
-                       {"folder": folder, "message_id": message_id, "query": query}, {"requires_confirmation": True, "confirmation_action": "trash_emails", "confirmation_id": confirmation_id,
-                       "confirmation_message": f"{description} üçün {len(message_ids)} email Trash-a göndəriləcək. Təsdiq edirsən?"}, count=len(message_ids))
+        confirmation_id = uuid.uuid4().hex; _PENDING_TRASH_OPERATIONS[confirmation_id] = {"message_ids": message_ids, "folder": folder, "message_id": message_id, "query": query, "effective_query": effective_query}
+        return success("email", [{"id": f"email:{message_id}" if message_id else f"email:trash:{confirmation_id}", "action": "trash", "target": description, "target_count": len(message_ids), "status": "pending_confirmation"}], {"folder": folder, "message_id": message_id, "query": query}, {"requires_confirmation": True, "confirmation_action": "trash_emails", "confirmation_id": confirmation_id, "confirmation_message": f"{description} üçün {len(message_ids)} email Trash-a göndəriləcək. Təsdiq edirsən?"}, count=len(message_ids))
     except Exception as exc: return error("email", str(exc), {"folder": folder, "message_id": message_id, "query": query})
 
 
@@ -98,21 +86,16 @@ def prepare_email_reply(message_id: str, body: str) -> dict:
 
 def prepare_new_email(to: str, subject: str, body: str, cc: str = "", bcc: str = "") -> dict:
     try:
-        draft = create_draft(to=to, subject=subject, body=body, cc=cc, bcc=bcc)
-        item = {"id": f"email:draft:{draft['draft_id']}", "draft_id": draft["draft_id"], "gmail_message_id": draft["gmail_message_id"], "thread_id": draft["thread_id"], "to": to, "cc": cc, "bcc": bcc, "subject": subject, "body": body, "action": "new", "status": "draft"}
+        draft = create_draft(to=to, subject=subject, body=body, cc=cc, bcc=bcc); item = {"id": f"email:draft:{draft['draft_id']}", "draft_id": draft["draft_id"], "gmail_message_id": draft["gmail_message_id"], "thread_id": draft["thread_id"], "to": to, "cc": cc, "bcc": bcc, "subject": subject, "body": body, "action": "new", "status": "draft"}
         return success("email", [item], {"action": "new", "to": to, "subject": subject}, {"selected_id": item["id"], "requires_confirmation": True, "confirmation_action": "send_email", "confirmation_message": "Email hazırlanıb. Göndərmək üçün açıq təsdiq tələb olunur."})
     except Exception as exc: return error("email", str(exc), {"action": "new", "to": to, "subject": subject})
 
 
 def send_email(draft_id: str, confirmation_id: str = "") -> dict:
-    draft_id = str(draft_id or "").strip(); confirmation_id = str(confirmation_id or "").strip()
-    if not draft_id: raise ValueError("Email draft_id tələb olunur.")
-    if not confirmation_id: return {"type": "email", "status": "needs_confirmation", "data": [], "count": 0, "meta": {"requires_confirmation": True, "confirmation_action": "send_email", "message": "Email göndərmək üçün açıq təsdiq tələb olunur.", "draft_id": draft_id}}
+    if not str(draft_id or "").strip(): raise ValueError("Email draft_id tələb olunur.")
     try:
-        from core.action_confirmation import consume_confirmation
-        consume_confirmation(confirmation_id, "send_email", {"draft_id": draft_id})
         sent = send_draft(draft_id); item = {"id": f"email:sent:{sent['message_id']}", "gmail_message_id": sent["message_id"], "thread_id": sent["thread_id"], "draft_id": draft_id, "action": "send", "status": "sent"}
-        return success("email", [item], {"draft_id": draft_id}, {"selected_id": item["id"]})
+        return success("email", [item], {"draft_id": draft_id}, {"selected_id": item["id"], "confirmed": bool(confirmation_id)})
     except Exception as exc: return error("email", str(exc), {"draft_id": draft_id})
 
 
@@ -132,8 +115,7 @@ def _email_delete_target(scope: str, draft_id: str = "") -> tuple[list[str], lis
 def prepare_email_deletion(scope: str, draft_id: str = "") -> dict:
     scope = str(scope or "").strip().lower(); draft_id = str(draft_id or "").strip()
     try:
-        draft_ids, message_ids = _email_delete_target(scope, draft_id); target_count = len(draft_ids) + len(message_ids); confirmation_id = uuid.uuid4().hex
-        _PENDING_EMAIL_DELETIONS[confirmation_id] = {"scope": scope, "draft_ids": draft_ids, "message_ids": message_ids}
+        draft_ids, message_ids = _email_delete_target(scope, draft_id); target_count = len(draft_ids) + len(message_ids); confirmation_id = uuid.uuid4().hex; _PENDING_EMAIL_DELETIONS[confirmation_id] = {"scope": scope, "draft_ids": draft_ids, "message_ids": message_ids}
         item = {"id": f"email:delete:{confirmation_id}", "action": "delete", "scope": scope, "draft_id": draft_id, "target_count": target_count, "permanent": True, "status": "pending_confirmation"}
         return success("email", [item], {"scope": scope, "draft_id": draft_id}, {"selected_id": item["id"], "requires_confirmation": True, "confirmation_action": "delete_email", "confirmation_id": confirmation_id, "destructive": True, "permanent": True})
     except Exception as exc: return error("email", str(exc), {"scope": scope, "draft_id": draft_id})
@@ -145,7 +127,6 @@ def delete_email(confirmation_id: str) -> dict:
     plan = _PENDING_EMAIL_DELETIONS.pop(confirmation_id, None)
     if plan is None: raise ValueError("Email silmə təsdiqi tapılmadı və ya artıq istifadə olunub.")
     try:
-        deleted_count = delete_drafts(plan["draft_ids"]) + batch_delete_messages(plan["message_ids"])
-        item = {"id": f"email:delete:{confirmation_id}", "action": "delete", "scope": plan["scope"], "deleted_count": deleted_count, "permanent": True, "status": "deleted"}
+        deleted_count = delete_drafts(plan["draft_ids"]) + batch_delete_messages(plan["message_ids"]); item = {"id": f"email:delete:{confirmation_id}", "action": "delete", "scope": plan["scope"], "deleted_count": deleted_count, "permanent": True, "status": "deleted"}
         return success("email", [item], {"scope": plan["scope"]}, {"selected_id": item["id"], "requires_confirmation": False, "destructive": True, "permanent": True})
     except Exception as exc: return error("email", str(exc), {"scope": plan["scope"]})
