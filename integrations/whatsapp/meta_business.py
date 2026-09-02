@@ -66,8 +66,10 @@ def send_text_message(to: str, message: str, *, timeout: float = 15.0) -> dict:
             detail = json.loads(exc.read().decode("utf-8"))
         except Exception:
             detail = {"message": str(exc)}
+        api_error = detail.get("error") if isinstance(detail, dict) else None
+        message_text = api_error.get("message") if isinstance(api_error, dict) else None
         raise WhatsAppBusinessError(
-            f"Meta WhatsApp API HTTP {exc.code}: {detail.get('error', detail).get('message', detail)}"
+            f"Meta WhatsApp API HTTP {exc.code}: {message_text or detail}"
         ) from exc
     except (urllib.error.URLError, TimeoutError) as exc:
         raise WhatsAppBusinessError(f"Meta WhatsApp API şəbəkə xətası: {exc}") from exc
