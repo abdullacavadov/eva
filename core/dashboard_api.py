@@ -9,6 +9,7 @@ from actions.agenda import get_daily_agenda
 from actions.email import search_emails
 from actions.weather import get_weather_summary
 from actions.sys_info import sys_info
+from integrations.google.gmail import list_message_ids
 
 
 def _percent_from_sys_info(text: str, prefix: str) -> float | None:
@@ -126,11 +127,10 @@ def get_dashboard_data() -> dict[str, Any]:
         errors["system"] = str(exc)
 
     try:
-        unread = search_emails(query="is:unread", limit=1)
-        if isinstance(unread, dict):
-            data["overview"]["unread_messages"] = int(unread.get("count", unread.get("meta", {}).get("returned_count", 0)) or 0)
-            if unread.get("status") == "error":
-                errors["gmail"] = str(unread.get("meta", {}).get("message", "Gmail xətası"))
+        # Dashboard-dakı say Gmail-in əsas Inbox qutusundakı oxunmamış mesajlardır.
+        data["overview"]["unread_messages"] = len(
+            list_message_ids("in:inbox is:unread")
+        )
     except Exception as exc:
         errors["gmail"] = str(exc)
 

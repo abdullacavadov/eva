@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import sys
 import threading
 import time
 from collections.abc import Callable
@@ -57,8 +58,6 @@ class UiBridge:
 
         self.ui.set_state = set_state
 
-        # Kamera həm UI düyməsindən, həm də EVA-nın toggle_webcam tool-undan
-        # dəyişə bilər. Hər iki dəyişiklik eyni WebSocket state-ə yayımlanır.
         original_set_webcam_active = getattr(self.ui, "set_webcam_active", None)
         if callable(original_set_webcam_active):
             def set_webcam_active(active: bool):
@@ -71,10 +70,6 @@ class UiBridge:
 
             self.ui.set_webcam_active = set_webcam_active
 
-        # React kamera preview-si brauzerin öz kamerasını açmır. Bu hook
-        # EVA-nın artıq çəkdiyi eyni backend frame-lərini WebSocket üzərindən
-        # React-ə ötürür. Beləliklə Windows webcam üçün ikinci capture sessiyası
-        # yaranmır və UI-də göstərilən görüntü Gemini Live-a verilən mənbə ilə eynidir.
         original_update_webcam_preview = getattr(self.ui, "update_webcam_preview", None)
         if callable(original_update_webcam_preview):
             def update_webcam_preview(jpeg_bytes: bytes):
@@ -270,14 +265,37 @@ class UiBridge:
                 self._client_queues.pop(websocket, None)
             self._queue_message(queue, self._STOP)
 
+    def _restart_process(self) -> None:
+        """Mövcud launcher/main prosesini settings-i yenidən yükləyərək əvəz edir."""
+        os.execv(sys.executable, [sys.executable, *sys.argv])
+
+    def _shutdown_process(self) -> None:
+        """EVA prosesini təhlükəsiz şəkildə dayandırır."""
+        callback = getattr(self.ui, "_shutdown", None)
+        if callable(callback):
+            try:
+                self.ui.root.after(0, callback)
+                return
+            except Exception:
+                pass
+        os._exit(0)
+
     def _handle_control_command(self, websocket: ServerConnection, command: str) -> None:
-        allowed = {"shutdown", "pause", "camera", "microphone"}
+        allowed = {"shutdown", "restart", "pause", "camera", "microphone"}
         if command not in allowed:
             websocket.send(json.dumps({"type": "bridge.error", "message": "Naməlum idarəetmə əmri."}, ensure_ascii=False))
             return
 
         callback: Callable[[str], dict[str, Any] | None] | None = getattr(self.ui, "on_control_command", None)
         if callback is None:
+            if command == "restart":
+                websocket.send(json.dumps({"type": "control.state", "control": {"restart_pending": True}}, ensure_ascii=False))
+                threading.Thread(target=self._restart_process, name="eva-restart", daemon=True).start()
+                return
+            if command == "shutdown":
+                websocket.send(json.dumps({"type": "control.state", "control": {"shutdown_pending": True}}, ensure_ascii=False))
+                threading.Thread(target=self._shutdown_process, name="eva-shutdown", daemon=True).start()
+                return
             websocket.send(json.dumps({"type": "bridge.error", "message": "EVA control callback-i hazır deyil."}, ensure_ascii=False))
             return
 

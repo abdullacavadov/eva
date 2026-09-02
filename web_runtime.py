@@ -4,6 +4,7 @@
 import json
 import os
 import subprocess
+import sys
 import threading
 import time
 import tkinter as tk
@@ -12,7 +13,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from core.dashboard_api import get_dashboard_data
+from core.location_runtime import set_current_location
 from core.proactive import ProactiveEngine, ProactiveScheduler
+from core.settings_runtime import apply_saved_settings, install_settings_bridge
 from core.ui_bridge import UiBridge
 from main import JarvisLive
 from ui import JarvisUI
@@ -20,6 +23,33 @@ from ui import JarvisUI
 
 class DashboardRequestHandler(BaseHTTPRequestHandler):
     """Vite proxy üçün lokal dashboard HTTP endpoint-i."""
+
+    def do_POST(self):
+        if self.path != "/api/location":
+            self.send_response(404)
+            self.end_headers()
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            body = json.loads(self.rfile.read(length) or b"{}")
+            latitude = float(body["latitude"])
+            longitude = float(body["longitude"])
+            if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+                raise ValueError("Geolokasiya koordinatları yanlışdır.")
+            set_current_location(latitude, longitude)
+            payload = json.dumps({"ok": True}, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+        except Exception as exc:
+            payload = json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False).encode("utf-8")
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
 
     def do_GET(self):
         if self.path.split("?", 1)[0] != "/api/dashboard":
@@ -90,10 +120,7 @@ def _start_react_frontend() -> subprocess.Popen | None:
     try:
         process = subprocess.Popen(
             [npm, "run", "dev", "--", "--host", "127.0.0.1"],
-            cwd=str(frontend_dir),
-            stdin=None,
-            stdout=None,
-            stderr=None,
+            cwd=str(frontend_dir), stdin=None, stdout=None, stderr=None,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
         )
     except OSError as exc:
@@ -115,34 +142,44 @@ def _start_react_frontend() -> subprocess.Popen | None:
 
 def main():
     ui = _create_hidden_ui()
+    apply_saved_settings(ui)
     dashboard_server = _start_dashboard_api()
     frontend_process = _start_react_frontend()
-
-    # React UI açılışına paralel startup SFX.
-
     ui.sound.play_startup()
-    print(
-        f"[E.V.A] 🔊 Startup SFX: enabled={ui.sound._enabled}, "
-        f"file={__import__('ui')._START_FILE}, "
-        f"exists={__import__('ui')._START_FILE.exists()}",
-        flush=True,
-    )
+    print(f"[E.V.A] 🔊 Startup SFX: enabled={ui.sound._enabled}, file={__import__('ui')._START_FILE}, exists={__import__('ui')._START_FILE.exists()}", flush=True)
 
     def runner():
         ui.wait_for_api_key()
         ui.root.after(0, ui.root.withdraw)
         jarvis = JarvisLive(ui)
 
-        def handle_control(command: str) -> dict:
-            """React idarəetmə panelinin runtime əmrlərini mövcud EVA state-inə bağlayır."""
-            command = str(command or "").strip().lower()
+        def cleanup_frontend_and_api() -> None:
+            if frontend_process is not None and frontend_process.poll() is None:
+                try:
+                    if os.name == "nt":
+                        subprocess.run(
+                            ["taskkill", "/PID", str(frontend_process.pid), "/T", "/F"],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            check=False,
+                        )
+                    else:
+                        frontend_process.terminate()
+                except Exception:
+                    pass
+            try:
+                dashboard_server.shutdown()
+                dashboard_server.server_close()
+            except Exception:
+                pass
 
+        def handle_control(command: str) -> dict:
+            command = str(command or "").strip().lower()
             if command == "pause":
                 paused = not bool(jarvis._paused)
                 jarvis._on_pause_toggle(paused)
                 ui.write_log(f"SYS: EVA {'pauza edildi' if paused else 'davam etdirildi'}.")
                 return {"paused": paused}
-
             if command == "camera":
                 activate = not jarvis._webcam_streamer.is_active
                 if activate:
@@ -154,39 +191,39 @@ def main():
                 ui.root.after(0, ui.set_webcam_active, active)
                 ui.write_log(f"SYS: Kamera {'aktivdir' if active else 'deaktiv edildi'}.")
                 return {"camera_active": active}
-
             if command == "microphone":
                 ui.muted = not bool(ui.muted)
                 muted = bool(ui.muted)
                 ui.write_log(f"SYS: Mikrofon {'səssizdir' if muted else 'aktivdir'}.")
                 return {"microphone_muted": muted}
-
+            if command == "restart":
+                ui.write_log("SYS: EVA yenidən başladılır...")
+                jarvis._webcam_streamer.stop()
+                jarvis._stop_music()
+                cleanup_frontend_and_api()
+                os.execv(sys.executable, [sys.executable, *sys.argv])
+                return {}
             if command == "shutdown":
                 ui.write_log("SYS: EVA bağlanır...")
                 jarvis._webcam_streamer.stop()
                 jarvis._stop_music()
-                ui.root.after(0, ui.root.destroy)
-                return {
-                    "paused": True,
-                    "camera_active": False,
-                    "microphone_muted": True,
-                }
-
+                cleanup_frontend_and_api()
+                try:
+                    ui.root.after(0, ui.root.destroy)
+                except Exception:
+                    pass
+                threading.Thread(target=lambda: (time.sleep(0.15), os._exit(0)), daemon=True).start()
+                return {"paused": True, "camera_active": False, "microphone_muted": True}
             raise ValueError("Naməlum idarəetmə əmri.")
 
         ui.on_control_command = handle_control
         bridge = UiBridge(ui, tool_executor=jarvis._tool_executor)
-
+        install_settings_bridge(bridge, ui)
         proactive_scheduler = None
         if str(os.getenv("EVA_PROACTIVE_ENABLED", "true")).strip().lower() not in {"0", "false", "no", "off"}:
-            proactive_scheduler = ProactiveScheduler(
-                ProactiveEngine(),
-                jarvis._on_proactive_notification,
-                interval=int(os.getenv("EVA_PROACTIVE_INTERVAL", "120")),
-            )
+            proactive_scheduler = ProactiveScheduler(ProactiveEngine(), jarvis._on_proactive_notification, interval=int(os.getenv("EVA_PROACTIVE_INTERVAL", "120")))
             proactive_scheduler.start()
             ui.root.after(0, ui.write_log, "SYS: Proaktiv monitor aktivdir.")
-
         try:
             import asyncio
             asyncio.run(jarvis.run())
@@ -197,8 +234,6 @@ def main():
         finally:
             if proactive_scheduler:
                 proactive_scheduler.stop()
-            # Dashboard və React UI EVA Live session-dan müstəqildir.
-            # Gemini/runtime xətası browser-in məlumat kanalını bağlamamalıdır.
 
     threading.Thread(target=runner, daemon=True).start()
     ui.root.mainloop()

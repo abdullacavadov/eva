@@ -1,0 +1,103 @@
+.settings-section-title svg {
+  margin-right: 9px;
+}
+.settings-field textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 92px;
+  box-sizing: border-box;
+}
+.settings-form-grid .settings-control-row.compact {
+  min-width: 0;
+}
+.sfx-mini-range {
+  width: 120px;
+  accent-color: var(--cyan);
+}
+.settings-toggle-grid {
+  gap: 10px;
+}
+.settings-control-row.compact {
+  min-height: 54px;
+}
+.settings-range {
+  margin-top: 14px;
+}
+.orb-no-glow .orb-glow {
+  opacity: 0 !important;
+}
+.orb-no-glow .orb-sphere {
+  box-shadow: inset 0 0 40px rgba(var(--orb-rgb), 0.12) !important;
+}
+.orb-no-pulse .orb-sphere {
+  animation: none !important;
+}
+.orb-no-particles-animation .orb-particles {
+  animation: none !important;
+}
+.orb-no-particles-animation .orb-wire {
+  animation: none !important;
+}
+.orb-no-audio-reactive .orb-waveform {
+  opacity: 0.35;
+}
+.eva-core .orb-particles {
+  opacity: calc(0.35 + (var(--orb-density) * 0.65));
+  animation-duration: calc(18s / var(--orb-speed));
+}
+.eva-core .orb-wire {
+  animation-duration: calc(20s / var(--orb-speed));
+}
+.eva-core .orb-sphere {
+  box-shadow:
+    inset 0 0 40px rgba(var(--orb-rgb), calc(0.35 * var(--orb-glow))),
+    inset 8px -8px 30px rgba(0, 0, 0, 0.6),
+    0 0 2px 1px rgba(var(--orb-rgb), calc(0.9 * var(--orb-glow))),
+    0 0 25px rgba(var(--orb-rgb), calc(0.5 * var(--orb-glow)));
+}
+
+/* Audio waveform: real PCM amplitude controls a spatially stable luminous ribbon. */
+.eva-core .orb-waveform {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 41px;
+  width: 50%;
+  height: 82px;
+  display: block;
+  overflow: visible;
+  opacity: 0.86;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.eva-core .orb-waveform .orb-wave-strand {
+  fill: none;
+  stroke: url(#eva-wave-gradient);
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  filter: url(#eva-wave-glow);
+}
+
+.eva-core .orb-waveform .orb-wave-particle {
+  fill: url(#eva-wave-gradient);
+  filter: drop-shadow(0 0 2.5px rgba(180, 130, 255, 0.95));
+}
+
+.eva-core .orb-waveform.is-flat {
+  opacity: 0.82;
+}
+
+.eva-core .orb-waveform.is-speaking {
+  opacity: 1;
+}
+
+.eva-core .orb-waveform.is-flat .orb-wave-strand,
+.eva-core .orb-waveform.is-speaking .orb-wave-strand,
+.eva-core .orb-waveform .orb-wave-particle {
+  animation: none !important;
+  transform: none !important;
+}

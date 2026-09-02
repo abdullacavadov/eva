@@ -33,6 +33,16 @@ def test_control_command_updates_state():
     assert websocket.sent == []
 
 
+def test_restart_control_command_is_allowed():
+    bridge = make_bridge(lambda command: {"restart_requested": command == "restart"})
+    websocket = FakeWebSocket()
+
+    bridge._handle_message(websocket, json.dumps({"type": "control.command", "command": "restart"}))
+
+    assert bridge._control_state["restart_requested"] is True
+    assert websocket.sent == []
+
+
 def test_unknown_control_command_returns_error():
     bridge = make_bridge(lambda command: {})
     websocket = FakeWebSocket()

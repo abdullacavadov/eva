@@ -10,6 +10,7 @@ import threading
 import traceback
 import os
 import re
+import struct
 
 from google.genai import types  # type: ignore[reportMissingImports]
 
@@ -209,6 +210,23 @@ class JarvisLive:
         else:
             self.ui.set_state("LISTENING")
 
+    def _emit_audio_level(self, chunk: bytes):
+        """Səsləndirilən PCM chunk üçün real amplitudanı React UI-a göndərir."""
+        callback = getattr(self.ui, "emit_event", None)
+        if not callable(callback) or not chunk:
+            return
+        try:
+            sample_count = len(chunk) // 2
+            if sample_count <= 0:
+                return
+            samples = struct.unpack(f"<{sample_count}h", chunk[:sample_count * 2])
+            mean_square = sum(sample * sample for sample in samples) / sample_count
+            rms = mean_square ** 0.5
+            level = max(0.0, min(1.0, rms / 32768.0 * 3.0))
+            callback("audio.level", level=level)
+        except Exception:
+            pass
+
     def speak_error(self, tool_name: str, error: str):
         short = str(error)[:120]
         self.ui.write_log(f"ERR: {tool_name} — {short}")
@@ -242,7 +260,7 @@ class JarvisLive:
             parts.append(mem_str + "\n\n")
         parts.append(sys_p)
         if not self._greeting_sent:
-            parts.append('\n\nİlk dəfə bu EVA runtime prosesi başladıqda istifadəçini "Salam, Ser!" ifadəsi ilə qarşıla; sonrakı Live reconnect sessiyalarında avtomatik salamlaşma etmə.')
+            parts.append('\n\nİlk dəfə bu EVA runtime prosesi başladıqda istifadəçini "Salam, ser!" ifadəsi ilə qarşıla; sonrakı Live reconnect sessiyalarında avtomatik salamlaşma etmə.')
         return types.LiveConnectConfig(
             response_modalities=["AUDIO"],
             output_audio_transcription={},
@@ -373,14 +391,21 @@ class JarvisLive:
                 chunk = await self.audio_in_queue.get()
                 if chunk is None:
                     self.set_speaking(False)
+                    callback = getattr(self.ui, "emit_event", None)
+                    if callable(callback):
+                        callback("audio.level", level=0.0)
                     continue
                 self.set_speaking(True)
+                self._emit_audio_level(chunk)
                 await write_chunk(stream, chunk)
         except Exception as e:
             print(f"[E.V.A] ❌ Səs: {e}")
             raise
         finally:
             self.set_speaking(False)
+            callback = getattr(self.ui, "emit_event", None)
+            if callable(callback):
+                callback("audio.level", level=0.0)
             stream.close()
 
     async def run(self):

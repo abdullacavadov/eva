@@ -5,6 +5,8 @@ const DEFAULT_WS_URL = `ws://${window.location.hostname || '127.0.0.1'}:8765`
 const WS_URL = import.meta.env.VITE_EVA_WS_URL || DEFAULT_WS_URL
 const RECONNECT_DELAY_MS = 1500
 
+type ControlCommand = 'shutdown' | 'restart' | 'pause' | 'camera' | 'microphone'
+
 export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
   const socketRef = useRef<WebSocket | null>(null)
   const onEventRef = useRef(onEvent)
@@ -89,7 +91,7 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
     return sendMessage({ type: 'conversation.send', text })
   }, [sendMessage])
 
-  const sendControl = useCallback((command: 'shutdown' | 'pause' | 'camera' | 'microphone') => {
+  const sendControl = useCallback((command: ControlCommand) => {
     return sendMessage({ type: 'control.command', command })
   }, [sendMessage])
 
