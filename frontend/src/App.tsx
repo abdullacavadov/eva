@@ -33,6 +33,7 @@ import type { ActivityItem, EvaContext, EvaEvent, EvaState } from './types/eva';
 import './styles/globals.css';
 import './styles/responsive.css';
 import AzCalendar from './components/Calendar';
+import { ActivityFeed } from './components/ActivityFeed';
 
 
 
@@ -323,7 +324,7 @@ export default function App() {
       <div className="ambient ambient-a" />
       <div className="ambient ambient-b" />
       <aside>
-        <ContextPanel context={context} />
+        {/* <ActivityFeed items={activities} /> */}
         <AzCalendar />
         <ContextPanel context={context} />
       </aside>
