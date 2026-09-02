@@ -362,5 +362,6 @@ export function EvaOrb({ state }: OrbProps) {
         </g>
       </svg>
     </section>
+    
   );
 }
