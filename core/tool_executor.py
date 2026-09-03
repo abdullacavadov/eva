@@ -25,7 +25,7 @@ from actions.media import play_media
 from actions.weather import get_weather_summary
 from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
-from core.action_confirmation import consume_confirmation, issue_confirmation
+from core.action_confirmation import consume_confirmation, get_pending_confirmation, issue_confirmation
 from core.result_store import ResultStore
 from core.result_resolver import FollowUpAction, ResultResolutionError, resolve_reference
 from core.follow_up_mutation import build_follow_up_mutation
@@ -127,7 +127,7 @@ class ToolExecutor:
         consume_confirmation(confirmation_id, name, payload); self._pending_confirmations.pop(confirmation_id, None); return None
 
     def _confirmed_action(self, name: str, args: dict):
-        if name == "send_email": return send_email(args.get("draft_id", ""), args.get("confirmation_id", ""))
+        if name == "send_email": return send_email(args.get("draft_id", ""), "")
         if name == "delete_calendar_event": return delete_calendar_event(args.get("title", ""), args.get("start_iso", ""), args.get("calendar_name", ""), bool(args.get("delete_all_matches", False)))
         if name == "delete_reminder": return delete_reminder(args.get("task_id", ""), args.get("list_name", ""))
         if name == "delete_eva_reminder": return delete_eva_reminder(args.get("reminder_id", ""))
@@ -140,13 +140,18 @@ class ToolExecutor:
         name = fc.name; args = dict(fc.args or {}); print(f"[E.V.A] 🔧 {name} {args}"); self.ui.set_state("THINKING"); loop = asyncio.get_event_loop(); result = "Tamam."; had_exception = False
         try:
             if name == "confirm_action":
-                token = str(args.get("confirmation_id", "")).strip(); pending = self._pending_confirmations.pop(token, None)
-                if pending is None: raise ValueError("Təsdiq tapılmadı və ya artıq istifadə olunub.")
-                pending_name, pending_args = pending
-                if pending_name == "send_email":
-                    result = await loop.run_in_executor(None, lambda: self._confirmed_action(pending_name, {**pending_args, "confirmation_id": token}))
+                token = str(args.get("confirmation_id", "")).strip()
+                pending = self._pending_confirmations.get(token)
+                if pending is not None:
+                    pending_name, pending_args = pending
                 else:
-                    consume_confirmation(token, pending_name, self._confirmation_payload(pending_name, pending_args)); result = await loop.run_in_executor(None, lambda: self._confirmed_action(pending_name, {**pending_args, "confirmation_id": token}))
+                    record = get_pending_confirmation(token)
+                    if record is None: raise ValueError("Təsdiq tapılmadı və ya artıq istifadə olunub.")
+                    pending_name = str(record["action"]); pending_args = dict(record["payload"])
+                payload = self._confirmation_payload(pending_name, pending_args)
+                consume_confirmation(token, pending_name, payload)
+                self._pending_confirmations.pop(token, None)
+                result = await loop.run_in_executor(None, lambda: self._confirmed_action(pending_name, {**pending_args, "confirmation_id": token}))
             else:
                 gated = self._gate_risky_action(name, args)
                 if gated is not None: result = gated
