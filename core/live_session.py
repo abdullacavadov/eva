@@ -32,7 +32,6 @@ class _ResilientLiveSession:
 
     @property
     def _session_config(self):
-        """Mövcud resume handle-ı saxla; Gemini API üçün transparent rejim istifadə etmə."""
         resume = types.SessionResumptionConfig(handle=self._resume_handle)
         if hasattr(self._config, "model_copy"):
             return self._config.model_copy(update={"session_resumption": resume})
@@ -81,13 +80,10 @@ class _ResilientLiveSession:
         async with self._reconnect_lock:
             if self._closed:
                 raise RuntimeError("Live session bağlanıb.")
-
             if force_fresh:
                 self._resume_handle = None
                 self._manager.resume_handle = None
-
             await self._close_current()
-
             while not self._closed:
                 try:
                     await asyncio.sleep(self._reconnect_delay)
@@ -102,14 +98,11 @@ class _ResilientLiveSession:
                     await self._close_current()
                     await asyncio.sleep(self._reconnect_delay)
                     self._reconnect_delay = min(self._reconnect_delay * 2.0, 8.0)
-
         raise RuntimeError("Live session bağlanıb.")
 
     async def _reconnect(self, *, force_fresh: bool = False):
-        """Bütün reconnect çağıranları eyni task-ı paylaşır; paralel reconnect yaranmır."""
         if self._closed:
             raise RuntimeError("Live session bağlanıb.")
-
         task = self._reconnect_task
         if task is None or task.done():
             task = asyncio.create_task(self._reconnect_impl(force_fresh=force_fresh))
@@ -134,61 +127,42 @@ class _ResilientLiveSession:
 
     @staticmethod
     def _is_clean_close(exc: Exception) -> bool:
-        """WebSocket 1000 clean close-unu reconnect loopundan ayır."""
-        code = getattr(exc, "code", None)
-        return code == 1000
+        return getattr(exc, "code", None) == 1000
 
     @staticmethod
     def _update_resume_handle(manager: "LiveSessionManager", current_handle: str | None, message):
         update = getattr(message, "session_resumption_update", None)
         if update is None:
             return current_handle
-        resumable = bool(getattr(update, "resumable", False))
-        handle = getattr(update, "new_handle", None)
-        if resumable and handle:
-            current_handle = str(handle)
-            manager.resume_handle = current_handle
+        if bool(getattr(update, "resumable", False)):
+            handle = getattr(update, "new_handle", None)
+            if handle:
+                current_handle = str(handle)
+                manager.resume_handle = current_handle
         return current_handle
 
     async def receive(self):
-        """Mesajları çoxturnlu Live session boyunca verir; socket qırılsa reconnect edir.
-
-        google-genai SDK-nın bəzi versiyalarında ``AsyncSession.receive()`` ilk
-        ``turn_complete`` mesajından sonra iteratoru bitirir. Bu, çoxturnlu Live
-        söhbətdə reconnect kimi görünür. Birbaşa aşağı səviyyəli ``_receive()``
-        çağırışı həmin SDK davranışını yan keçərək socketin real ömrünü qoruyur.
-        """
         while not self._closed:
             try:
                 session = self._session
                 if session is None:
                     await self._reconnect()
                     continue
-
                 receive_one = getattr(session, "_receive", None)
                 if receive_one is None:
-                    raise RuntimeError(
-                        "Gemini Live SDK _receive() interfeysini təqdim etmir."
-                    )
-
+                    raise RuntimeError("Gemini Live SDK _receive() interfeysini təqdim etmir.")
                 while not self._closed:
                     message = await receive_one()
                     if message is None:
                         if not self._closed:
                             await self._reconnect(force_fresh=True)
                         break
-
                     now = time.monotonic()
                     data = getattr(message, "data", None)
                     if data and self._awaiting_first_audio:
                         if self._last_audio_input_at is not None:
-                            latency_ms = (now - self._last_audio_input_at) * 1000.0
-                            print(
-                                f"[LATENCY] last-audio-chunk -> first-audio: {latency_ms:.0f} ms",
-                                flush=True,
-                            )
+                            print(f"[LATENCY] last-audio-chunk -> first-audio: {(now - self._last_audio_input_at) * 1000.0:.0f} ms", flush=True)
                         self._awaiting_first_audio = False
-
                     sc = getattr(message, "server_content", None)
                     if sc is not None:
                         input_transcription = getattr(sc, "input_transcription", None)
@@ -196,47 +170,25 @@ class _ResilientLiveSession:
                         if input_text:
                             self._last_input_transcript_at = now
                             if self._last_audio_input_at is not None:
-                                print(
-                                    f"[LATENCY] input-transcription: {(now - self._last_audio_input_at) * 1000.0:.0f} ms",
-                                    flush=True,
-                                )
-                            else:
-                                print("[LATENCY] input-transcription received", flush=True)
-
+                                print(f"[LATENCY] input-transcription: {(now - self._last_audio_input_at) * 1000.0:.0f} ms", flush=True)
                         if bool(getattr(sc, "turn_complete", False)):
                             self._turn_id += 1
                             if self._last_audio_input_at is not None:
-                                print(
-                                    f"[LATENCY] turn-complete #{self._turn_id}: {(now - self._last_audio_input_at) * 1000.0:.0f} ms from last audio chunk",
-                                    flush=True,
-                                )
+                                print(f"[LATENCY] turn-complete #{self._turn_id}: {(now - self._last_audio_input_at) * 1000.0:.0f} ms from last audio chunk", flush=True)
                             if self._last_input_transcript_at is not None:
-                                print(
-                                    f"[LATENCY] transcript -> turn-complete: {(now - self._last_input_transcript_at) * 1000.0:.0f} ms",
-                                    flush=True,
-                                )
+                                print(f"[LATENCY] transcript -> turn-complete: {(now - self._last_input_transcript_at) * 1000.0:.0f} ms", flush=True)
                             self._last_input_transcript_at = None
-
                     tool_call = getattr(message, "tool_call", None)
                     if tool_call is not None:
                         self._last_tool_call_at = now
                         if self._last_audio_input_at is not None:
-                            print(
-                                f"[LATENCY] tool-call: {(now - self._last_audio_input_at) * 1000.0:.0f} ms from last audio chunk",
-                                flush=True,
-                            )
-                        else:
-                            print("[LATENCY] tool-call received", flush=True)
-
+                            print(f"[LATENCY] tool-call: {(now - self._last_audio_input_at) * 1000.0:.0f} ms from last audio chunk", flush=True)
                     if self._last_tool_call_at is not None and tool_call is None:
                         gap_ms = (now - self._last_tool_call_at) * 1000.0
                         if gap_ms >= 50:
                             print(f"[LATENCY] post-tool-response gap: {gap_ms:.0f} ms", flush=True)
                             self._last_tool_call_at = None
-
-                    self._resume_handle = self._update_resume_handle(
-                        self._manager, self._resume_handle, message
-                    )
+                    self._resume_handle = self._update_resume_handle(self._manager, self._resume_handle, message)
                     yield message
             except asyncio.CancelledError:
                 raise
@@ -258,10 +210,7 @@ class _ResilientLiveSession:
                 result = await getattr(session, method_name)(**kwargs)
                 elapsed_ms = (time.monotonic() - started_at) * 1000.0
                 if method_name == "send_realtime_input" and elapsed_ms >= 100:
-                    print(
-                        f"[LATENCY] send_realtime_input: {elapsed_ms:.0f} ms",
-                        flush=True,
-                    )
+                    print(f"[LATENCY] send_realtime_input: {elapsed_ms:.0f} ms", flush=True)
                 return result
             except asyncio.CancelledError:
                 raise
@@ -273,12 +222,6 @@ class _ResilientLiveSession:
         raise last_error  # type: ignore[misc]
 
     async def send_realtime_input(self, **kwargs):
-        """Yeni Live API media contract-ına uyğun audio/video göndərir.
-
-        Əsas runtime hələ ``media={data, mime_type}`` formatından istifadə etdiyi üçün
-        burada onu yeni ``audio``/``video`` Blob formatına çeviririk. Beləliklə digər
-        audio/Webcam pipeline-larına lazımsız refactor edilmir.
-        """
         media = kwargs.pop("media", None)
         if isinstance(media, dict):
             mime_type = str(media.get("mime_type") or "")
@@ -296,7 +239,6 @@ class _ResilientLiveSession:
         return await self._call_with_reconnect("send_realtime_input", **kwargs)
 
     async def send_client_content(self, **kwargs):
-        # Gemini 3.1 Live-də turn-by-turn text üçün send_realtime_input(text=...) istifadə olunur.
         turns = kwargs.get("turns")
         if self._manager.model.endswith("gemini-3.1-flash-live-preview") and turns:
             user_text = None
@@ -313,10 +255,7 @@ class _ResilientLiveSession:
                 texts = [str(part.get("text", "")) for part in parts if isinstance(part, dict) and part.get("text")]
                 user_text = " ".join(texts).strip() if texts else None
             if user_text:
-                return await self._call_with_reconnect(
-                    "send_realtime_input",
-                    text=user_text,
-                )
+                return await self._call_with_reconnect("send_realtime_input", text=user_text)
         return await self._call_with_reconnect("send_client_content", **kwargs)
 
     async def send_tool_response(self, **kwargs):
@@ -324,8 +263,6 @@ class _ResilientLiveSession:
 
 
 class LiveSessionManager:
-    """Gemini client yaradılmasını və Live API bağlantısını idarə edir."""
-
     _resume_handles: dict[str, str | None] = {}
 
     def __init__(self, model: str, api_key: str):
@@ -335,15 +272,10 @@ class LiveSessionManager:
         self.resume_handle: str | None = self._resume_handles.get(self._manager_key)
 
     def create_client(self) -> genai.Client:
-        """EVA-nın Live API versiyası ilə Gemini client yaradır."""
-        return genai.Client(
-            api_key=self.api_key,
-            http_options={"api_version": "v1alpha"},
-        )
+        return genai.Client(api_key=self.api_key, http_options={"api_version": "v1alpha"})
 
     @asynccontextmanager
     async def connect(self, config):
-        """Runtime-u dayandırmadan Live socket reconnect edə bilən session verir."""
         session = _ResilientLiveSession(self, config)
         async with session:
             yield session
