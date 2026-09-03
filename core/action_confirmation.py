@@ -19,8 +19,25 @@ def _fingerprint(action: str, payload: dict[str, Any]) -> str:
 
 def issue_confirmation(action: str, payload: dict[str, Any], *, ttl: int = DEFAULT_TTL_SECONDS) -> str:
     token = uuid.uuid4().hex
-    _PENDING[token] = {"action": str(action), "fingerprint": _fingerprint(action, payload), "expires": time.time() + max(1, int(ttl))}
+    _PENDING[token] = {
+        "action": str(action),
+        "payload": dict(payload),
+        "fingerprint": _fingerprint(action, payload),
+        "expires": time.time() + max(1, int(ttl)),
+    }
     return token
+
+
+def get_pending_confirmation(token: str) -> dict[str, Any] | None:
+    """Təsdiq tokeninin payload-ını icra etmədən oxuyur."""
+    token = str(token or "").strip()
+    record = _PENDING.get(token)
+    if record is None:
+        return None
+    if time.time() > record["expires"]:
+        _PENDING.pop(token, None)
+        return None
+    return {"action": record["action"], "payload": dict(record["payload"]), "expires": record["expires"]}
 
 
 def consume_confirmation(token: str, action: str, payload: dict[str, Any]) -> None:
