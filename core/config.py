@@ -9,7 +9,8 @@ from app_config import get_app_config_value
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROMPT_PATH = BASE_DIR / "core" / "prompt.txt"
 
-LIVE_MODEL = "models/gemini-2.5-flash-native-audio-latest"
+# Gemini 3.1 Flash Live is Google's current low-latency Live API model.
+LIVE_MODEL = "models/gemini-3.1-flash-live-preview"
 
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
