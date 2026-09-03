@@ -324,7 +324,7 @@ export default function App() {
       <div className="ambient ambient-a" />
       <div className="ambient ambient-b" />
       <aside>
-        {/* <ActivityFeed items={activities} /> */}
+        <ActivityFeed items={activities} />
         <AzCalendar />
         <ContextPanel context={context} />
       </aside>
