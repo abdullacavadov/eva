@@ -38,7 +38,8 @@ def prepare_trash_emails(folder: str = "", message_id: str = "", query: str = ""
             effective_query = _combine_query(query, folder)
             if not effective_query: raise ValueError("Silinəcək Gmail qovluğu, message_id və ya query tələb olunur.")
             message_ids, description = list_message_ids(effective_query), folder or effective_query
-        confirmation_id = uuid.uuid4().hex; _PENDING_TRASH_OPERATIONS[confirmation_id] = {"message_ids": message_ids, "folder": folder, "message_id": message_id, "query": query, "effective_query": effective_query}
+        confirmation_id = issue_confirmation("trash_emails", {})
+        _PENDING_TRASH_OPERATIONS[confirmation_id] = {"message_ids": message_ids, "folder": folder, "message_id": message_id, "query": query, "effective_query": effective_query}
         return success("email", [{"id": f"email:{message_id}" if message_id else f"email:trash:{confirmation_id}", "action": "trash", "target": description, "target_count": len(message_ids), "status": "pending_confirmation"}], {"folder": folder, "message_id": message_id, "query": query}, {"requires_confirmation": True, "confirmation_action": "trash_emails", "confirmation_id": confirmation_id, "confirmation_message": f"{description} üçün {len(message_ids)} email Trash-a göndəriləcək. Təsdiq edirsən?"}, count=len(message_ids))
     except Exception as exc: return error("email", str(exc), {"folder": folder, "message_id": message_id, "query": query})
 
@@ -121,7 +122,9 @@ def _email_delete_target(scope: str, draft_id: str = "") -> tuple[list[str], lis
 def prepare_email_deletion(scope: str, draft_id: str = "") -> dict:
     scope = str(scope or "").strip().lower(); draft_id = str(draft_id or "").strip()
     try:
-        draft_ids, message_ids = _email_delete_target(scope, draft_id); target_count = len(draft_ids) + len(message_ids); confirmation_id = uuid.uuid4().hex; _PENDING_EMAIL_DELETIONS[confirmation_id] = {"scope": scope, "draft_ids": draft_ids, "message_ids": message_ids}
+        draft_ids, message_ids = _email_delete_target(scope, draft_id); target_count = len(draft_ids) + len(message_ids)
+        confirmation_id = issue_confirmation("delete_email", {})
+        _PENDING_EMAIL_DELETIONS[confirmation_id] = {"scope": scope, "draft_ids": draft_ids, "message_ids": message_ids}
         item = {"id": f"email:delete:{confirmation_id}", "action": "delete", "scope": scope, "draft_id": draft_id, "target_count": target_count, "permanent": True, "status": "pending_confirmation"}
         return success("email", [item], {"scope": scope, "draft_id": draft_id}, {"selected_id": item["id"], "requires_confirmation": True, "confirmation_action": "delete_email", "confirmation_id": confirmation_id, "destructive": True, "permanent": True})
     except Exception as exc: return error("email", str(exc), {"scope": scope, "draft_id": draft_id})

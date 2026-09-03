@@ -39,7 +39,7 @@ def test_delete_email_dispatches_confirmation_id():
     executor = make_executor()
     fc = SimpleNamespace(
         id="email-delete-1",
-        name="delete_email",
+        name="confirm_action",
         args={"confirmation_id": "token-1"},
     )
     structured = {
@@ -51,7 +51,11 @@ def test_delete_email_dispatches_confirmation_id():
         "selected": None,
         "meta": {"requires_confirmation": False},
     }
-    with patch("core.tool_executor.delete_email", return_value=structured) as delete:
+    with (
+        patch("core.tool_executor.get_pending_confirmation", return_value={"action": "delete_email", "payload": {}}),
+        patch("core.tool_executor.consume_confirmation"),
+        patch("core.tool_executor.delete_email", return_value=structured) as delete,
+    ):
         response = asyncio.run(executor.execute(fc))
 
     delete.assert_called_once_with("token-1")
