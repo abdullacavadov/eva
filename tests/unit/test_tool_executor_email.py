@@ -29,10 +29,14 @@ def test_trash_emails_dispatches_confirmation_id_only():
     executor = make_executor()
     fc = SimpleNamespace(
         id="email-trash-1",
-        name="trash_emails",
+        name="confirm_action",
         args={"confirmation_id": "confirm-123"},
     )
-    with patch("core.tool_executor.trash_emails", return_value="trashed") as trash:
+    with (
+        patch("core.tool_executor.get_pending_confirmation", return_value={"action": "trash_emails", "payload": {}}),
+        patch("core.tool_executor.consume_confirmation"),
+        patch("core.tool_executor.trash_emails", return_value="trashed") as trash,
+    ):
         response = asyncio.run(executor.execute(fc))
     trash.assert_called_once_with("confirm-123")
     assert response.response["result"] == "trashed"
