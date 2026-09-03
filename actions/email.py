@@ -7,6 +7,7 @@ from integrations.google.gmail import (
     get_thread, list_draft_ids, list_message_ids, search_messages, send_draft, trash_message,
 )
 from core.results import empty, error, success
+from core.action_confirmation import issue_confirmation
 
 _EMAIL_DELETE_SCOPES = {"drafts", "draft", "spam", "trash", "promotions", "social"}
 _PENDING_EMAIL_DELETIONS: dict[str, dict] = {}
@@ -80,14 +81,16 @@ def prepare_email_reply(message_id: str, body: str) -> dict:
         subject = original.get("subject", "").strip(); subject = subject if subject.lower().startswith("re:") else f"Re: {subject}"
         draft = create_draft(to=recipient, subject=subject, body=body, thread_id=original.get("thread_id", ""), in_reply_to=original.get("message_id_header", ""), references=f"{original.get('references', '')} {original.get('message_id_header', '')}".strip())
         item = {"id": f"email:draft:{draft['draft_id']}", "draft_id": draft["draft_id"], "gmail_message_id": draft["gmail_message_id"], "thread_id": draft["thread_id"], "to": recipient, "subject": subject, "body": body, "action": "reply", "status": "draft", "source_message_id": message_id}
-        return success("email", [item], {"action": "reply", "message_id": message_id}, {"selected_id": item["id"], "requires_confirmation": True, "confirmation_action": "send_email", "confirmation_message": "Email cavabı hazırlanıb. Göndərmək üçün açıq təsdiq tələb olunur."})
+        confirmation_id = issue_confirmation("send_email", {"draft_id": draft["draft_id"]})
+        return success("email", [item], {"action": "reply", "message_id": message_id}, {"selected_id": item["id"], "requires_confirmation": True, "confirmation_action": "send_email", "confirmation_id": confirmation_id, "confirmation_message": "Email cavabı hazırlanıb. Göndərmək üçün açıq təsdiq tələb olunur."})
     except Exception as exc: return error("email", str(exc), {"action": "reply", "message_id": message_id})
 
 
 def prepare_new_email(to: str, subject: str, body: str, cc: str = "", bcc: str = "") -> dict:
     try:
         draft = create_draft(to=to, subject=subject, body=body, cc=cc, bcc=bcc); item = {"id": f"email:draft:{draft['draft_id']}", "draft_id": draft["draft_id"], "gmail_message_id": draft["gmail_message_id"], "thread_id": draft["thread_id"], "to": to, "cc": cc, "bcc": bcc, "subject": subject, "body": body, "action": "new", "status": "draft"}
-        return success("email", [item], {"action": "new", "to": to, "subject": subject}, {"selected_id": item["id"], "requires_confirmation": True, "confirmation_action": "send_email", "confirmation_message": "Email hazırlanıb. Göndərmək üçün açıq təsdiq tələb olunur."})
+        confirmation_id = issue_confirmation("send_email", {"draft_id": draft["draft_id"]})
+        return success("email", [item], {"action": "new", "to": to, "subject": subject}, {"selected_id": item["id"], "requires_confirmation": True, "confirmation_action": "send_email", "confirmation_id": confirmation_id, "confirmation_message": "Email hazırlanıb. Göndərmək üçün açıq təsdiq tələb olunur."})
     except Exception as exc: return error("email", str(exc), {"action": "new", "to": to, "subject": subject})
 
 
