@@ -116,18 +116,19 @@ class ToolExecutor:
         return {key: value for key, value in args.items() if key != "confirmation_id"}
 
     def _gate_risky_action(self, name: str, args: dict):
-        risky = {"delete_calendar_event", "delete_reminder", "delete_contact", "delete_eva_reminder", "send_email", "send_whatsapp_business_message"}
+        risky = {"delete_calendar_event", "delete_reminder", "delete_contact", "delete_eva_reminder", "send_email", "send_whatsapp_business_message", "delete_email", "trash_emails"}
         if name == "send_whatsapp_message" and bool(args.get("send_now", False)): risky.add(name)
         if name not in risky: return None
         confirmation_id = str(args.get("confirmation_id", "")).strip(); payload = self._confirmation_payload(name, args)
         if not confirmation_id:
             token = issue_confirmation(name, payload); self._pending_confirmations[token] = (name, dict(args))
             return {"type": "confirmation", "status": "needs_confirmation", "data": [], "count": 0, "meta": {"requires_confirmation": True, "confirmation_id": token, "confirmation_action": name, "confirmation_message": "Bu əməliyyat geri qaytarılması çətin olan dəyişiklik yaradır. Açıq təsdiq tələb olunur."}}
-        if name == "send_email": return None
         consume_confirmation(confirmation_id, name, payload); self._pending_confirmations.pop(confirmation_id, None); return None
 
     def _confirmed_action(self, name: str, args: dict):
         if name == "send_email": return send_email(args.get("draft_id", ""), "")
+        if name == "delete_email": return delete_email(args.get("confirmation_id", ""))
+        if name == "trash_emails": return trash_emails(args.get("confirmation_id", ""))
         if name == "delete_calendar_event": return delete_calendar_event(args.get("title", ""), args.get("start_iso", ""), args.get("calendar_name", ""), bool(args.get("delete_all_matches", False)))
         if name == "delete_reminder": return delete_reminder(args.get("task_id", ""), args.get("list_name", ""))
         if name == "delete_eva_reminder": return delete_eva_reminder(args.get("reminder_id", ""))
