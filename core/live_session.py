@@ -273,13 +273,50 @@ class _ResilientLiveSession:
         raise last_error  # type: ignore[misc]
 
     async def send_realtime_input(self, **kwargs):
-        media = kwargs.get("media")
-        if isinstance(media, dict) and media.get("mime_type") == "audio/pcm":
-            self._last_audio_input_at = time.monotonic()
-            self._awaiting_first_audio = True
+        """Yeni Live API media contract-ına uyğun audio/video göndərir.
+
+        Əsas runtime hələ ``media={data, mime_type}`` formatından istifadə etdiyi üçün
+        burada onu yeni ``audio``/``video`` Blob formatına çeviririk. Beləliklə digər
+        audio/Webcam pipeline-larına lazımsız refactor edilmir.
+        """
+        media = kwargs.pop("media", None)
+        if isinstance(media, dict):
+            mime_type = str(media.get("mime_type") or "")
+            data = media.get("data")
+            if mime_type.startswith("audio/"):
+                if mime_type == "audio/pcm":
+                    mime_type = "audio/pcm;rate=16000"
+                kwargs["audio"] = types.Blob(data=data, mime_type=mime_type)
+                self._last_audio_input_at = time.monotonic()
+                self._awaiting_first_audio = True
+            elif mime_type.startswith("image/"):
+                kwargs["video"] = types.Blob(data=data, mime_type=mime_type)
+            else:
+                raise ValueError(f"Dəstəklənməyən realtime media tipi: {mime_type}")
         return await self._call_with_reconnect("send_realtime_input", **kwargs)
 
     async def send_client_content(self, **kwargs):
+        # Gemini 3.1 Live-də turn-by-turn text üçün send_realtime_input(text=...) istifadə olunur.
+        turns = kwargs.get("turns")
+        if self._manager.model.endswith("gemini-3.1-flash-live-preview") and turns:
+            user_text = None
+            if isinstance(turns, list):
+                for turn in reversed(turns):
+                    if isinstance(turn, dict) and turn.get("role", "user") == "user":
+                        parts = turn.get("parts") or []
+                        texts = [str(part.get("text", "")) for part in parts if isinstance(part, dict) and part.get("text")]
+                        if texts:
+                            user_text = " ".join(texts).strip()
+                            break
+            elif isinstance(turns, dict):
+                parts = turns.get("parts") or []
+                texts = [str(part.get("text", "")) for part in parts if isinstance(part, dict) and part.get("text")]
+                user_text = " ".join(texts).strip() if texts else None
+            if user_text:
+                return await self._call_with_reconnect(
+                    "send_realtime_input",
+                    text=user_text,
+                )
         return await self._call_with_reconnect("send_client_content", **kwargs)
 
     async def send_tool_response(self, **kwargs):
