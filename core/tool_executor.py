@@ -115,10 +115,22 @@ def _present_structured_result(ui, result: dict) -> None:
 
 
 def _is_implicit_show_query(query: str) -> bool:
-    text = str(query or "").strip().casefold()
-    if text in {"göstər", "goster", "göstər baxım", "goster baxim", "aç", "ac", "oxu", "bax"}:
+    normalized = re.sub(r"\s+", " ", str(query or "")).strip().casefold()
+
+    if normalized in {
+        "göstər", "goster",
+        "göstər baxım", "goster baxim",
+        "aç", "ac", "oxu", "bax",
+    }:
         return True
-    return bool(re.search(r"(?:göstər|goster|aç|ac|oxu|bax)\s*(?:baxım|baxim)?\s*$", text))
+
+    return bool(
+        re.search(
+            r"\b(göstər|goster|aç|ac|oxu|bax)\b(?:\s+baxım|\s+baxim)?$",
+            normalized,
+            re.IGNORECASE,
+        )
+    )
 
 
 class ToolExecutor:
