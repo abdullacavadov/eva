@@ -58,6 +58,11 @@ def show_result_modal(root: tk.Misc, context: ResultContext, selected_item: dict
     window.geometry("760x600")
     window.minsize(560, 420)
     try:
+        window.deiconify()
+        window.lift()
+        window.attributes("-topmost", True)
+        window.after(150, lambda: window.attributes("-topmost", False))
+        window.focus_force()
         window.grab_set()
     except tk.TclError:
         pass
