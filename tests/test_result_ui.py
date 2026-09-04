@@ -24,8 +24,8 @@ def test_present_structured_result_renders_unified_items():
     _present_structured_result(ui, result)
 
     assert ui.messages[0] == "SYS: CALENDAR nəticəsi (2):"
-    assert "1. Komanda görüşü — 2026-09-05T10:00:00+04:00" in ui.messages
-    assert "2. Layihə görüşü — 2026-09-05T14:00:00+04:00 | confirmed" in ui.messages
+    assert "  1. Komanda görüşü — 2026-09-05T10:00:00+04:00" in ui.messages
+    assert "  2. Layihə görüşü — 2026-09-05T14:00:00+04:00 | confirmed" in ui.messages
 
 
 def test_present_structured_result_handles_empty_data():
