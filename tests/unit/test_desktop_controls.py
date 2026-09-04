@@ -39,6 +39,25 @@ def test_sys_info_routes_volume_and_brightness(monkeypatch):
     assert sys_info("brightness") == "Ekran parlaqlığı təxminən %60-dir."
 
 
+def test_sys_info_routes_explicit_volume_setter(monkeypatch):
+    calls = []
+    monkeypatch.setattr("actions.desktop_controls.set_volume", lambda value: calls.append(value) or f"set-volume:{value}")
+    assert sys_info("volume:50") == "set-volume:50"
+    assert calls == [50]
+
+
+def test_sys_info_routes_explicit_brightness_setter(monkeypatch):
+    calls = []
+    monkeypatch.setattr("actions.desktop_controls.set_brightness", lambda value: calls.append(value) or f"set-brightness:{value}")
+    assert sys_info("brightness:100") == "set-brightness:100"
+    assert calls == [100]
+
+
 def test_invalid_level_is_rejected():
     with pytest.raises(ValueError):
         sys_info("volume_set:not-a-number")
+
+
+def test_invalid_compact_level_is_rejected():
+    with pytest.raises(ValueError):
+        sys_info("brightness:not-a-number")
