@@ -85,8 +85,24 @@ def _extract_follow_up_reference(query: str) -> tuple[str, str]:
     if not original:
         raise ResultResolutionError("Follow-up sorğusu boşdur")
     normalized = _normalize(original)
-    implicit_show = {"göstər", "goster", "göstər baxım", "goster baxim", "aç", "ac", "oxu", "bax"}
+    implicit_show = {
+        "göstər", "goster", "göstər baxım", "goster baxim",
+        "aç", "ac", "oxu", "bax",
+        "modalda göstər", "modalda goster", "modalda aç", "modalda ac",
+        "ekranda göstər", "ekranda goster", "ekranda aç", "ekranda ac",
+        "bunu modalda göstər", "bunu modalda goster", "bunu ekranda göstər", "bunu ekranda goster",
+        "həminini modalda göstər", "həminini modalda goster", "həminini ekranda göstər", "həminini ekranda goster",
+    }
     if normalized in implicit_show:
+        return "current", "göstər"
+
+    # Modal/ekran sözləri ayrıca obyekt adı deyil; onlar göstərmə üsulunu bildirir.
+    display_mode_match = re.match(
+        r"^(?:(?:bunu|bunu|həminini|həmin|onu|onu)\s+)?(?:modalda|ekranda)\s+(göstər|goster|aç|ac)(?:\s+baxım|\s+baxim)?$",
+        normalized,
+        re.IGNORECASE,
+    )
+    if display_mode_match:
         return "current", "göstər"
 
     action_match = re.match(r"^(.+?)\s+(göstər|goster|aç|ac|oxu|bax)(?:\s+baxım|\s+baxim)?$", normalized, re.IGNORECASE)
