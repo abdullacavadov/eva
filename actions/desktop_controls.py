@@ -53,6 +53,7 @@ def _brightness_levels_vcp() -> list[int]:
 
 
 def _brightness_levels_sbc() -> list[int]:
+    """Read brightness using screen_brightness_control's selected backend."""
     import screen_brightness_control as sbc  # type: ignore
     values = sbc.get_brightness()
     if isinstance(values, (int, float)):
@@ -76,19 +77,21 @@ def _brightness_levels_powershell() -> list[int]:
 
 
 def _brightness_levels() -> list[int]:
-    """Read brightness using VCP first, then WMI-compatible fallbacks."""
-    try:
-        levels = _brightness_levels_vcp()
-        if levels:
-            return levels
-    except Exception:
-        pass
+    """Read brightness using the generic backend first, then VCP/WMI fallbacks."""
     try:
         levels = _brightness_levels_sbc()
         if levels:
             return levels
     except (ImportError, ModuleNotFoundError):
         pass
+
+    try:
+        levels = _brightness_levels_vcp()
+        if levels:
+            return levels
+    except Exception:
+        pass
+
     return _brightness_levels_powershell()
 
 
@@ -135,18 +138,19 @@ def set_brightness(value: int | float) -> str:
     target = _clamp(float(value))
     errors_seen: list[str] = []
 
-    # External monitors normally expose brightness through DDC/CI VCP.
+    # Use DDC/CI VCP only when the display actually exposes a VCP brightness value.
     try:
-        _set_brightness_vcp(target)
-        if _brightness_matches_target(target, method="vcp"):
-            return f"Ekran parlaqlığı %{target} olaraq təyin edildi."
-        errors_seen.append("DDC/CI VCP dəyişiklikdən sonra dəyəri təsdiqləmədi")
+        if _brightness_levels_vcp():
+            _set_brightness_vcp(target)
+            if _brightness_matches_target(target, method="vcp"):
+                return f"Ekran parlaqlığı %{target} olaraq təyin edildi."
+            errors_seen.append("DDC/CI VCP dəyişiklikdən sonra dəyəri təsdiqləmədi")
     except (ImportError, ModuleNotFoundError) as exc:
         errors_seen.append(f"screen_brightness_control yoxdur: {exc}")
     except Exception as exc:
         errors_seen.append(f"DDC/CI VCP: {exc}")
 
-    # Keep the generic library backend for displays where it can select WMI.
+    # Internal laptop panels normally use the backend selected by the library (WMI).
     try:
         _set_brightness_sbc(target)
         if _brightness_matches_target(target, method="sbc"):
