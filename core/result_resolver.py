@@ -13,7 +13,7 @@ class ResultResolutionError(ValueError):
 
 @dataclass(frozen=True)
 class FollowUpAction:
-    """Söhbət kontekstindən həll edilmiş follow-up əməlini təsvir edir."""
+    """Söhbət kontekstündən həll edilmiş follow-up əməlini təsvir edir."""
 
     reference: str
     action: str
@@ -78,6 +78,10 @@ def _extract_follow_up_reference(query: str) -> tuple[str, str]:
     original = re.sub(r"\s+", " ", str(query or "")).strip()
     if not original:
         raise ResultResolutionError("Follow-up sorğusu boşdur")
+    normalized = _normalize(original)
+    implicit_show = {"göstər", "goster", "göstər baxım", "goster baxim", "aç", "ac", "oxu", "bax"}
+    if normalized in implicit_show:
+        return "current", "göstər"
     reference_pattern = (
         r"(?:birinci(?:ni|si)?|ikinci(?:ni|si)?|üçüncü(?:nü|sü)?|dördüncü(?:nü|sü)?|"
         r"beşinci(?:ni|si)?|sonuncu(?:nu|su)?|\d+|ona|onu|onun|o|bunu|buna|bunun|bu|həmin|həminini)"
@@ -108,7 +112,12 @@ def _detect_follow_up_action(action_text: str) -> str:
 
 def resolve_follow_up_action(context: ResultContext, query: str, selected_item: dict[str, Any] | None = None) -> FollowUpAction:
     reference, action_text = _extract_follow_up_reference(query)
-    item = resolve_reference(context, reference, selected_item=selected_item)
+    if reference == "current":
+        if not context.data:
+            raise ResultResolutionError("Nəticə siyahısı boşdur")
+        item = selected_item or context.data[0]
+    else:
+        item = resolve_reference(context, reference, selected_item=selected_item)
     action = _detect_follow_up_action(action_text)
     return FollowUpAction(reference=reference, action=action, item=item, action_text=action_text)
 
