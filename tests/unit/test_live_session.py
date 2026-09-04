@@ -59,7 +59,6 @@ def test_clean_websocket_close_is_detected():
 
 
 def test_live_connect_config_defaults_to_azerbaijani_transcription():
-    from core.config import LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES
     from google.genai import types
 
     config = types.LiveConnectConfig(
