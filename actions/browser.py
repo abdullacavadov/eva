@@ -1,5 +1,5 @@
 """
-Tarayıcı kontrolü — Windows üçün webbrowser modulu ilə işləyir.
+Tarayıcı kontrolü — Windows için webbrowser modülü ile çalışır.
 """
 
 import re
@@ -54,39 +54,41 @@ def browser_control(action: str, url: str = None, query: str = None) -> str:
         _open(url)
         return f"Açıldı: {url}"
 
-    if action == "search":
+    elif action == "search":
         if not query:
             return "Arama sorgusu belirtilmedi."
         encoded = urllib.parse.quote(query)
         search_url = f"https://www.google.com/search?q={encoded}"
         _open(search_url)
-        return f"'{query}' üçün axtarış açıldı."
+        return f"'{query}' için arama açıldı."
 
-    if action in ("play_youtube", "youtube_play", "play_music"):
+    elif action in ("play_youtube", "youtube_play", "play_music"):
         if not query:
-            return "YouTube üçün axtarış sorğusu belirtilmedi."
+            return "YouTube için arama sorgusu belirtilmedi."
         try:
             video_id = _find_first_youtube_video(query)
         except Exception as exc:
             encoded = urllib.parse.quote(query)
             fallback_url = f"https://www.youtube.com/results?search_query={encoded}"
             _open(fallback_url)
-            return f"YouTube ilk nəticəsi alınmadı ({exc}). Arama nəticələri açıldı: {query}"
+            return (
+                f"YouTube ilk sonucu alınamadı ({exc}). "
+                f"Arama sonuçları açıldı: {query}"
+            )
         if not video_id:
             encoded = urllib.parse.quote(query)
             fallback_url = f"https://www.youtube.com/results?search_query={encoded}"
             _open(fallback_url)
-            return f"YouTube-da birbaşa video tapılmadı. Arama nəticələri açıldı: {query}"
+            return f"YouTube'da doğrudan video bulunamadı. Arama sonuçları açıldı: {query}"
         watch_url = f"https://www.youtube.com/watch?v={video_id}&autoplay=1"
         _open(watch_url)
-        return f"YouTube-da oynadılır: {query}"
+        return f"YouTube'da oynatılıyor: {query}"
 
-    if action in ("traffic", "get_traffic", "route"):
-        # query formatı: "başlanğıc -> təyinat" və ya "başlanğıc to təyinat".
+    elif action in ("traffic", "get_traffic", "route"):
         text = str(query or "").strip()
         parts = re.split(r"\s*(?:->|→|\bto\b|\b-dan\s+|-dən\s+)\s*", text, maxsplit=1, flags=re.IGNORECASE)
         if len(parts) != 2:
             return "Trafik üçün marşrutu 'Bakı -> Gəncə' kimi deyin."
         return _open_traffic_map(parts[0].strip(), parts[1].strip())
 
-    return f"Bilinməyən eylem: {action}"
+    return f"Bilinmeyen eylem: {action}"
