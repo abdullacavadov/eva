@@ -86,6 +86,40 @@ def build_follow_up_dispatch(action: FollowUpAction) -> FollowUpDispatch:
     raise ResultResolutionError("Follow-up üçün dəstəklənməyən əməl")
 
 
+def _present_structured_result(ui, result: dict) -> None:
+    """Strukturlaşdırılmış nəticəni mövcud EVA log panelində oxunaqlı göstərir."""
+    if not isinstance(result, dict) or not {"type", "status", "data"}.issubset(result):
+        return
+    status = str(result.get("status", "")).strip().lower()
+    if status not in {"success", "ok"}:
+        return
+    data = result.get("data")
+    if not isinstance(data, list) or not data:
+        ui.write_log("SYS: Nəticə tapılmadı.")
+        return
+
+    source = str(result.get("type", "")).strip().upper() or "NƏTİCƏ"
+    ui.write_log(f"SYS: {source} nəticəsi ({len(data)}):")
+    for index, item in enumerate(data, 1):
+        if not isinstance(item, dict):
+            text = str(item).strip()
+            if text:
+                ui.write_log(f"  {index}. {text}")
+            continue
+        title = str(item.get("title") or item.get("name") or item.get("subject") or item.get("summary") or item.get("text") or "").strip()
+        timestamp = str(item.get("start") or item.get("start_iso") or item.get("due") or item.get("timestamp") or "").strip()
+        status_text = str(item.get("status") or "").strip()
+        details = []
+        if timestamp:
+            details.append(timestamp)
+        if status_text and status_text.lower() not in {"success", "ok"}:
+            details.append(status_text)
+        line = title or "Nəticə"
+        if details:
+            line += " — " + " | ".join(details)
+        ui.write_log(f"  {index}. {line}")
+
+
 class ToolExecutor:
     CONTROL_TOKEN_RE = re.compile(r"<ctrl\d+>", re.IGNORECASE)
 
@@ -221,7 +255,9 @@ class ToolExecutor:
         if tool_failed:
             if not had_exception: self.ui.set_state("ERROR")
         elif self.should_play_success_sfx(name, args, result): self.ui.play_success_sfx()
-        if isinstance(result, dict) and "type" in result and "status" in result and "data" in result: self.result_store.save(result)
+        if isinstance(result, dict) and "type" in result and "status" in result and "data" in result:
+            self.result_store.save(result)
+            _present_structured_result(self.ui, result)
         if not tool_failed and not self.ui.muted: self.ui.set_state("LISTENING")
         print(f"[E.V.A] 📤 {name} → {str(result)[:80]}...")
         return types.FunctionResponse(id=fc.id, name=fc.name, response={"result": result})

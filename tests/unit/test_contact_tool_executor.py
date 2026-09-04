@@ -6,7 +6,12 @@ from core.tool_executor import ToolExecutor
 
 
 def _executor():
-    ui = SimpleNamespace(muted=False, set_state=lambda *_: None, play_success_sfx=lambda: None)
+    ui = SimpleNamespace(
+        muted=False,
+        set_state=lambda *_: None,
+        play_success_sfx=lambda: None,
+        write_log=lambda *_: None,
+    )
     webcam = SimpleNamespace()
     return ToolExecutor(ui, webcam, lambda *_: None, lambda *_: None), ui
 
