@@ -33,7 +33,29 @@ def _find_first_youtube_video(query: str) -> str | None:
     return None
 
 
+def _open_traffic_map(origin: str, destination: str) -> str:
+    if not origin or not destination:
+        return "Trafik üçün başlanğıc və təyinat məkanı lazımdır."
+    params = urllib.parse.urlencode({"api": "1", "origin": origin, "destination": destination, "travelmode": "driving"})
+    url = f"https://www.google.com/maps/dir/?{params}"
+    _open(url)
+    return (
+        f"{origin} ilə {destination} arasında sürücülük marşrutunu Google Maps-də açdım. "
+        "Canlı trafik sıxlığı və gecikmələr xəritədə göstərilir."
+    )
+
+
+def _open_city_traffic(location: str) -> str:
+    if not location:
+        return "Trafik üçün şəhər və ya məkan adı lazımdır."
+    params = urllib.parse.urlencode({"api": "1", "query": f"traffic {location}"})
+    url = f"https://www.google.com/maps/search/?{params}"
+    _open(url)
+    return f"{location} üçün Google Maps trafik görünüşünü açdım. Canlı sıxlıq xəritədə göstərilir."
+
+
 def browser_control(action: str, url: str = None, query: str = None) -> str:
+    action = str(action or "").strip().lower()
     if action == "open_url":
         if not url:
             return "URL belirtilmedi."
@@ -74,5 +96,12 @@ def browser_control(action: str, url: str = None, query: str = None) -> str:
         watch_url = f"https://www.youtube.com/watch?v={video_id}&autoplay=1"
         _open(watch_url)
         return f"YouTube'da oynatılıyor: {query}"
+
+    elif action in ("traffic", "get_traffic", "route"):
+        text = str(query or "").strip()
+        parts = re.split(r"\s*(?:->|→|\bto\b|\b-dan\s+|-dən\s+)\s*", text, maxsplit=1, flags=re.IGNORECASE)
+        if len(parts) == 2:
+            return _open_traffic_map(parts[0].strip(), parts[1].strip())
+        return _open_city_traffic(text)
 
     return f"Bilinmeyen eylem: {action}"

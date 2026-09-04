@@ -15,6 +15,7 @@ playwright                                # WhatsApp Web read-only browser bridg
 websockets>=15,<18                        # React UI üçün lokal WebSocket bridge
 pycaw                                     # Windows master səs səviyyəsi
 comtypes                                  # Windows Core Audio COM interfeysi
+screen-brightness-control                 # Windows ekran parlaqlığı
 
 google-api-python-client                  # Google Calendar API
 google-auth-httplib2                      # Google API auth transport

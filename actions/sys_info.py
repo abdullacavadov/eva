@@ -33,10 +33,59 @@ def sys_info(query: str) -> str:
     if query in ("network", "ağ", "wifi", "all"):
         results.append(_network())
 
+    # Phase 8: səs və ekran parlaqlığı əmrləri ayrıca təhlükəsiz action-a ötürülür.
+    if query in ("volume", "səs", "ses", "volume_get"):
+        results.append(_desktop_control("get_volume"))
+    elif query in ("volume_up", "səs artır", "sesi artır", "səsi artır"):
+        results.append(_desktop_control("adjust_volume", 10))
+    elif query in ("volume_down", "səs azalt", "sesi azalt", "səsi azalt"):
+        results.append(_desktop_control("adjust_volume", -10))
+    elif query.startswith("volume_set:"):
+        results.append(_desktop_control("set_volume", _parse_level(query, "volume_set:")))
+    if query in ("brightness", "parlaqlıq", "parlaqliq", "brightness_get"):
+        results.append(_desktop_control("get_brightness"))
+    elif query in ("brightness_up", "parlaqlığı artır", "parlaqliqi artır"):
+        results.append(_desktop_control("adjust_brightness", 10))
+    elif query in ("brightness_down", "parlaqlığı azalt", "parlaqliqi azalt"):
+        results.append(_desktop_control("adjust_brightness", -10))
+    elif query.startswith("brightness_set:"):
+        results.append(_desktop_control("set_brightness", _parse_level(query, "brightness_set:")))
+
     if not results:
         results.append(f"Bilinmeyen sorgu: {query}. battery/cpu/ram/disk/time/date/network/all kullanın.")
 
     return "\n".join(r for r in results if r)
+
+
+def _parse_level(query: str, prefix: str) -> int:
+    try:
+        value = int(query.removeprefix(prefix).strip().rstrip("%"))
+    except ValueError as exc:
+        raise ValueError("Səviyyə 0-100 aralığında tam ədəd olmalıdır.") from exc
+    return max(0, min(100, value))
+
+
+def _desktop_control(operation: str, value: int | None = None) -> str:
+    from actions.desktop_controls import (
+        adjust_brightness,
+        adjust_volume,
+        get_brightness,
+        get_volume,
+        set_brightness,
+        set_volume,
+    )
+    operations = {
+        "get_volume": get_volume,
+        "adjust_volume": lambda: adjust_volume(value or 0),
+        "set_volume": lambda: set_volume(value or 0),
+        "get_brightness": get_brightness,
+        "adjust_brightness": lambda: adjust_brightness(value or 0),
+        "set_brightness": lambda: set_brightness(value or 0),
+    }
+    handler = operations.get(operation)
+    if handler is None:
+        raise ValueError(f"Naməlum desktop control: {operation}")
+    return handler()
 
 
 def _battery() -> str:
