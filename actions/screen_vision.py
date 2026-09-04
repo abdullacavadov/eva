@@ -11,7 +11,7 @@ from pathlib import Path
 
 from google import genai
 from google.genai import errors, types
-from PIL import Image, ImageStat
+from PIL import Image, ImageStat, ImageGrab
 
 from app_config import get_app_config_value
 from core.webcam_snapshot import LATEST_FRAME_PATH
@@ -23,8 +23,6 @@ try:
 except ImportError:
     HAS_MSS = False
 
-# Gemini 2.0 Flash artıq shutdown olunub. Vision üçün hazırda dəstəklənən
-# multimodal modelləri üstünlük sırası ilə istifadə edirik.
 VISION_MODELS = (
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
@@ -48,18 +46,30 @@ def _get_active_window_title() -> str:
 
 
 def _capture_active_window() -> tuple[bool, str, str]:
-    if not HAS_MSS:
-        return False, "mss kütüphanesi kurulu deyil. 'pip install mss' ile kur.", ""
     window_title = _get_active_window_title()
+    img = None
+    capture_error = None
+
+    if HAS_MSS:
+        try:
+            with mss.mss() as sct:
+                monitor = sct.monitors[1]
+                screenshot = sct.grab(monitor)
+                img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
+        except Exception as exc:
+            capture_error = exc
+
+    # Windows/PIL fallback. This is intentionally independent from mss so a
+    # broken MSS backend does not make the entire screen-awareness feature fail.
+    if img is None:
+        try:
+            img = ImageGrab.grab(all_screens=True)
+        except Exception as exc:
+            detail = capture_error or exc
+            return False, f"Ekran görüntüsü alınamadı: {detail}", ""
+
     try:
-        with mss.mss() as sct:
-            monitor = sct.monitors[1]
-            screenshot = sct.grab(monitor)
-            img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
-    except Exception as exc:
-        return False, f"Ekran görüntüsü alınamadı: {exc}", ""
-    try:
-        handle = tempfile.NamedTemporaryFile(prefix="jarvis-screen-", suffix=".png", delete=False)
+        handle = tempfile.NamedTemporaryFile(prefix="eva-screen-", suffix=".png", delete=False)
         tmp_path = Path(handle.name)
         handle.close()
         img.save(str(tmp_path), format="PNG")
@@ -115,8 +125,8 @@ def _vision_prompt(query: str, window_title: str) -> str:
         "Görevlerin:\n"
         "1. Pencerenin genel amacını 1-2 cümlede açıkla.\n"
         "2. Görünen önemli metinleri, hata mesajlarını, butonları, başlıkları ve durum etiketlerini oku.\n"
-        "3. Kullanıcı sorusunu bu görüntüyə görə birbaşa cavabla.\n"
-        "4. Əgər bir hata, uyarı və ya dikkat edilmesi gereken bir şey varsa bunu net belirt.\n"
+        "3. Kullanıcı sorusunu bu görüntüye göre doğrudan cevapla.\n"
+        "4. Eğer bir hata, uyarı veya dikkat edilmesi gereken bir şey varsa bunu net belirt.\n"
         "5. Uydurma yapma. Emin olmadığın kısımlarda bunu söyle.\n\n"
         f"Kullanıcı sorusu: {user_query}\n\n"
         "Yanıtı Azərbaycan dilində ver. Gereksiz uzun olma."
@@ -158,19 +168,13 @@ def _is_quota_vision_error(exc: Exception) -> bool:
 
 def _friendly_vision_error(exc: Exception) -> str:
     if _is_quota_vision_error(exc):
-        return "Gemini vision isteği kota və ya sürət limitinə takıldı."
+        return "Gemini vision isteği kota veya hız limitine takıldı."
     if _is_transient_vision_error(exc):
         return "Gemini vision servisi hazırda müvəqqəti əlçatmazdır."
     return f"Gemini vision isteği başarısız oldu: {exc}"
 
 
 def _generate_vision_response(client, model_name: str, prompt: str, image_part: types.Part):
-    """Single-turn multimodal request.
-
-    No tools/AFC are passed to this request. Vision analysis is deliberately
-    isolated from EVA's tool-enabled Live conversation, avoiding the AFC
-    warning/error path in Models.generate_content.
-    """
     return client.models.generate_content(
         model=model_name,
         contents=[types.Part.from_text(text=prompt), image_part],
@@ -178,11 +182,11 @@ def _generate_vision_response(client, model_name: str, prompt: str, image_part: 
     )
 
 
-def _analyze_with_gemini(query: str, image_path: Path, window_title: str) -> str:
+def _analyze_with_gemini(client_query: str, image_path: Path, window_title: str) -> str:
     api_key = str(get_app_config_value("gemini_api_key", "") or "").strip()
     if not api_key:
         return "Gemini API açarı yoxdur."
-    prompt = _vision_prompt(query, window_title)
+    prompt = _vision_prompt(client_query, window_title)
     client = genai.Client(api_key=api_key)
     image_part = _build_image_part(image_path)
     retry_delays = (0.9, 1.8, 3.0)
@@ -252,14 +256,10 @@ def _analyze_webcam_snapshot(query: str) -> str | None:
 
 
 def analyze_screen(query: str, target: str = "active_window") -> str:
-    # Webcam aktivdirsə, vizual sualları ekran görüntüsünə yox, həmin axının son kadrına yönəlt.
     if _is_webcam_query(query):
         webcam_result = _analyze_webcam_snapshot(query)
         if webcam_result is not None:
             return webcam_result
-
-    if not HAS_MSS:
-        return "Ekran analizi üçün 'mss' kütüphanesi gerekiyor. Terminalde: pip install mss"
 
     ok, result, window_title = _capture_active_window()
     if not ok:
