@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  # CI runner-də real mikrofon olmadığından wake listener audio stream açmamalıdır.
+  EVA_CLAP_WAKE_ENABLED: "false"
+
 jobs:
   pytest:
     runs-on: ubuntu-latest

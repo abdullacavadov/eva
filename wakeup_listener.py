@@ -55,7 +55,7 @@ class WakeGestureListener:
 
     def process_chunk(self, data: bytes, now: float | None = None):
         """PCM chunk-u analiz edir və iki clap tamamlandıqda wake edir."""
-        if not self._running or not data:
+        if not data:
             return
 
         timestamp = time.monotonic() if now is None else now
