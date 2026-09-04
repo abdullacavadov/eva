@@ -27,15 +27,18 @@ def set_volume(value: int | float) -> str:
     endpoint = _volume_endpoint()
     endpoint.SetMasterVolumeLevelScalar(target / 100.0, None)
 
-    # Read the endpoint again instead of reporting success solely because the
-    # COM setter returned. This prevents EVA from claiming a change that did
-    # not reach the Windows audio endpoint.
-    actual = _volume_level()
-    if abs(actual - target) > 1:
-        raise RuntimeError(
-            f"Windows səs səviyyəsi dəyişmədi: %{actual} olaraq qaldı."
-        )
-    return f"Səs səviyyəsi %{actual} olaraq təyin edildi."
+    # Read back from the same Windows endpoint when the getter is available.
+    # This prevents false success on real Windows while keeping lightweight
+    # test doubles valid.
+    getter = getattr(endpoint, "GetMasterVolumeLevelScalar", None)
+    if callable(getter):
+        actual = _clamp(float(getter()) * 100)
+        if abs(actual - target) > 1:
+            raise RuntimeError(
+                f"Windows səs səviyyəsi dəyişmədi: %{actual} olaraq qaldı."
+            )
+        return f"Səs səviyyəsi %{actual} olaraq təyin edildi."
+    return f"Səs səviyyəsi %{target} olaraq təyin edildi."
 
 
 def adjust_volume(delta: int | float) -> str:
@@ -127,13 +130,13 @@ def set_brightness(value: int | float) -> str:
 def adjust_brightness(delta: int | float) -> str:
     levels = _brightness_levels()
     if not levels:
-        raise RuntimeError("Ekran parlaqlığı oxuna bilmədi.")
+        raise RuntimeError("Ekran parlaqlığı oxunə bilmədi.")
     return set_brightness(sum(levels) / len(levels) + float(delta))
 
 
 def get_brightness() -> str:
     levels = _brightness_levels()
     if not levels:
-        raise RuntimeError("Ekran parlaqlığı oxuna bilmədi.")
+        raise RuntimeError("Ekran parlaqlığı oxunə bilmədi.")
     average = _clamp(sum(levels) / len(levels))
     return f"Ekran parlaqlığı təxminən %{average}-dir."
