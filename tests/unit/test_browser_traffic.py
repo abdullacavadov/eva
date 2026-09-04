@@ -18,3 +18,6 @@ def test_city_traffic_opens_live_map(monkeypatch):
     assert opened
     assert opened[0].startswith("https://www.google.com/maps/search/?")
     assert "canlı" in result.lower()
+
+
+# Şəhər sorğusu route tələb etmir; canlı trafik görünüşü açılır.
