@@ -17,6 +17,7 @@ CLAP_MIN_GAP = 0.18
 CLAP_COOLDOWN = 1.0
 NOISE_FLOOR_ALPHA = 0.05
 THRESHOLD_MULTIPLIER = 3.0
+INITIAL_NOISE_FLOOR = 400.0
 MIN_THRESHOLD = 1200.0
 MAX_THRESHOLD = 7000.0
 
@@ -39,7 +40,7 @@ class WakeGestureListener:
         self._clap_times: list[float] = []
         self._last_clap = 0.0
         self._cooldown_until = 0.0
-        self._noise_floor = 0.0
+        self._noise_floor = INITIAL_NOISE_FLOOR
         self._above_threshold = False
 
     def start(self):
@@ -60,9 +61,9 @@ class WakeGestureListener:
         timestamp = time.monotonic() if now is None else now
         rms = _rms(data)
 
-        if self._noise_floor <= 0.0:
-            self._noise_floor = rms
-        else:
+        # Səs səviyyəsini yavaş izləyirik ki, qısa clap özü noise floor-u
+        # dərhal yüksəldib aşkarlanmanı söndürməsin.
+        if rms < self._noise_floor * 2.0:
             self._noise_floor = (
                 self._noise_floor * (1.0 - NOISE_FLOOR_ALPHA)
                 + rms * NOISE_FLOOR_ALPHA
