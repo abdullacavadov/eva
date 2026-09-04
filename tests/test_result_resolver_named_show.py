@@ -30,3 +30,17 @@ def test_named_item_show_follow_up_without_demonstrative_resolves_item():
     action = resolve_follow_up_action(_context(), "Ev partisini göstər")
     assert action.action == "show"
     assert action.item["title"] == "Ev Partisi"
+
+
+def test_modal_display_mode_uses_current_result():
+    action = resolve_follow_up_action(_context(), "modalda göstər")
+    assert action.action == "show"
+    assert action.reference == "current"
+    assert action.item["title"] == "Ev Partisi"
+
+
+def test_screen_display_mode_uses_current_result():
+    action = resolve_follow_up_action(_context(), "bunu ekranda göstər")
+    assert action.action == "show"
+    assert action.reference == "current"
+    assert action.item["title"] == "Ev Partisi"
