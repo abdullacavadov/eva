@@ -188,14 +188,9 @@ def _friendly_vision_error(exc: Exception) -> str:
 
 
 def _generate_vision_response(client, model_name: str, prompt: str, image_part: types.Part):
-    return client.models.generate_content(
-        model=model_name,
-        contents=[prompt, image_part],
-        config=types.GenerateContentConfig(
-            temperature=0.2,
-            max_output_tokens=1024,
-        ),
-    )
+    """Generate a vision response through the SDK chat flow."""
+    chat = client.chats.create(model=model_name)
+    return chat.send_message([prompt, image_part])
 
 
 def _analyze_with_gemini(client_query: str, image_path: Path, window_title: str) -> str:
@@ -218,8 +213,6 @@ def _analyze_with_gemini(client_query: str, image_path: Path, window_title: str)
                 last_error = RuntimeError(
                     f"Gemini {model_name} keçərli analiz mətni qaytarmadı ({diagnostic})."
                 )
-                # An empty response is a model/backend failure for this task;
-                # try the next retry/model rather than aborting the fallback chain.
                 if attempt < len(retry_delays):
                     time.sleep(delay)
                     continue
@@ -300,7 +293,7 @@ def analyze_screen(query: str, target: str = "active_window") -> str:
         if image_path.stat().st_size <= 0:
             return "Ekran görüntüsü boş geldi."
         if _image_looks_blank(image_path):
-            return "Ekran görüntüsü siyah veya boş görünüyor."
+            return "Ekran görüntüsü siyah və ya boş görünüyor."
         try:
             analysis = _analyze_with_gemini(query, image_path, window_title)
         except Exception as exc:
