@@ -17,6 +17,16 @@ def sys_info(query: str) -> str:
     query = query.lower().strip()
     results = []
 
+    # Explicit internal control syntax must reach its strict parser first.
+    # Otherwise the natural-language parser can mistake "volume_set:..."
+    # for a normal volume query and import the Windows-only pycaw backend.
+    if query.startswith("volume_set:"):
+        results.append(_desktop_control("set_volume", _parse_level(query, "volume_set:")))
+        return "\n".join(r for r in results if r)
+    if query.startswith("brightness_set:"):
+        results.append(_desktop_control("set_brightness", _parse_level(query, "brightness_set:")))
+        return "\n".join(r for r in results if r)
+
     # Natural-language desktop control commands must be parsed before the
     # generic system-info routing. Gemini commonly passes the whole user
     # phrase here (for example: "səs səviyyəsini 50-yə endir").
@@ -47,16 +57,12 @@ def sys_info(query: str) -> str:
         results.append(_desktop_control("adjust_volume", 10))
     elif query in ("volume_down", "səs azalt", "sesi azalt", "səsi azalt"):
         results.append(_desktop_control("adjust_volume", -10))
-    elif query.startswith("volume_set:"):
-        results.append(_desktop_control("set_volume", _parse_level(query, "volume_set:")))
     if query in ("brightness", "parlaqlıq", "parlaqliq", "brightness_get"):
         results.append(_desktop_control("get_brightness"))
     elif query in ("brightness_up", "parlaqlığı artır", "parlaqliqi artır"):
         results.append(_desktop_control("adjust_brightness", 10))
     elif query in ("brightness_down", "parlaqlığı azalt", "parlaqliqi azalt"):
         results.append(_desktop_control("adjust_brightness", -10))
-    elif query.startswith("brightness_set:"):
-        results.append(_desktop_control("set_brightness", _parse_level(query, "brightness_set:")))
 
     if not results:
         results.append(f"Bilinməyən sorğu: {query}. battery/cpu/ram/disk/time/date/network/all istifadə edin.")
@@ -65,13 +71,7 @@ def sys_info(query: str) -> str:
 
 
 def _parse_desktop_control_query(query: str) -> str | None:
-    """Extract explicit volume/brightness commands from natural language.
-
-    Keep this parser deliberately narrow: only phrases clearly referring to
-    master volume or display brightness are accepted, and numeric values are
-    bounded to 0..100. This avoids turning unrelated system-info questions
-    into desktop mutations.
-    """
+    """Extract explicit volume/brightness commands from natural language."""
     q = re.sub(r"\s+", " ", str(query or "").strip().casefold())
 
     volume_words = r"(?:səs|ses|volume|səs səviyyəsi|ses səviyyəsi)"
@@ -142,8 +142,7 @@ def _battery() -> str:
             return f"Pil: %{bat.percent:.0f} — {status}"
     try:
         out = subprocess.check_output(
-            ["powershell", "-Command",
-             "Get-WmiObject Win32_Battery | Select-Object EstimatedChargeRemaining,BatteryStatus | ConvertTo-Json"],
+            ["powershell", "-Command", "Get-WmiObject Win32_Battery | Select-Object EstimatedChargeRemaining,BatteryStatus | ConvertTo-Json"],
             text=True, timeout=8, stderr=subprocess.DEVNULL,
         )
         import json
