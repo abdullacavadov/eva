@@ -24,9 +24,9 @@ except ImportError:
     HAS_MSS = False
 
 VISION_MODELS = (
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
     "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-pro",
 )
 VISION_MAX_DIMENSION = 1800
 VISION_MAX_INLINE_BYTES = 5_500_000
@@ -138,6 +138,9 @@ def _extract_response_text(response) -> str:
         text = ""
     if text:
         return text
+    output_text = str(getattr(response, "output_text", "") or "").strip()
+    if output_text:
+        return output_text
     chunks: list[str] = []
     for candidate in getattr(response, "candidates", None) or []:
         content = getattr(candidate, "content", None)
@@ -293,7 +296,7 @@ def analyze_screen(query: str, target: str = "active_window") -> str:
         if image_path.stat().st_size <= 0:
             return "Ekran görüntüsü boş geldi."
         if _image_looks_blank(image_path):
-            return "Ekran görüntüsü siyah veya boş görünüyor."
+            return "Ekran görüntüsü siyah və ya boş görünüyor."
         try:
             analysis = _analyze_with_gemini(query, image_path, window_title)
         except Exception as exc:
