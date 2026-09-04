@@ -1,8 +1,11 @@
+from datetime import datetime, timedelta, timezone
+
 from core.result_context import ResultContext
 from core.result_resolver import resolve_follow_up_action
 
 
 def _context():
+    now = datetime.now(timezone.utc)
     return ResultContext(
         result_id="r_test",
         type="calendar_event",
@@ -12,8 +15,8 @@ def _context():
             {"id": "calendar:2", "title": "İş görüşməsi", "start": "2026-09-06T10:00:00+04:00"},
         ],
         count=2,
-        created_at=None,
-        expires_at=None,
+        created_at=now,
+        expires_at=now + timedelta(minutes=30),
     )
 
 
