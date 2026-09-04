@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pyaudio
+from google.genai import types as genai_types
 
 from app_config import get_app_config_value
 
@@ -22,6 +23,27 @@ CHUNK_SIZE = 1024
 # qısa Azərbaycan cümlələri bu rejimdə bəzən başqa dillərə yönələ bilir.
 # BCP-47 kodu ASR-ə Azərbaycan dili üçün açıq ipucu verir.
 LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES = ["az-AZ"]
+
+# main.py mövcud API-nı dəyişmədən LiveConnectConfig yaradır. Ona görə dil
+# ipucunu mərkəzi konfiqurasiya qatında tətbiq edirik; UI və digər runtime
+# axınlarına toxunmuruq.
+_LiveConnectConfig = genai_types.LiveConnectConfig
+
+
+class _EVALiveConnectConfig(_LiveConnectConfig):
+    def __init__(self, *args, **kwargs):
+        transcription = kwargs.get("input_audio_transcription")
+        if isinstance(transcription, dict):
+            transcription = dict(transcription)
+            transcription.setdefault(
+                "language_codes",
+                list(LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES),
+            )
+            kwargs["input_audio_transcription"] = transcription
+        super().__init__(*args, **kwargs)
+
+
+genai_types.LiveConnectConfig = _EVALiveConnectConfig
 
 
 def get_api_key() -> str:
