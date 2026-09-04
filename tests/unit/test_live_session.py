@@ -56,3 +56,14 @@ class _CleanCloseError(Exception):
 def test_clean_websocket_close_is_detected():
     assert _ResilientLiveSession._is_clean_close(_CleanCloseError()) is True
     assert _ResilientLiveSession._is_clean_close(RuntimeError("boom")) is False
+
+
+def test_live_connect_config_defaults_to_azerbaijani_transcription():
+    from google.genai import types
+
+    config = types.LiveConnectConfig(
+        response_modalities=["AUDIO"],
+        input_audio_transcription={},
+    )
+
+    assert config.input_audio_transcription.language_codes == ["az-AZ"]
