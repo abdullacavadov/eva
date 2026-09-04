@@ -1,9 +1,8 @@
 """
-Tarayıcı kontrolü — Windows için webbrowser modülü ile çalışır.
+Tarayıcı kontrolü — Windows üçün webbrowser modulu ilə işləyir.
 """
 
 import re
-import subprocess
 import urllib.parse
 import webbrowser
 
@@ -33,7 +32,20 @@ def _find_first_youtube_video(query: str) -> str | None:
     return None
 
 
+def _open_traffic_map(origin: str, destination: str) -> str:
+    if not origin or not destination:
+        return "Trafik üçün başlanğıc və təyinat məkanı lazımdır."
+    params = urllib.parse.urlencode({"api": "1", "origin": origin, "destination": destination, "travelmode": "driving"})
+    url = f"https://www.google.com/maps/dir/?{params}"
+    _open(url)
+    return (
+        f"{origin} ilə {destination} arasında sürücülük marşrutunu Google Maps-də açdım. "
+        "Canlı trafik sıxlığı və gecikmələr xəritədə göstərilir."
+    )
+
+
 def browser_control(action: str, url: str = None, query: str = None) -> str:
+    action = str(action or "").strip().lower()
     if action == "open_url":
         if not url:
             return "URL belirtilmedi."
@@ -42,37 +54,39 @@ def browser_control(action: str, url: str = None, query: str = None) -> str:
         _open(url)
         return f"Açıldı: {url}"
 
-    elif action == "search":
+    if action == "search":
         if not query:
             return "Arama sorgusu belirtilmedi."
         encoded = urllib.parse.quote(query)
         search_url = f"https://www.google.com/search?q={encoded}"
         _open(search_url)
-        return f"'{query}' için arama açıldı."
+        return f"'{query}' üçün axtarış açıldı."
 
-    elif action in ("play_youtube", "youtube_play", "play_music"):
+    if action in ("play_youtube", "youtube_play", "play_music"):
         if not query:
-            return "YouTube için arama sorgusu belirtilmedi."
-
+            return "YouTube üçün axtarış sorğusu belirtilmedi."
         try:
             video_id = _find_first_youtube_video(query)
         except Exception as exc:
             encoded = urllib.parse.quote(query)
             fallback_url = f"https://www.youtube.com/results?search_query={encoded}"
             _open(fallback_url)
-            return (
-                f"YouTube ilk sonucu alınamadı ({exc}). "
-                f"Arama sonuçları açıldı: {query}"
-            )
-
+            return f"YouTube ilk nəticəsi alınmadı ({exc}). Arama nəticələri açıldı: {query}"
         if not video_id:
             encoded = urllib.parse.quote(query)
             fallback_url = f"https://www.youtube.com/results?search_query={encoded}"
             _open(fallback_url)
-            return f"YouTube'da doğrudan video bulunamadı. Arama sonuçları açıldı: {query}"
-
+            return f"YouTube-da birbaşa video tapılmadı. Arama nəticələri açıldı: {query}"
         watch_url = f"https://www.youtube.com/watch?v={video_id}&autoplay=1"
         _open(watch_url)
-        return f"YouTube'da oynatılıyor: {query}"
+        return f"YouTube-da oynadılır: {query}"
 
-    return f"Bilinmeyen eylem: {action}"
+    if action in ("traffic", "get_traffic", "route"):
+        # query formatı: "başlanğıc -> təyinat" və ya "başlanğıc to təyinat".
+        text = str(query or "").strip()
+        parts = re.split(r"\s*(?:->|→|\bto\b|\b-dan\s+|-dən\s+)\s*", text, maxsplit=1, flags=re.IGNORECASE)
+        if len(parts) != 2:
+            return "Trafik üçün marşrutu 'Bakı -> Gəncə' kimi deyin."
+        return _open_traffic_map(parts[0].strip(), parts[1].strip())
+
+    return f"Bilinməyən eylem: {action}"
