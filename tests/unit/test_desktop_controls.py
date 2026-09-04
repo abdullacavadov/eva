@@ -14,6 +14,9 @@ def test_set_volume_clamps_and_sets_scalar(monkeypatch):
         def SetMasterVolumeLevelScalar(self, value, event):
             calls.append((value, event))
 
+        def GetMasterVolumeLevelScalar(self):
+            return 1.0
+
     class Device:
         EndpointVolume = Endpoint()
 
@@ -37,6 +40,16 @@ def test_sys_info_routes_volume_and_brightness(monkeypatch):
     monkeypatch.setattr("actions.desktop_controls.get_brightness", lambda: "Ekran parlaqlığı təxminən %60-dir.")
     assert sys_info("volume") == "Səs səviyyəsi %40-dir."
     assert sys_info("brightness") == "Ekran parlaqlığı təxminən %60-dir."
+
+
+def test_compact_volume_command_sets_exact_level(monkeypatch):
+    monkeypatch.setattr("actions.desktop_controls.set_volume", lambda value: f"set-volume:{value}")
+    assert sys_info("volume:50") == "set-volume:50"
+
+
+def test_compact_brightness_command_sets_exact_level(monkeypatch):
+    monkeypatch.setattr("actions.desktop_controls.set_brightness", lambda value: f"set-brightness:{value}")
+    assert sys_info("brightness:100") == "set-brightness:100"
 
 
 def test_invalid_level_is_rejected():
