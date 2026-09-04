@@ -63,4 +63,14 @@ def load_system_prompt() -> str:
     )
     if persona_prompt:
         settings_prompt += f"Əlavə persona qaydaları: {persona_prompt}\n"
+
+    settings_prompt += (
+        "\n[MASAÜSTÜ SƏS VƏ PARLAQLIQ QAYDASI]\n"
+        "Windows səs səviyyəsi və ekran parlaqlığı idarələri təhlükəsiz, lokal desktop idarələridir. "
+        "İstifadəçi səsi və ya parlaqlığı artırmaq, azaltmaq və ya konkret faiz təyin etmək istədikdə "
+        "heç vaxt confirmation istəmə, confirmation yaratma və confirm_action çağırma. "
+        "sys_info alətində volume:50, brightness:100, volume_up, volume_down, brightness_up və brightness_down "
+        "sintaksislərini birbaşa istifadə et. volume:NN və brightness:NN konkret 0-100 faiz dəyərini tətbiq edir. "
+        "Əməliyyat uğursuz olarsa yalnız real xəta barədə məlumat ver."
+    )
     return prompt + settings_prompt
