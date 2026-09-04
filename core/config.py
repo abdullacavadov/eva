@@ -17,6 +17,12 @@ SEND_SAMPLE_RATE = 16000
 RECV_SAMPLE_RATE = 24000
 CHUNK_SIZE = 1024
 
+# EVA-nın əsas danışıq dili Azərbaycan dilidir. Gemini Live input
+# transcription-da dil göstərilmədikdə avtomatik dil aşkarlanması aktiv olur;
+# qısa Azərbaycan cümlələri bu rejimdə bəzən başqa dillərə yönələ bilir.
+# BCP-47 kodu ASR-ə Azərbaycan dili üçün açıq ipucu verir.
+LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES = ["az-AZ"]
+
 
 def get_api_key() -> str:
     return str(get_app_config_value("gemini_api_key", "") or "")
