@@ -78,8 +78,6 @@ def _brightness_levels_powershell() -> list[int]:
 
 def _brightness_levels() -> list[int]:
     """Read brightness using the generic backend first, then VCP/WMI fallbacks."""
-    # The generic library selects the correct backend for the connected display.
-    # This is required for internal laptop panels where DDC/CI VCP is unavailable.
     try:
         levels = _brightness_levels_sbc()
         if levels:
@@ -87,7 +85,6 @@ def _brightness_levels() -> list[int]:
     except (ImportError, ModuleNotFoundError):
         pass
 
-    # External monitors may expose brightness directly through DDC/CI VCP.
     try:
         levels = _brightness_levels_vcp()
         if levels:
@@ -141,8 +138,19 @@ def set_brightness(value: int | float) -> str:
     target = _clamp(float(value))
     errors_seen: list[str] = []
 
-    # Use the library's selected backend first. It correctly handles internal
-    # laptop panels through WMI and can also select a suitable external backend.
+    # Use DDC/CI VCP only when the display actually exposes a VCP brightness value.
+    try:
+        if _brightness_levels_vcp():
+            _set_brightness_vcp(target)
+            if _brightness_matches_target(target, method="vcp"):
+                return f"Ekran parlaqlığı %{target} olaraq təyin edildi."
+            errors_seen.append("DDC/CI VCP dəyişiklikdən sonra dəyəri təsdiqləmədi")
+    except (ImportError, ModuleNotFoundError) as exc:
+        errors_seen.append(f"screen_brightness_control yoxdur: {exc}")
+    except Exception as exc:
+        errors_seen.append(f"DDC/CI VCP: {exc}")
+
+    # Internal laptop panels normally use the backend selected by the library (WMI).
     try:
         _set_brightness_sbc(target)
         if _brightness_matches_target(target, method="sbc"):
@@ -152,17 +160,6 @@ def set_brightness(value: int | float) -> str:
         errors_seen.append(f"screen_brightness_control yoxdur: {exc}")
     except Exception as exc:
         errors_seen.append(f"screen_brightness_control: {exc}")
-
-    # Explicit DDC/CI VCP support remains available for external monitors.
-    try:
-        _set_brightness_vcp(target)
-        if _brightness_matches_target(target, method="vcp"):
-            return f"Ekran parlaqlığı %{target} olaraq təyin edildi."
-        errors_seen.append("DDC/CI VCP dəyişiklikdən sonra dəyəri təsdiqləmədi")
-    except (ImportError, ModuleNotFoundError) as exc:
-        errors_seen.append(f"screen_brightness_control yoxdur: {exc}")
-    except Exception as exc:
-        errors_seen.append(f"DDC/CI VCP: {exc}")
 
     # Native WMI remains the final fallback for laptop/internal displays.
     try:
