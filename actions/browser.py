@@ -1,5 +1,5 @@
 """
-Tarayıcı kontrolü — Windows üçün webbrowser modulu ilə işləyir.
+Tarayıcı kontrolü — Windows için webbrowser modülü ile çalışır.
 """
 
 import re
