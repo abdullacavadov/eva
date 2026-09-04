@@ -11,7 +11,6 @@ def _clamp(value: float) -> int:
 
 def _volume_endpoint():
     from pycaw.pycaw import AudioUtilities  # type: ignore
-
     device = AudioUtilities.GetSpeakers()
     return device.EndpointVolume
 
@@ -26,14 +25,11 @@ def set_volume(value: int | float) -> str:
     target = _clamp(float(value))
     endpoint = _volume_endpoint()
     endpoint.SetMasterVolumeLevelScalar(target / 100.0, None)
-
     getter = getattr(endpoint, "GetMasterVolumeLevelScalar", None)
     if callable(getter):
         actual = _clamp(float(getter()) * 100)
         if abs(actual - target) > 1:
-            raise RuntimeError(
-                f"Windows səs səviyyəsi dəyişmədi: %{actual} olaraq qaldı."
-            )
+            raise RuntimeError(f"Windows səs səviyyəsi dəyişmədi: %{actual} olaraq qaldı.")
         return f"Səs səviyyəsi %{actual} olaraq təyin edildi."
     return f"Səs səviyyəsi %{target} olaraq təyin edildi."
 
@@ -47,9 +43,17 @@ def get_volume() -> str:
     return f"Səs səviyyəsi %{_volume_level()}-dir."
 
 
+def _brightness_levels_vcp() -> list[int]:
+    """Read external-monitor brightness through DDC/CI VCP."""
+    import screen_brightness_control as sbc  # type: ignore
+    values = sbc.windows.VCP.get_brightness()
+    if isinstance(values, (int, float)):
+        return [_clamp(float(values))]
+    return [_clamp(float(v)) for v in values if isinstance(v, (int, float))]
+
+
 def _brightness_levels_sbc() -> list[int]:
     import screen_brightness_control as sbc  # type: ignore
-
     values = sbc.get_brightness()
     if isinstance(values, (int, float)):
         return [_clamp(float(values))]
@@ -57,17 +61,11 @@ def _brightness_levels_sbc() -> list[int]:
 
 
 def _brightness_levels_powershell() -> list[int]:
-    command = (
-        "Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness "
-        "| Select-Object -ExpandProperty CurrentBrightness"
-    )
+    command = ("Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness "
+               "| Select-Object -ExpandProperty CurrentBrightness")
     out = subprocess.check_output(
         ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
-        text=True,
-        timeout=8,
-        stderr=subprocess.DEVNULL,
-        encoding="utf-8",
-        errors="replace",
+        text=True, timeout=8, stderr=subprocess.DEVNULL, encoding="utf-8", errors="replace",
     )
     levels: list[int] = []
     for line in out.splitlines():
@@ -78,26 +76,44 @@ def _brightness_levels_powershell() -> list[int]:
 
 
 def _brightness_levels() -> list[int]:
+    """Read brightness using VCP first, then WMI-compatible fallbacks."""
     try:
-        return _brightness_levels_sbc()
+        levels = _brightness_levels_vcp()
+        if levels:
+            return levels
+    except Exception:
+        pass
+    try:
+        levels = _brightness_levels_sbc()
+        if levels:
+            return levels
     except (ImportError, ModuleNotFoundError):
-        return _brightness_levels_powershell()
+        pass
+    return _brightness_levels_powershell()
 
 
-def _brightness_matches_target(target: int, tolerance: int = 2) -> bool:
+def _brightness_matches_target(target: int, tolerance: int = 2, *, method: str | None = None) -> bool:
     try:
-        levels = _brightness_levels()
+        if method == "vcp":
+            levels = _brightness_levels_vcp()
+        elif method == "sbc":
+            levels = _brightness_levels_sbc()
+        else:
+            levels = _brightness_levels()
     except Exception:
         return False
     if not levels:
         return False
-    average = sum(levels) / len(levels)
-    return abs(average - target) <= tolerance
+    return abs((sum(levels) / len(levels)) - target) <= tolerance
+
+
+def _set_brightness_vcp(target: int) -> None:
+    import screen_brightness_control as sbc  # type: ignore
+    sbc.windows.VCP.set_brightness(target)
 
 
 def _set_brightness_sbc(target: int) -> None:
     import screen_brightness_control as sbc  # type: ignore
-
     sbc.set_brightness(target)
 
 
@@ -109,13 +125,8 @@ def _set_brightness_powershell(target: int) -> None:
     )
     subprocess.run(
         ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
-        check=True,
-        timeout=8,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+        check=True, timeout=8, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        text=True, encoding="utf-8", errors="replace",
     )
 
 
@@ -124,12 +135,21 @@ def set_brightness(value: int | float) -> str:
     target = _clamp(float(value))
     errors_seen: list[str] = []
 
-    # Prefer the dedicated library, but do not trust a successful call blindly.
-    # Some Windows/display combinations accept the call while leaving the
-    # reported brightness unchanged. In that case try the native WMI backend.
+    # External monitors normally expose brightness through DDC/CI VCP.
+    try:
+        _set_brightness_vcp(target)
+        if _brightness_matches_target(target, method="vcp"):
+            return f"Ekran parlaqlığı %{target} olaraq təyin edildi."
+        errors_seen.append("DDC/CI VCP dəyişiklikdən sonra dəyəri təsdiqləmədi")
+    except (ImportError, ModuleNotFoundError) as exc:
+        errors_seen.append(f"screen_brightness_control yoxdur: {exc}")
+    except Exception as exc:
+        errors_seen.append(f"DDC/CI VCP: {exc}")
+
+    # Keep the generic library backend for displays where it can select WMI.
     try:
         _set_brightness_sbc(target)
-        if _brightness_matches_target(target):
+        if _brightness_matches_target(target, method="sbc"):
             return f"Ekran parlaqlığı %{target} olaraq təyin edildi."
         errors_seen.append("screen_brightness_control dəyişiklikdən sonra dəyəri təsdiqləmədi")
     except (ImportError, ModuleNotFoundError) as exc:
@@ -137,9 +157,10 @@ def set_brightness(value: int | float) -> str:
     except Exception as exc:
         errors_seen.append(f"screen_brightness_control: {exc}")
 
+    # Native WMI remains the final fallback for laptop/internal displays.
     try:
         _set_brightness_powershell(target)
-        if _brightness_matches_target(target):
+        if _brightness_matches_target(target, method="sbc"):
             return f"Ekran parlaqlığı %{target} olaraq təyin edildi."
         errors_seen.append("PowerShell WMI dəyişiklikdən sonra dəyəri təsdiqləmədi")
     except Exception as exc:
@@ -151,9 +172,7 @@ def set_brightness(value: int | float) -> str:
         actual_levels = []
     if actual_levels:
         actual = _clamp(sum(actual_levels) / len(actual_levels))
-        raise RuntimeError(
-            f"Windows ekran parlaqlığı dəyişmədi: təxminən %{actual} olaraq qaldı."
-        )
+        raise RuntimeError(f"Windows ekran parlaqlığı dəyişmədi: təxminən %{actual} olaraq qaldı.")
     detail = "; ".join(errors_seen)
     raise RuntimeError(f"Windows ekran parlaqlığı təyin edilə bilmədi. {detail}")
 
