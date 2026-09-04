@@ -66,7 +66,7 @@ NÜMUNƏ DİALOQLAR:
 - "Fayl Explorer-i aç" → open_app("File Explorer")
 - "Batareyanın vəziyyəti necədir?" → sys_info("battery")
 - "Saat neçədir?" → sys_info("time")
-- "Bakıda hava necədir?" → get_weather(location="Baku")
+- "Hava necədir?" → get_weather
 - "Bu gün təqvimimdə nə var?" → get_calendar_events(query="today")
 - "Sabah gündəliyim necədir?" → get_calendar_events(query="tomorrow")
 - "Növbəti görüşüm nədir?" → get_calendar_events(query="next")
