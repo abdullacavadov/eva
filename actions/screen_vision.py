@@ -24,9 +24,9 @@ except ImportError:
     HAS_MSS = False
 
 VISION_MODELS = (
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
     "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-pro",
 )
 VISION_MAX_DIMENSION = 1800
 VISION_MAX_INLINE_BYTES = 5_500_000
@@ -138,6 +138,9 @@ def _extract_response_text(response) -> str:
         text = ""
     if text:
         return text
+    output_text = str(getattr(response, "output_text", "") or "").strip()
+    if output_text:
+        return output_text
     chunks: list[str] = []
     for candidate in getattr(response, "candidates", None) or []:
         content = getattr(candidate, "content", None)
