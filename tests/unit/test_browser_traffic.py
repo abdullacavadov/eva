@@ -11,6 +11,10 @@ def test_traffic_opens_google_maps(monkeypatch):
     assert "Gəncə" in result
 
 
-def test_traffic_requires_origin_and_destination():
+def test_city_traffic_opens_live_map(monkeypatch):
+    opened = []
+    monkeypatch.setattr(browser, "_open", opened.append)
     result = browser.browser_control("traffic", query="Bakı")
-    assert "başlanğıc" in result.lower()
+    assert opened
+    assert opened[0].startswith("https://www.google.com/maps/search/?")
+    assert "canlı" in result.lower()
