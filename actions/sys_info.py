@@ -1,5 +1,5 @@
 """
-Sistem məlumatı və təhlükəsiz Windows səs/parlaqlıq nəzarəti.
+Sistem bilgisi — Windows için psutil + subprocess (cmd/PowerShell)
 """
 
 import subprocess
@@ -29,7 +29,7 @@ def sys_info(query: str) -> str:
         results.append(f"Saat: {now.strftime('%H:%M:%S')}")
     if query in ("date", "tarih", "all"):
         now = datetime.datetime.now()
-        results.append(f"Tarix: {now.strftime('%d %B %Y, %A')}")
+        results.append(f"Tarih: {now.strftime('%d %B %Y, %A')}")
     if query in ("network", "ağ", "wifi", "all"):
         results.append(_network())
 
@@ -52,10 +52,7 @@ def sys_info(query: str) -> str:
         results.append(_desktop_control("set_brightness", _parse_level(query, "brightness_set:")))
 
     if not results:
-        results.append(
-            f"Bilinməyən sorğu: {query}. battery/cpu/ram/disk/time/date/network/all və "
-            "volume/volume_up/volume_down/brightness/brightness_up/brightness_down istifadə edin."
-        )
+        results.append(f"Bilinmeyen sorgu: {query}. battery/cpu/ram/disk/time/date/network/all kullanın.")
 
     return "\n".join(r for r in results if r)
 
@@ -77,7 +74,6 @@ def _desktop_control(operation: str, value: int | None = None) -> str:
         set_brightness,
         set_volume,
     )
-
     operations = {
         "get_volume": get_volume,
         "adjust_volume": lambda: adjust_volume(value or 0),
@@ -96,8 +92,9 @@ def _battery() -> str:
     if HAS_PSUTIL:
         bat = psutil.sensors_battery()
         if bat:
-            status = "Şarj olur" if bat.power_plugged else "Pildə"
+            status = "Şarj oluyor" if bat.power_plugged else "Pilde"
             return f"Pil: %{bat.percent:.0f} — {status}"
+    # PowerShell fallback
     try:
         out = subprocess.check_output(
             ["powershell", "-Command",
@@ -110,11 +107,11 @@ def _battery() -> str:
             data = data[0]
         pct = data.get("EstimatedChargeRemaining", "?")
         status_code = data.get("BatteryStatus", 0)
-        status = "Şarj olur" if status_code in (2, 6, 7, 8, 9) else "Pildə"
+        status = "Şarj oluyor" if status_code in (2, 6, 7, 8, 9) else "Pilde"
         return f"Pil: %{pct} — {status}"
     except Exception:
         pass
-    return "Pil məlumatı alınmadı (masaüstü kompüter və ya psutil çatışmır ola bilər)."
+    return "Pil bilgisi alınamadı (masaüstü bilgisayar veya psutil eksik olabilir)."
 
 
 def _cpu() -> str:
@@ -123,8 +120,8 @@ def _cpu() -> str:
         count = psutil.cpu_count(logical=True)
         freq = psutil.cpu_freq()
         freq_str = f", {freq.current:.0f} MHz" if freq else ""
-        return f"CPU: %{usage:.1f} istifadə — {count} nüvə{freq_str}"
-    return "CPU məlumatı alınmadı."
+        return f"CPU: %{usage:.1f} kullanım — {count} çekirdek{freq_str}"
+    return "CPU bilgisi alınamadı."
 
 
 def _ram() -> str:
@@ -133,8 +130,8 @@ def _ram() -> str:
         total = vm.total / (1024 ** 3)
         used = vm.used / (1024 ** 3)
         pct = vm.percent
-        return f"RAM: {used:.1f}GB / {total:.1f}GB istifadə olunur (%{pct:.0f})"
-    return "RAM məlumatı alınmadı."
+        return f"RAM: {used:.1f}GB / {total:.1f}GB kullanımda (%{pct:.0f})"
+    return "RAM bilgisi alınamadı."
 
 
 def _disk() -> str:
@@ -143,7 +140,7 @@ def _disk() -> str:
         total = du.total / (1024 ** 3)
         used = du.used / (1024 ** 3)
         free = du.free / (1024 ** 3)
-        return f"Disk (C:): {used:.1f}GB istifadə edildi, {free:.1f}GB boş (cəmi {total:.1f}GB)"
+        return f"Disk (C:): {used:.1f}GB kullanıldı, {free:.1f}GB boş (toplam {total:.1f}GB)"
     try:
         out = subprocess.check_output(["wmic", "logicaldisk", "get", "size,freespace,caption"],
                                       text=True, timeout=5)
@@ -152,10 +149,11 @@ def _disk() -> str:
             return f"Disk: {lines[0].strip()}"
     except Exception:
         pass
-    return "Disk məlumatı alınmadı."
+    return "Disk bilgisi alınamadı."
 
 
 def _network() -> str:
+    # WiFi SSID via netsh
     try:
         out = subprocess.check_output(
             ["netsh", "wlan", "show", "interfaces"],
@@ -166,19 +164,21 @@ def _network() -> str:
             if "SSID" in line and "BSSID" not in line:
                 ssid = line.split(":", 1)[-1].strip()
                 if ssid:
-                    return f"WiFi: {ssid} bağlıdır"
+                    return f"WiFi: {ssid} bağlı"
     except Exception:
         pass
+    # IP fallback via ipconfig
     try:
         out = subprocess.check_output(
-            ["ipconfig"], text=True, timeout=5,
+            ["ipconfig"],
+            text=True, timeout=5,
             encoding="utf-8", errors="replace",
         )
         for line in out.splitlines():
             if "IPv4" in line:
                 ip = line.split(":", 1)[-1].strip()
                 if ip and not ip.startswith("169."):
-                    return f"Şəbəkə: IP {ip}"
+                    return f"Ağ: IP {ip}"
     except Exception:
         pass
-    return "Şəbəkə bağlantısı tapılmadı."
+    return "Ağ bağlantısı bulunamadı."
