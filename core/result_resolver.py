@@ -36,7 +36,13 @@ def _selection_queries(query: str) -> list[str]:
     stripped = re.sub(r"(?:[-\s]?(?:i|ı|u|ü|ni|nı|nu|nü))?\s+(?:aç|ac|göstər|goster|oxu|bax)$", "", normalized).strip()
     if stripped and stripped != normalized:
         queries.append(stripped)
-    return queries
+    without_demonstrative = re.sub(r"^(?:həmin|həminin|bu|bunun|o)\s+", "", stripped).strip()
+    if without_demonstrative and without_demonstrative != stripped:
+        queries.append(without_demonstrative)
+    stemmed = re.sub(r"(?:ni|nı|nu|nü|i|ı|u|ü)$", "", without_demonstrative).strip()
+    if stemmed and stemmed != without_demonstrative:
+        queries.append(stemmed)
+    return list(dict.fromkeys(queries))
 
 
 def _ordinal_index(query: str, count: int) -> int | None:
@@ -82,6 +88,13 @@ def _extract_follow_up_reference(query: str) -> tuple[str, str]:
     implicit_show = {"göstər", "goster", "göstər baxım", "goster baxim", "aç", "ac", "oxu", "bax"}
     if normalized in implicit_show:
         return "current", "göstər"
+
+    action_match = re.match(r"^(.+?)\s+(göstər|goster|aç|ac|oxu|bax)(?:\s+baxım|\s+baxim)?$", normalized, re.IGNORECASE)
+    if action_match:
+        reference_text = action_match.group(1).strip()
+        if reference_text:
+            return reference_text, "göstər"
+
     reference_pattern = (
         r"(?:birinci(?:ni|si)?|ikinci(?:ni|si)?|üçüncü(?:nü|sü)?|dördüncü(?:nü|sü)?|"
         r"beşinci(?:ni|si)?|sonuncu(?:nu|su)?|\d+|ona|onu|onun|o|bunu|buna|bunun|bu|həmin|həminini)"
@@ -116,8 +129,10 @@ def resolve_follow_up_action(context: ResultContext, query: str, selected_item: 
         if not context.data:
             raise ResultResolutionError("Nəticə siyahısı boşdur")
         item = selected_item or context.data[0]
-    else:
+    elif _is_relative_reference(reference):
         item = resolve_reference(context, reference, selected_item=selected_item)
+    else:
+        item = resolve_item(context, reference)
     action = _detect_follow_up_action(action_text)
     return FollowUpAction(reference=reference, action=action, item=item, action_text=action_text)
 
