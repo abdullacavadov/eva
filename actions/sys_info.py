@@ -18,13 +18,18 @@ def sys_info(query: str) -> str:
     results = []
 
     # Explicit internal control syntax must reach its strict parser first.
-    # Otherwise the natural-language parser can mistake "volume_set:..."
-    # for a normal volume query and import the Windows-only pycaw backend.
+    # Setter commands are local desktop controls and do not require confirmation.
     if query.startswith("volume_set:"):
         results.append(_desktop_control("set_volume", _parse_level(query, "volume_set:")))
         return "\n".join(r for r in results if r)
     if query.startswith("brightness_set:"):
         results.append(_desktop_control("set_brightness", _parse_level(query, "brightness_set:")))
+        return "\n".join(r for r in results if r)
+    if query.startswith("volume:"):
+        results.append(_desktop_control("set_volume", _parse_level(query, "volume:")))
+        return "\n".join(r for r in results if r)
+    if query.startswith("brightness:"):
+        results.append(_desktop_control("set_brightness", _parse_level(query, "brightness:")))
         return "\n".join(r for r in results if r)
 
     # Natural-language desktop control commands must be parsed before the
