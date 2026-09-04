@@ -20,7 +20,7 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "sys_info",
-        "description": "Sistem məlumatlarını alır: batareya vəziyyəti, CPU, RAM, disk, saat, tarix və şəbəkə bağlantısı.",
+        "description": "Sistem məlumatlarını alır: batareya vəziyyəti, CPU, RAM, disk, saat, tarix və şəbəkə bağlantısı. Həmçinin Windows səs səviyyəsini və ekran parlaqlığını oxuya və artırıb-azalda bilər; volume/volume_up/volume_down/brightness/brightness_up/brightness_down sorğularından istifadə et.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
@@ -211,7 +211,7 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "browser_control",
-        "description": "Brauzerdə URL açır, Google-da axtarış edir və ya YouTube-da ilk nəticəni birbaşa oynadır.",
+        "description": "Brauzerdə URL açır, Google-da axtarış edir, YouTube-da ilk nəticəni oynadır və iki məkan arasında Google Maps marşrutunu canlı trafik xəritəsi ilə açır. action: open_url | search | play_youtube | traffic; traffic üçün query-də başlanğıc -> təyinat ver.",
         "parameters": {
             "type": "OBJECT",
             "properties": {

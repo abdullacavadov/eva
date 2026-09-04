@@ -483,7 +483,7 @@ def main():
             if proactive_scheduler:
                 proactive_scheduler.stop()
     threading.Thread(target=runner, daemon=True).start()
-    ENABLE_CLAP_WAKE = False
+    ENABLE_CLAP_WAKE = str(os.getenv("EVA_CLAP_WAKE_ENABLED", "true")).strip().lower() not in {"0", "false", "no", "off"}
     if ENABLE_CLAP_WAKE and WakeGestureListener is not None:
         try:
             wake_listener = WakeGestureListener(on_wake=ui.wake_up)
