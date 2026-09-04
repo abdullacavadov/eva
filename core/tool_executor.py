@@ -27,7 +27,8 @@ from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
 from core.action_confirmation import consume_confirmation, get_pending_confirmation, issue_confirmation
 from core.result_store import ResultStore
-from core.result_resolver import FollowUpAction, ResultResolutionError, resolve_reference
+from core.result_resolver import FollowUpAction, ResultResolutionError, resolve_reference, resolve_follow_up_action
+from core.result_modal import show_result_modal
 from core.follow_up_mutation import build_follow_up_mutation
 from core.orchestrator import execute_unified_query
 import tool_defs as _tool_defs
@@ -88,36 +89,33 @@ def build_follow_up_dispatch(action: FollowUpAction) -> FollowUpDispatch:
 
 def _present_structured_result(ui, result: dict) -> None:
     """Strukturlaşdırılmış nəticəni mövcud EVA log panelində oxunaqlı göstərir."""
-    if not isinstance(result, dict) or not {"type", "status", "data"}.issubset(result):
-        return
+    if not isinstance(result, dict) or not {"type", "status", "data"}.issubset(result): return
     status = str(result.get("status", "")).strip().lower()
-    if status not in {"success", "ok"}:
-        return
+    if status not in {"success", "ok"}: return
     data = result.get("data")
     if not isinstance(data, list) or not data:
         ui.write_log("SYS: Nəticə tapılmadı.")
         return
-
     source = str(result.get("type", "")).strip().upper() or "NƏTİCƏ"
     ui.write_log(f"SYS: {source} nəticəsi ({len(data)}):")
     for index, item in enumerate(data, 1):
         if not isinstance(item, dict):
             text = str(item).strip()
-            if text:
-                ui.write_log(f"  {index}. {text}")
+            if text: ui.write_log(f"  {index}. {text}")
             continue
         title = str(item.get("title") or item.get("name") or item.get("subject") or item.get("summary") or item.get("text") or "").strip()
         timestamp = str(item.get("start") or item.get("start_iso") or item.get("due") or item.get("timestamp") or "").strip()
         status_text = str(item.get("status") or "").strip()
         details = []
-        if timestamp:
-            details.append(timestamp)
-        if status_text and status_text.lower() not in {"success", "ok"}:
-            details.append(status_text)
+        if timestamp: details.append(timestamp)
+        if status_text and status_text.lower() not in {"success", "ok"}: details.append(status_text)
         line = title or "Nəticə"
-        if details:
-            line += " — " + " | ".join(details)
+        if details: line += " — " + " | ".join(details)
         ui.write_log(f"  {index}. {line}")
+
+
+def _is_implicit_show_query(query: str) -> bool:
+    return str(query or "").strip().casefold() in {"göstər", "goster", "göstər baxım", "goster baxim", "aç", "ac", "oxu", "bax"}
 
 
 class ToolExecutor:
@@ -130,6 +128,16 @@ class ToolExecutor:
         context = self.result_store.current()
         if context is None: raise ResultResolutionError("Əvvəlki nəticə tapılmadı")
         selected = self.result_store.selected(context.result_id); item = resolve_reference(context, query, selected_item=selected); self.result_store.select(context.result_id, item["id"]); return item
+
+    def show_result_for_follow_up(self, query: str) -> str:
+        context = self.result_store.current()
+        if context is None: raise ResultResolutionError("Əvvəlki nəticə tapılmadı")
+        selected = self.result_store.selected(context.result_id)
+        action = resolve_follow_up_action(context, query, selected_item=selected)
+        if action.action != "show": raise ResultResolutionError("Bu əməliyyat göstərmə əməli deyil")
+        selected_item = None if action.reference == "current" else action.item
+        self.ui.root.after(0, show_result_modal, self.ui.root, context, selected_item)
+        return "Əvvəlki nəticəni ekranda göstərdim."
 
     @staticmethod
     def result_looks_like_error(result) -> bool:
@@ -177,15 +185,12 @@ class ToolExecutor:
             if name == "confirm_action":
                 token = str(args.get("confirmation_id", "")).strip()
                 pending = self._pending_confirmations.get(token)
-                if pending is not None:
-                    pending_name, pending_args = pending
+                if pending is not None: pending_name, pending_args = pending
                 else:
                     record = get_pending_confirmation(token)
                     if record is None: raise ValueError("Təsdiq tapılmadı və ya artıq istifadə olunub.")
                     pending_name = str(record["action"]); pending_args = dict(record["payload"])
-                payload = self._confirmation_payload(pending_name, pending_args)
-                consume_confirmation(token, pending_name, payload)
-                self._pending_confirmations.pop(token, None)
+                payload = self._confirmation_payload(pending_name, pending_args); consume_confirmation(token, pending_name, payload); self._pending_confirmations.pop(token, None)
                 result = await loop.run_in_executor(None, lambda: self._confirmed_action(pending_name, {**pending_args, "confirmation_id": token}))
             else:
                 gated = self._gate_risky_action(name, args)
@@ -211,7 +216,10 @@ class ToolExecutor:
                 elif name == "get_daily_agenda": result = await loop.run_in_executor(None, lambda: get_daily_agenda(int(args.get("limit", 20) or 20))) or "Bu gün üçün agenda alındı."
                 elif name == "add_agenda_item": result = await loop.run_in_executor(None, lambda: add_agenda_item(args.get("title", ""), args.get("item_type", "task"), args.get("storage", ""), args.get("due_iso", ""), args.get("notes", ""))) or "Agenda elementi əlavə edildi."
                 elif name == "delete_agenda_item": result = await loop.run_in_executor(None, lambda: delete_agenda_item(args.get("match_text", ""), args.get("storage", ""), bool(args.get("confirm", False)))) or "Agenda elementi silindi."
-                elif name == "query_unified_assistant": result = await loop.run_in_executor(None, lambda: execute_unified_query(args.get("query", ""), int(args.get("limit", 8) or 8))) or "Unified sorğu icra edildi."
+                elif name == "query_unified_assistant":
+                    query = str(args.get("query", ""))
+                    if _is_implicit_show_query(query): result = self.show_result_for_follow_up(query)
+                    else: result = await loop.run_in_executor(None, lambda: execute_unified_query(query, int(args.get("limit", 8) or 8))) or "Unified sorğu icra edildi."
                 elif name == "open_app": result = await loop.run_in_executor(None, lambda: open_app(args.get("app_name", ""))) or f"{args.get('app_name')} açıldı."
                 elif name == "sys_info": self.focus_ui_section(name, args); result = await loop.run_in_executor(None, lambda: sys_info(args.get("query", "all"))) or "Məlumat alındı."
                 elif name == "get_weather": self.focus_ui_section(name, args); result = await loop.run_in_executor(None, lambda: get_weather_summary(args.get("location") or None)) or "Hava məlumatı alındı."
