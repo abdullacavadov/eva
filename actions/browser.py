@@ -1,8 +1,9 @@
 """
-Tarayıcı kontrolü — Windows için webbrowser modülü ile çalışır.
+Tarayıcı kontrolü — Windows üçün webbrowser modulu ilə işləyir.
 """
 
 import re
+import subprocess
 import urllib.parse
 import webbrowser
 
@@ -65,6 +66,7 @@ def browser_control(action: str, url: str = None, query: str = None) -> str:
     elif action in ("play_youtube", "youtube_play", "play_music"):
         if not query:
             return "YouTube için arama sorgusu belirtilmedi."
+
         try:
             video_id = _find_first_youtube_video(query)
         except Exception as exc:
@@ -75,11 +77,13 @@ def browser_control(action: str, url: str = None, query: str = None) -> str:
                 f"YouTube ilk sonucu alınamadı ({exc}). "
                 f"Arama sonuçları açıldı: {query}"
             )
+
         if not video_id:
             encoded = urllib.parse.quote(query)
             fallback_url = f"https://www.youtube.com/results?search_query={encoded}"
             _open(fallback_url)
             return f"YouTube'da doğrudan video bulunamadı. Arama sonuçları açıldı: {query}"
+
         watch_url = f"https://www.youtube.com/watch?v={video_id}&autoplay=1"
         _open(watch_url)
         return f"YouTube'da oynatılıyor: {query}"
