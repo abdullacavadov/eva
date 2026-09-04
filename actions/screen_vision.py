@@ -59,8 +59,6 @@ def _capture_active_window() -> tuple[bool, str, str]:
         except Exception as exc:
             capture_error = exc
 
-    # Windows/PIL fallback. This is intentionally independent from mss so a
-    # broken MSS backend does not make the entire screen-awareness feature fail.
     if img is None:
         try:
             img = ImageGrab.grab(all_screens=True)
@@ -134,7 +132,10 @@ def _vision_prompt(query: str, window_title: str) -> str:
 
 
 def _extract_response_text(response) -> str:
-    text = str(getattr(response, "text", "") or "").strip()
+    try:
+        text = str(getattr(response, "text", "") or "").strip()
+    except Exception:
+        text = ""
     if text:
         return text
     chunks: list[str] = []
@@ -145,6 +146,18 @@ def _extract_response_text(response) -> str:
             if part_text:
                 chunks.append(part_text)
     return "\n".join(chunks).strip()
+
+
+def _response_diagnostic(response) -> str:
+    candidates = getattr(response, "candidates", None) or []
+    if not candidates:
+        return "cavab namizədi yoxdur"
+    reasons = []
+    for candidate in candidates:
+        reason = getattr(candidate, "finish_reason", None)
+        if reason:
+            reasons.append(str(reason))
+    return ", ".join(reasons) if reasons else "mətn hissəsi yoxdur"
 
 
 def _is_transient_vision_error(exc: Exception) -> bool:
@@ -168,7 +181,7 @@ def _is_quota_vision_error(exc: Exception) -> bool:
 
 def _friendly_vision_error(exc: Exception) -> str:
     if _is_quota_vision_error(exc):
-        return "Gemini vision isteği kota veya hız limitine takıldı."
+        return "Gemini vision isteği kota veya hız limitinə takıldı."
     if _is_transient_vision_error(exc):
         return "Gemini vision servisi hazırda müvəqqəti əlçatmazdır."
     return f"Gemini vision isteği başarısız oldu: {exc}"
@@ -177,8 +190,11 @@ def _friendly_vision_error(exc: Exception) -> str:
 def _generate_vision_response(client, model_name: str, prompt: str, image_part: types.Part):
     return client.models.generate_content(
         model=model_name,
-        contents=[types.Part.from_text(text=prompt), image_part],
-        config=types.GenerateContentConfig(temperature=0.2),
+        contents=[prompt, image_part],
+        config=types.GenerateContentConfig(
+            temperature=0.2,
+            max_output_tokens=1024,
+        ),
     )
 
 
@@ -198,7 +214,16 @@ def _analyze_with_gemini(client_query: str, image_path: Path, window_title: str)
                 merged = _extract_response_text(response)
                 if merged:
                     return merged
-                raise RuntimeError("Gemini keçərli analiz mətni qaytarmadı.")
+                diagnostic = _response_diagnostic(response)
+                last_error = RuntimeError(
+                    f"Gemini {model_name} keçərli analiz mətni qaytarmadı ({diagnostic})."
+                )
+                # An empty response is a model/backend failure for this task;
+                # try the next retry/model rather than aborting the fallback chain.
+                if attempt < len(retry_delays):
+                    time.sleep(delay)
+                    continue
+                break
             except Exception as exc:
                 last_error = exc
                 if attempt < len(retry_delays) and _is_transient_vision_error(exc):
@@ -245,6 +270,9 @@ def _analyze_webcam_snapshot(query: str) -> str | None:
                 text = _extract_response_text(response)
                 if text:
                     return text
+                last_error = RuntimeError(
+                    f"Gemini {model_name} keçərli webcam analiz mətni qaytarmadı ({_response_diagnostic(response)})."
+                )
             except Exception as exc:
                 last_error = exc
                 if _is_transient_vision_error(exc):
