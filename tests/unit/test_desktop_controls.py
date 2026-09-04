@@ -53,6 +53,43 @@ def test_sys_info_routes_explicit_brightness_setter(monkeypatch):
     assert calls == [100]
 
 
+def test_brightness_uses_vcp_for_external_monitor(monkeypatch):
+    calls = []
+    fake_sbc = types.SimpleNamespace(
+        windows=types.SimpleNamespace(
+            VCP=types.SimpleNamespace(
+                set_brightness=lambda value: calls.append(("set", value)),
+                get_brightness=lambda: [100],
+            )
+        ),
+        set_brightness=lambda value: calls.append(("generic", value)),
+        get_brightness=lambda: [56],
+    )
+    monkeypatch.setitem(sys.modules, "screen_brightness_control", fake_sbc)
+
+    assert desktop_controls.set_brightness(100) == "Ekran parlaqlığı %100 olaraq təyin edildi."
+    assert calls == [("set", 100)]
+
+
+def test_brightness_falls_back_when_vcp_fails(monkeypatch):
+    calls = []
+    fake_sbc = types.SimpleNamespace(
+        windows=types.SimpleNamespace(
+            VCP=types.SimpleNamespace(
+                set_brightness=lambda value: (_ for _ in ()).throw(RuntimeError("DDC/CI yoxdur")),
+                get_brightness=lambda: (_ for _ in ()).throw(RuntimeError("DDC/CI yoxdur")),
+            )
+        ),
+        set_brightness=lambda value: calls.append(value),
+        get_brightness=lambda: [75],
+    )
+    monkeypatch.setitem(sys.modules, "screen_brightness_control", fake_sbc)
+    monkeypatch.setattr(desktop_controls, "_set_brightness_powershell", lambda value: (_ for _ in ()).throw(RuntimeError("WMI yoxdur")))
+
+    assert desktop_controls.set_brightness(75) == "Ekran parlaqlığı %75 olaraq təyin edildi."
+    assert calls == [75]
+
+
 def test_invalid_level_is_rejected():
     with pytest.raises(ValueError):
         sys_info("volume_set:not-a-number")
