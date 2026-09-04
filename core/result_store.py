@@ -40,6 +40,11 @@ class ResultStore:
 
     def save(self, result: dict) -> str:
         self._cleanup()
+        data = result.get("data")
+        if isinstance(data, list) and not data:
+            current = self.current()
+            if current is not None:
+                return current.result_id
         result_id = f"r_{uuid4().hex}"
         context = ResultContext.from_result(result_id, result, self.ttl_seconds)
         self._results[result_id] = context
