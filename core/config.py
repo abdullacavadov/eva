@@ -16,7 +16,9 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 1
 SEND_SAMPLE_RATE = 16000
 RECV_SAMPLE_RATE = 24000
-CHUNK_SIZE = 1024
+# 512 samples @ 16 kHz = 32 ms. Smaller realtime chunks reduce the amount of
+# audio EVA must buffer before Gemini receives it, improving turn latency.
+CHUNK_SIZE = 512
 
 # EVA-nın əsas danışıq dili Azərbaycan dilidir. Gemini Live input
 # transcription-da dil göstərilmədikdə avtomatik dil aşkarlanması aktiv olur;
