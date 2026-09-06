@@ -81,3 +81,12 @@ def test_live_connect_config_defaults_to_minimal_thinking():
     config = types.LiveConnectConfig(response_modalities=["AUDIO"])
 
     assert config.thinking_config.thinking_level.value.lower() == LIVE_THINKING_LEVEL
+
+
+def test_context_token_estimate_is_four_characters_per_token():
+    from core.config import _estimate_tokens
+
+    assert _estimate_tokens("") == 0
+    assert _estimate_tokens("1234") == 1
+    assert _estimate_tokens("12345678") == 2
+    assert _estimate_tokens("123") == 1

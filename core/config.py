@@ -38,6 +38,17 @@ LIVE_INPUT_TRANSCRIPTION_MODE = "SMART"
 _LiveConnectConfig = genai_types.LiveConnectConfig
 
 
+def _estimate_tokens(text: str) -> int:
+    """UTF-8 mətn üçün yalnız audit məqsədli təxmini token sayı verir.
+
+    Bu, Gemini tokenizer deyil. Şəbəkə çağırışı etmədən ölçü trendini izləmək
+    üçün konservativ 4 simvol/token heuristikasından istifadə edir.
+    """
+    if not text:
+        return 0
+    return max(1, round(len(text) / 4))
+
+
 def _log_live_context_metrics(kwargs: dict):
     """Live config payload ölçülərini debug üçün ölçür; davranışı dəyişmir."""
     enabled = str(os.getenv("EVA_CONTEXT_METRICS", "true")).strip().lower()
@@ -63,6 +74,10 @@ def _log_live_context_metrics(kwargs: dict):
     system_bytes = len(system_instruction.encode("utf-8"))
     tools_bytes = len(tools_text.encode("utf-8"))
     total_bytes = system_bytes + tools_bytes
+    system_tokens = _estimate_tokens(system_instruction)
+    memory_tokens = _estimate_tokens(system_instruction[memory_start:memory_end]) if memory_start >= 0 else 0
+    tools_tokens = _estimate_tokens(tools_text)
+    total_tokens = system_tokens + tools_tokens
     tool_count = sum(
         len(item.get("function_declarations") or [])
         for item in tools
@@ -71,10 +86,10 @@ def _log_live_context_metrics(kwargs: dict):
 
     print(
         "[CONTEXT] "
-        f"system={len(system_instruction)} chars/{system_bytes} bytes | "
-        f"memory={memory_chars} chars | "
-        f"tools={tool_count} declarations/{tools_bytes} bytes | "
-        f"total={total_bytes} bytes"
+        f"system={len(system_instruction)} chars/{system_bytes} bytes/~{system_tokens} tokens | "
+        f"memory={memory_chars} chars/~{memory_tokens} tokens | "
+        f"tools={tool_count} declarations/{tools_bytes} bytes/~{tools_tokens} tokens | "
+        f"total={total_bytes} bytes/~{total_tokens} tokens"
     )
 
 
