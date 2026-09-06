@@ -1,7 +1,7 @@
 # EVA — Runtime dependencies
 # Install: python -m pip install -r requirements.txt
 
-google-genai                              # Gemini Live API (ses + araç çağırışları)
+google-genai>=2.20.0,<3                   # Gemini Live API (ses + araç çağırışları)
 pyaudio                                   # Mikrofon / hoparlör (real-time səs)
 psutil                                    # Sistem məlumatları (pil, CPU, RAM, disk)
 Pillow                                    # Görüntü işləmə (ekran + webcam analizi)
@@ -19,4 +19,4 @@ screen-brightness-control                 # Windows ekran parlaqlığı
 
 google-api-python-client                  # Google Calendar API
 google-auth-httplib2                      # Google API auth transport
-google-auth-oauthlib                      # Google OAuth flow
+google-auth-oauthlib                       # Google OAuth flow
