@@ -19,6 +19,9 @@ RECV_SAMPLE_RATE = 24000
 # 512 samples @ 16 kHz = 32 ms. Smaller realtime chunks reduce the amount of
 # audio EVA must buffer before Gemini receives it, improving turn latency.
 CHUNK_SIZE = 512
+# 480 samples @ 24 kHz = 20 ms. Keep playback buffering aligned with the
+# realtime audio cadence to reduce output jitter.
+PLAYBACK_CHUNK_SIZE = 480
 
 # EVA-nın əsas danışıq dili Azərbaycan dilidir. İstifadəçi Azərbaycan və türk
 # dilini qarışdıra bildiyi üçün ASR-ə hər iki dili açıq şəkildə hint edirik.
