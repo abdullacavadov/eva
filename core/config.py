@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pyaudio
+from google.genai import types as genai_types
 
 from app_config import get_app_config_value
 
@@ -25,6 +26,27 @@ LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES = ["az-AZ", "tr-TR", "en-US"]
 # Səsdən mətnə çevrilən istifadəçi mesajı UI-da göstərildiyi üçün SMART rejimi
 # filler, təkrar və yarımçıq ifadələri təmizləyərək daha oxunaqlı transcript verir.
 LIVE_INPUT_TRANSCRIPTION_MODE = "SMART"
+
+_LiveConnectConfig = genai_types.LiveConnectConfig
+
+
+class _EVALiveConnectConfig(_LiveConnectConfig):
+    """EVA üçün realtime input transcription parametrlərini mərkəzləşdirir."""
+
+    def __init__(self, *args, **kwargs):
+        transcription = kwargs.get("input_audio_transcription")
+        if isinstance(transcription, dict):
+            transcription = dict(transcription)
+            transcription.setdefault(
+                "language_codes",
+                list(LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES),
+            )
+            transcription.setdefault("mode", LIVE_INPUT_TRANSCRIPTION_MODE)
+            kwargs["input_audio_transcription"] = transcription
+        super().__init__(*args, **kwargs)
+
+
+genai_types.LiveConnectConfig = _EVALiveConnectConfig
 
 
 def get_api_key() -> str:
