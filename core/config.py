@@ -20,19 +20,21 @@ RECV_SAMPLE_RATE = 24000
 # audio EVA must buffer before Gemini receives it, improving turn latency.
 CHUNK_SIZE = 512
 
-# EVA-nın əsas danışıq dili Azərbaycan dilidir. Gemini Live input
-# transcription-da dil göstərilmədikdə avtomatik dil aşkarlanması aktiv olur;
-# qısa Azərbaycan cümlələri bu rejimdə bəzən başqa dillərə yönələ bilir.
-# BCP-47 kodu ASR-ə Azərbaycan dili üçün açıq ipucu verir.
-LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES = ["az-AZ"]
+# EVA-nın əsas danışıq dili Azərbaycan dilidir. İstifadəçi Azərbaycan və türk
+# dilini qarışdıra bildiyi üçün ASR-ə hər iki dili açıq şəkildə hint edirik.
+# İngilis dili texniki terminlər və command adları üçün üçüncü fallback-dir.
+LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES = ["az-AZ", "tr-TR", "en-US"]
 
-# main.py mövcud API-nı dəyişmədən LiveConnectConfig yaradır. Ona görə dil
-# ipucunu mərkəzi konfiqurasiya qatında tətbiq edirik; UI və digər runtime
-# axınlarına toxunmuruq.
+# Səsdən mətnə çevrilən istifadəçi mesajı UI-da göstərildiyi üçün SMART rejimi
+# filler, təkrar və yarımçıq ifadələri təmizləyərək daha oxunaqlı transcript verir.
+LIVE_INPUT_TRANSCRIPTION_MODE = "SMART"
+
 _LiveConnectConfig = genai_types.LiveConnectConfig
 
 
 class _EVALiveConnectConfig(_LiveConnectConfig):
+    """EVA üçün realtime input transcription parametrlərini mərkəzləşdirir."""
+
     def __init__(self, *args, **kwargs):
         transcription = kwargs.get("input_audio_transcription")
         if isinstance(transcription, dict):
@@ -41,6 +43,7 @@ class _EVALiveConnectConfig(_LiveConnectConfig):
                 "language_codes",
                 list(LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES),
             )
+            transcription.setdefault("mode", LIVE_INPUT_TRANSCRIPTION_MODE)
             kwargs["input_audio_transcription"] = transcription
         super().__init__(*args, **kwargs)
 

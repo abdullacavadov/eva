@@ -1,5 +1,9 @@
 import asyncio
 
+from core.config import (
+    LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES,
+    LIVE_INPUT_TRANSCRIPTION_MODE,
+)
 from core.live_session import LiveSessionManager, _ResilientLiveSession
 
 
@@ -58,7 +62,7 @@ def test_clean_websocket_close_is_detected():
     assert _ResilientLiveSession._is_clean_close(RuntimeError("boom")) is False
 
 
-def test_live_connect_config_defaults_to_azerbaijani_transcription():
+def test_live_connect_config_defaults_to_multilingual_smart_transcription():
     from google.genai import types
 
     config = types.LiveConnectConfig(
@@ -66,4 +70,5 @@ def test_live_connect_config_defaults_to_azerbaijani_transcription():
         input_audio_transcription={},
     )
 
-    assert config.input_audio_transcription.language_codes == ["az-AZ"]
+    assert config.input_audio_transcription.language_codes == LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES
+    assert config.input_audio_transcription.mode == LIVE_INPUT_TRANSCRIPTION_MODE
