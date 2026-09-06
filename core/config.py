@@ -1,5 +1,7 @@
 """Core runtime configuration used by EVA."""
 
+import json
+import os
 from pathlib import Path
 
 import pyaudio
@@ -36,6 +38,46 @@ LIVE_INPUT_TRANSCRIPTION_MODE = "SMART"
 _LiveConnectConfig = genai_types.LiveConnectConfig
 
 
+def _log_live_context_metrics(kwargs: dict):
+    """Live config payload ölçülərini debug üçün ölçür; davranışı dəyişmir."""
+    enabled = str(os.getenv("EVA_CONTEXT_METRICS", "true")).strip().lower()
+    if enabled in {"0", "false", "no", "off"}:
+        return
+
+    system_instruction = str(kwargs.get("system_instruction") or "")
+    tools = kwargs.get("tools") or []
+    try:
+        tools_text = json.dumps(tools, ensure_ascii=False, separators=(",", ":"))
+    except (TypeError, ValueError):
+        tools_text = str(tools)
+
+    memory_chars = 0
+    memory_marker = "[İSTİFADƏÇİ HAQQINDA MƏLUMATLAR]"
+    memory_start = system_instruction.find(memory_marker)
+    if memory_start >= 0:
+        memory_end = system_instruction.find("\n\nSən EVA", memory_start)
+        if memory_end < 0:
+            memory_end = len(system_instruction)
+        memory_chars = len(system_instruction[memory_start:memory_end])
+
+    system_bytes = len(system_instruction.encode("utf-8"))
+    tools_bytes = len(tools_text.encode("utf-8"))
+    total_bytes = system_bytes + tools_bytes
+    tool_count = sum(
+        len(item.get("function_declarations") or [])
+        for item in tools
+        if isinstance(item, dict)
+    )
+
+    print(
+        "[CONTEXT] "
+        f"system={len(system_instruction)} chars/{system_bytes} bytes | "
+        f"memory={memory_chars} chars | "
+        f"tools={tool_count} declarations/{tools_bytes} bytes | "
+        f"total={total_bytes} bytes"
+    )
+
+
 class _EVALiveConnectConfig(_LiveConnectConfig):
     """EVA üçün realtime input transcription parametrlərini mərkəzləşdirir."""
 
@@ -53,6 +95,7 @@ class _EVALiveConnectConfig(_LiveConnectConfig):
             "thinking_config",
             {"thinking_level": LIVE_THINKING_LEVEL},
         )
+        _log_live_context_metrics(kwargs)
         super().__init__(*args, **kwargs)
 
 
