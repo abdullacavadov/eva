@@ -8,6 +8,7 @@ from core.config import (
     CHANNELS,
     CHUNK_SIZE,
     FORMAT,
+    PLAYBACK_CHUNK_SIZE,
     RECV_SAMPLE_RATE,
     SEND_SAMPLE_RATE,
 )
@@ -38,6 +39,7 @@ async def open_output_stream(audio: pyaudio.PyAudio):
         channels=CHANNELS,
         rate=RECV_SAMPLE_RATE,
         output=True,
+        frames_per_buffer=PLAYBACK_CHUNK_SIZE,
     )
 
 
@@ -52,4 +54,8 @@ async def read_chunk(stream, size: int = CHUNK_SIZE) -> bytes:
 
 async def write_chunk(stream, data: bytes) -> None:
     """Səs hissəsini ayrıca worker thread-də dinamik axınına yazır."""
-    await asyncio.to_thread(stream.write, data)
+    await asyncio.to_thread(
+        stream.write,
+        data,
+        exception_on_underflow=False,
+    )
