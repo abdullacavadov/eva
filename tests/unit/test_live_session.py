@@ -3,6 +3,7 @@ import asyncio
 from core.config import (
     LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES,
     LIVE_INPUT_TRANSCRIPTION_MODE,
+    LIVE_THINKING_LEVEL,
 )
 from core.live_session import LiveSessionManager, _ResilientLiveSession
 
@@ -72,3 +73,11 @@ def test_live_connect_config_defaults_to_multilingual_smart_transcription():
 
     assert config.input_audio_transcription.language_codes == LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES
     assert config.input_audio_transcription.mode == LIVE_INPUT_TRANSCRIPTION_MODE
+
+
+def test_live_connect_config_defaults_to_minimal_thinking():
+    from google.genai import types
+
+    config = types.LiveConnectConfig(response_modalities=["AUDIO"])
+
+    assert config.thinking_config.thinking_level.value.lower() == LIVE_THINKING_LEVEL
