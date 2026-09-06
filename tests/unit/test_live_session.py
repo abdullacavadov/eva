@@ -80,4 +80,4 @@ def test_live_connect_config_defaults_to_minimal_thinking():
 
     config = types.LiveConnectConfig(response_modalities=["AUDIO"])
 
-    assert config.thinking_config.thinking_level == LIVE_THINKING_LEVEL
+    assert config.thinking_config.thinking_level.value.lower() == LIVE_THINKING_LEVEL
