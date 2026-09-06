@@ -11,6 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 PROMPT_PATH = BASE_DIR / "core" / "prompt.txt"
 
 LIVE_MODEL = "models/gemini-3.1-flash-live-preview"
+LIVE_THINKING_LEVEL = "minimal"
 
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
@@ -48,6 +49,10 @@ class _EVALiveConnectConfig(_LiveConnectConfig):
             )
             transcription.setdefault("mode", LIVE_INPUT_TRANSCRIPTION_MODE)
             kwargs["input_audio_transcription"] = transcription
+        kwargs.setdefault(
+            "thinking_config",
+            {"thinking_level": LIVE_THINKING_LEVEL},
+        )
         super().__init__(*args, **kwargs)
 
 
