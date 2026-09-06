@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pyaudio
-from google.genai import types as genai_types
 
 from app_config import get_app_config_value
 
@@ -18,32 +17,14 @@ SEND_SAMPLE_RATE = 16000
 RECV_SAMPLE_RATE = 24000
 CHUNK_SIZE = 1024
 
-# EVA-nın əsas danışıq dili Azərbaycan dilidir. Gemini Live input
-# transcription-da dil göstərilmədikdə avtomatik dil aşkarlanması aktiv olur;
-# qısa Azərbaycan cümlələri bu rejimdə bəzən başqa dillərə yönələ bilir.
-# BCP-47 kodu ASR-ə Azərbaycan dili üçün açıq ipucu verir.
-LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES = ["az-AZ"]
+# EVA-nın əsas danışıq dili Azərbaycan dilidir. İstifadəçi Azərbaycan və türk
+# dilini qarışdıra bildiyi üçün ASR-ə hər iki dili açıq şəkildə hint edirik.
+# İngilis dili texniki terminlər və command adları üçün üçüncü fallback-dir.
+LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES = ["az-AZ", "tr-TR", "en-US"]
 
-# main.py mövcud API-nı dəyişmədən LiveConnectConfig yaradır. Ona görə dil
-# ipucunu mərkəzi konfiqurasiya qatında tətbiq edirik; UI və digər runtime
-# axınlarına toxunmuruq.
-_LiveConnectConfig = genai_types.LiveConnectConfig
-
-
-class _EVALiveConnectConfig(_LiveConnectConfig):
-    def __init__(self, *args, **kwargs):
-        transcription = kwargs.get("input_audio_transcription")
-        if isinstance(transcription, dict):
-            transcription = dict(transcription)
-            transcription.setdefault(
-                "language_codes",
-                list(LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES),
-            )
-            kwargs["input_audio_transcription"] = transcription
-        super().__init__(*args, **kwargs)
-
-
-genai_types.LiveConnectConfig = _EVALiveConnectConfig
+# Səsdən mətnə çevrilən istifadəçi mesajı UI-da göstərildiyi üçün SMART rejimi
+# filler, təkrar və yarımçıq ifadələri təmizləyərək daha oxunaqlı transcript verir.
+LIVE_INPUT_TRANSCRIPTION_MODE = "SMART"
 
 
 def get_api_key() -> str:
