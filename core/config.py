@@ -84,6 +84,35 @@ def _log_live_context_metrics(kwargs: dict):
         if isinstance(item, dict)
     )
 
+    tool_metrics = []
+    for group in tools:
+        if not isinstance(group, dict):
+            continue
+        for declaration in group.get("function_declarations") or []:
+            try:
+                declaration_text = json.dumps(
+                    declaration,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                )
+            except (TypeError, ValueError):
+                declaration_text = str(declaration)
+            tool_metrics.append(
+                (
+                    str(declaration.get("name") or "unknown")
+                    if isinstance(declaration, dict)
+                    else "unknown",
+                    len(declaration_text.encode("utf-8")),
+                    _estimate_tokens(declaration_text),
+                )
+            )
+
+    tool_metrics.sort(key=lambda item: item[1], reverse=True)
+    top_tools = ", ".join(
+        f"{name}={size}B/~{tokens}t"
+        for name, size, tokens in tool_metrics[:10]
+    )
+
     print(
         "[CONTEXT] "
         f"system={len(system_instruction)} chars/{system_bytes} bytes/~{system_tokens} tokens | "
@@ -91,6 +120,8 @@ def _log_live_context_metrics(kwargs: dict):
         f"tools={tool_count} declarations/{tools_bytes} bytes/~{tools_tokens} tokens | "
         f"total={total_bytes} bytes/~{total_tokens} tokens"
     )
+    if top_tools:
+        print(f"[CONTEXT-TOOLS] top10: {top_tools}")
 
 
 class _EVALiveConnectConfig(_LiveConnectConfig):
