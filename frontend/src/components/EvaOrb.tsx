@@ -150,40 +150,30 @@ function getStrandPoints(
     const t = i / (WAVEFORM_DOTS_PER_STRAND - 1);
     // Uclarda nazikləşən, mərkəzdə güclü zərf (edge-də lent demək olar ki yox olur).
     const envelope = Math.sin(Math.PI * t) ** 0.7;
-
-    // Ümumi (macro) dalğa forması — bütün lentlər buna tabedir.
-    // İki fərqli sürətlə zamanla sürüşür ki, forma da dəyişsin, sadəcə axmasın.
     const macroShape =
       Math.sin(t * Math.PI * WAVEFORM_MACRO_FREQ_1 * 2 + time * 0.32) * 0.65 +
       Math.sin(t * Math.PI * WAVEFORM_MACRO_FREQ_2 * 2 - time * 0.21) * 0.35;
-
-    // Yerli burulma (twist) — hər lentin öz fazası ilə eyni sürətdə fırlanır,
-    // bu da lentlərin real vaxtda bir-birini keçməsinə səbəb olur.
     const twistShape = Math.sin(
       t * Math.PI * WAVEFORM_TWIST_FREQ * 2 +
         strand.twistPhase +
         time * WAVEFORM_TWIST_SPEED
     );
-
     const macroAmplitude =
       WAVEFORM_MAX_AMPLITUDE * 0.75 * envelope * levelFactor;
     const twistAmplitude =
       WAVEFORM_MAX_AMPLITUDE * 0.4 * envelope * levelFactor;
-
     return {
       x: t * WAVEFORM_WIDTH,
       y:
         WAVEFORM_HEIGHT / 2 +
         macroShape * macroAmplitude +
         twistShape * twistAmplitude,
-      // Lentin özü ilə kəsişdiyi (twist pik) nöqtələrdə daha sıx/parlaq nöqtə.
       density: 0.3 + Math.abs(twistShape) * 0.7,
     };
   });
 }
 
 function strandColor(hue: number, coreLine = false): string {
-  // 0 -> mavi/cyan, 0.5 -> ağımtıl mavi, 1 -> bənövşəyi/çəhrayı
   if (coreLine) return 'rgba(255,255,255,0.9)';
   if (hue < 0.5) {
     return `rgba(${64 + hue * 2 * 60}, ${170 + hue * 2 * 40}, 255, 0.9)`;
@@ -206,8 +196,6 @@ export function EvaOrb({ state }: OrbProps) {
   const waveformLevelRef = useRef(0);
   const lastFrameRef = useRef<number | null>(null);
 
-  // Dalğaların faktiki AXMASI üçün zaman-əsaslı animasiya loop-u.
-  // Səs səviyyəsi yalnız amplitudanı idarə edir, hərəkəti yox.
   useEffect(() => {
     const canvas = waveCanvasRef.current;
     if (!canvas) return;
@@ -216,13 +204,27 @@ export function EvaOrb({ state }: OrbProps) {
 
     let raf = 0;
     const draw = () => {
-      const level = waveformVisibleRef.current ? waveformLevelRef.current : 0;
+      const active = waveformVisibleRef.current;
+      const level = active ? waveformLevelRef.current : 0;
+      ctx.clearRect(0, 0, WAVEFORM_WIDTH, WAVEFORM_HEIGHT);
+
+      if (!active) {
+        ctx.beginPath();
+        ctx.lineWidth = 0.6;
+        ctx.strokeStyle = strandColor(0.25);
+        ctx.globalAlpha = 0.28;
+        ctx.moveTo(0, WAVEFORM_HEIGHT / 2);
+        ctx.lineTo(WAVEFORM_WIDTH, WAVEFORM_HEIGHT / 2);
+        ctx.stroke();
+        raf = requestAnimationFrame(draw);
+        return;
+      }
+
       const amp =
-        Math.min(1, Math.max(0.06, level * WAVEFORM_GAIN)) *
+        Math.min(1, Math.max(0, level * WAVEFORM_GAIN)) *
         (WAVEFORM_HEIGHT / 2 - 4);
       const time = Date.now() / 2500;
 
-      ctx.clearRect(0, 0, WAVEFORM_WIDTH, WAVEFORM_HEIGHT);
       for (let j = 0; j < WAVE_LINE_COUNT; j++) {
         ctx.beginPath();
         ctx.lineWidth = 0.6;
@@ -238,7 +240,7 @@ export function EvaOrb({ state }: OrbProps) {
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
-        ctx.globalAlpha = waveformVisibleRef.current ? 0.35 : 0.14;
+        ctx.globalAlpha = 0.35;
         ctx.stroke();
       }
       raf = requestAnimationFrame(draw);
@@ -284,6 +286,8 @@ export function EvaOrb({ state }: OrbProps) {
           if (message.type === 'audio.level') {
             const level = Math.max(0, Math.min(1, Number(message.level) || 0));
             setWaveformLevel(level);
+            if (level > 0) waveformVisibleRef.current = true;
+            else waveformVisibleRef.current = false;
           }
         } catch {
           // Yanlış WebSocket mesajlarını UI-ı pozmadan keç.
@@ -292,6 +296,8 @@ export function EvaOrb({ state }: OrbProps) {
 
       socket.onclose = () => {
         if (socketRef.current === socket) socketRef.current = null;
+        waveformVisibleRef.current = false;
+        waveformLevelRef.current = 0;
         if (mountedRef.current) {
           reconnectTimerRef.current = window.setTimeout(
             connect,
@@ -350,14 +356,9 @@ export function EvaOrb({ state }: OrbProps) {
     '--orb-speed': `${speed}`,
     '--orb-glow': `${glow}`,
   } as CSSProperties;
-  const waveformVisible = isSpeaking && audioReactive;
+  const waveformVisible = waveformVisibleRef.current && audioReactive;
   const renderedLevel = waveformVisible ? waveformLevel : 0;
-  const amplifiedLevel = Math.min(1, renderedLevel * WAVEFORM_GAIN);
-  const waveformStyle: CSSProperties = { opacity: 0.8, animation: 'none' };
 
-  useEffect(() => {
-    waveformVisibleRef.current = waveformVisible;
-  }, [waveformVisible]);
   useEffect(() => {
     waveformLevelRef.current = waveformLevel;
   }, [waveformLevel]);
