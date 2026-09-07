@@ -1,5 +1,5 @@
 """
-Tarayıcı kontrolü — Windows için webbrowser modülü ile çalışır.
+Tarayıcı kontrolü — Windows üçün webbrowser modülü ilə işləyir.
 """
 
 import re
@@ -70,22 +70,19 @@ def browser_control(action: str, url: str = None, query: str = None) -> str:
         encoded = urllib.parse.quote(query)
         search_url = f"https://www.google.com/search?q={encoded}"
         _open(search_url)
-        return f"'{query}' için arama açıldı."
+        return f"'{query}' üçün arama açıldı."
 
     elif action in ("play_youtube", "youtube_play", "play_music"):
         if not query:
-            return "YouTube için arama sorgusu belirtilmedi."
+            return "YouTube üçün arama sorgusu belirtilmedi."
 
         try:
             video_id = _find_first_youtube_video(query)
-        except Exception as exc:
+        except Exception:
             encoded = urllib.parse.quote(query)
             fallback_url = f"https://www.youtube.com/results?search_query={encoded}"
             _open(fallback_url)
-            return (
-                f"YouTube ilk sonucu alınamadı ({exc}). "
-                f"Arama sonuçları açıldı: {query}"
-            )
+            return f"YouTube ilk nəticəsi alınmadı. Arama nəticələri açıldı: {query}"
 
         if not video_id:
             encoded = urllib.parse.quote(query)
