@@ -1,5 +1,3 @@
-import subprocess
-
 from actions import open_app
 
 
