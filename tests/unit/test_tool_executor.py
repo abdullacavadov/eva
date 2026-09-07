@@ -69,15 +69,18 @@ def test_open_app_is_dispatched_to_action(mock_open_app):
     ui.play_success_sfx.assert_called_once()
 
 
-def test_action_exception_is_converted_to_error_response():
+def test_action_exception_is_converted_to_generic_error_response():
     executor, ui, _, _, speak_error = make_executor()
     fc = SimpleNamespace(id="call-3", name="open_app", args={"app_name": "notepad"})
 
-    with patch("core.tool_executor.open_app", side_effect=RuntimeError("test xətası")):
+    with patch("core.tool_executor.open_app", side_effect=RuntimeError("secret local path")):
         response = asyncio.run(executor.execute(fc))
 
-    assert "Xəta: test xətası" == response.response["result"]
-    speak_error.assert_called_once()
+    assert response.response["result"] == "Xəta: alət icra edilərkən daxili xəta baş verdi."
+    assert "secret local path" not in response.response["result"]
+    speak_error.assert_called_once_with(
+        "open_app", "Alət icra edilərkən daxili xəta baş verdi."
+    )
     ui.set_state.assert_any_call("ERROR")
 
 
@@ -116,7 +119,7 @@ def test_save_memory_invalid_arguments_must_not_report_success(mock_update_memor
 
 
 @patch("core.tool_executor.update_memory", side_effect=RuntimeError("disk error"))
-def test_save_memory_exception_is_converted_to_error_response(mock_update_memory):
+def test_save_memory_exception_is_converted_to_generic_error_response(mock_update_memory):
     executor, ui, _, _, speak_error = make_executor()
     fc = SimpleNamespace(
         id="memory-save-3",
@@ -126,14 +129,16 @@ def test_save_memory_exception_is_converted_to_error_response(mock_update_memory
 
     response = asyncio.run(executor.execute(fc))
 
-    assert response.response["result"] == "Xəta: disk error"
+    assert response.response["result"] == "Xəta: alət icra edilərkən daxili xəta baş verdi."
     mock_update_memory.assert_called_once()
-    speak_error.assert_called_once()
+    speak_error.assert_called_once_with(
+        "save_memory", "Alət icra edilərkən daxili xəta baş verdi."
+    )
     ui.set_state.assert_any_call("ERROR")
 
 
-@patch("core.tool_executor.delete_memory", return_value="profile/name hafizadan kaldirildi.")
-def test_delete_memory_dispatches_all_arguments(mock_delete_memory):
+@patch("core.tool_executor.delete_memory")
+def test_delete_memory_requires_confirmation(mock_delete_memory):
     executor, *_ = make_executor()
     fc = SimpleNamespace(
         id="memory-delete-1",
@@ -147,40 +152,55 @@ def test_delete_memory_dispatches_all_arguments(mock_delete_memory):
 
     response = asyncio.run(executor.execute(fc))
 
-    mock_delete_memory.assert_called_once_with("profile", "name", "")
-    assert response.response["result"] == "profile/name hafizadan kaldirildi."
+    mock_delete_memory.assert_not_called()
+    assert response.response["result"]["status"] == "needs_confirmation"
+    assert response.response["result"]["meta"]["requires_confirmation"] is True
+    assert response.response["result"]["meta"]["confirmation_action"] == "delete_memory"
 
 
-@patch("core.tool_executor.delete_memory", return_value="Bu hafiza kaydini bulamadim.")
-def test_delete_memory_propagates_not_found_result(mock_delete_memory):
+@patch("core.tool_executor.delete_memory", return_value="profile/name hafizadan kaldirildi.")
+def test_delete_memory_executes_after_confirmation(mock_delete_memory):
     executor, *_ = make_executor()
-    fc = SimpleNamespace(
-        id="memory-delete-2",
-        name="delete_memory",
-        args={"category": "profile", "key": "missing", "match_text": ""},
-    )
-
-    response = asyncio.run(executor.execute(fc))
-
-    assert response.response["result"] == "Bu hafiza kaydini bulamadim."
-    mock_delete_memory.assert_called_once_with("profile", "missing", "")
-
-
-@patch("core.tool_executor.delete_memory", side_effect=RuntimeError("disk error"))
-def test_delete_memory_exception_is_converted_to_error_response(mock_delete_memory):
-    executor, ui, _, _, speak_error = make_executor()
-    fc = SimpleNamespace(
-        id="memory-delete-3",
+    first_fc = SimpleNamespace(
+        id="memory-delete-2a",
         name="delete_memory",
         args={"category": "profile", "key": "name", "match_text": ""},
     )
 
-    response = asyncio.run(executor.execute(fc))
+    first_response = asyncio.run(executor.execute(first_fc))
+    token = first_response.response["result"]["meta"]["confirmation_id"]
 
-    assert response.response["result"] == "Xəta: disk error"
+    confirm_fc = SimpleNamespace(
+        id="memory-delete-2b",
+        name="confirm_action",
+        args={"confirmation_id": token},
+    )
+    response = asyncio.run(executor.execute(confirm_fc))
+
     mock_delete_memory.assert_called_once_with("profile", "name", "")
-    speak_error.assert_called_once()
-    ui.set_state.assert_any_call("ERROR")
+    assert response.response["result"] == "profile/name hafizadan kaldirildi."
+
+
+@patch("core.tool_executor.delete_memory")
+def test_delete_memory_confirmation_preserves_payload(mock_delete_memory):
+    executor, *_ = make_executor()
+    fc = SimpleNamespace(
+        id="memory-delete-3",
+        name="delete_memory",
+        args={"category": "profile", "key": "missing", "match_text": "claude ai limit"},
+    )
+
+    response = asyncio.run(executor.execute(fc))
+    token = response.response["result"]["meta"]["confirmation_id"]
+
+    confirm_fc = SimpleNamespace(
+        id="memory-delete-3-confirm",
+        name="confirm_action",
+        args={"confirmation_id": token},
+    )
+    asyncio.run(executor.execute(confirm_fc))
+
+    mock_delete_memory.assert_called_once_with("profile", "missing", "claude ai limit")
 
 
 @patch("core.tool_executor.add_reminder", return_value="Google Tasks-a 'Test' reminder-i əlavə edildi.")
