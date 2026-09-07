@@ -20,26 +20,26 @@ APP_ALIASES = {
     "dosya gezgini":     "explorer",
     "file explorer":     "explorer",
     "spotify":           "Spotify",
-    "vscode":            "code",
-    "vs code":           "code",
-    "code":              "code",
-    "discord":           "Discord",
-    "slack":             "Slack",
-    "whatsapp":          "WhatsApp",
+    "vscode":             "code",
+    "vs code":            "code",
+    "code":               "code",
+    "discord":            "Discord",
+    "slack":              "Slack",
+    "whatsapp":           "WhatsApp",
     "telegram":          "Telegram",
-    "zoom":              "Zoom",
-    "notepad":           "notepad",
-    "notlar":            "notepad",
-    "not defteri":       "notepad",
-    "word":              "winword",
-    "excel":             "excel",
-    "powerpoint":        "powerpnt",
-    "calculator":        "calc",
-    "hesap makinesi":    "calc",
-    "task manager":      "taskmgr",
-    "görev yöneticisi":  "taskmgr",
-    "settings":          "ms-settings:",
-    "ayarlar":           "ms-settings:",
+    "zoom":               "Zoom",
+    "notepad":            "notepad",
+    "notlar":             "notepad",
+    "not defteri":        "notepad",
+    "word":               "winword",
+    "excel":              "excel",
+    "powerpoint":         "powerpnt",
+    "calculator":         "calc",
+    "hesap makinesi":     "calc",
+    "task manager":       "taskmgr",
+    "görev yöneticisi":   "taskmgr",
+    "settings":           "ms-settings:",
+    "ayarlar":            "ms-settings:",
     "paint":              "mspaint",
     "wordpad":            "wordpad",
     "snipping tool":      "SnippingTool",
@@ -76,8 +76,8 @@ def open_app(app_name: str) -> str:
         try:
             os.startfile(resolved)
             return f"{app_name} açıldı."
-        except Exception as e:
-            return f"'{app_name}' açılamadı: {e}"
+        except Exception:
+            return f"'{app_name}' açılamadı."
 
     # PATH'teki executable
     exe_path = shutil.which(resolved)
@@ -85,8 +85,8 @@ def open_app(app_name: str) -> str:
         try:
             subprocess.Popen([exe_path], shell=False)
             return f"{app_name} açıldı."
-        except Exception as e:
-            return f"'{app_name}' açılamadı: {e}"
+        except Exception:
+            return f"'{app_name}' açılamadı."
 
     # PATH-də tapılmayan tətbiqlər üçün shell istifadə etmədən birbaşa icra et.
     try:
@@ -99,5 +99,5 @@ def open_app(app_name: str) -> str:
     try:
         os.startfile(resolved)
         return f"{app_name} açıldı."
-    except Exception as e:
-        return f"'{app_name}' bulunamadı veya açılamadı: {e}"
+    except Exception:
+        return f"'{app_name}' tapılmadı və ya açıla bilmədi."

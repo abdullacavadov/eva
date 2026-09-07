@@ -161,7 +161,7 @@ class ToolExecutor:
         return {key: value for key, value in args.items() if key != "confirmation_id"}
 
     def _gate_risky_action(self, name: str, args: dict):
-        risky = {"delete_calendar_event", "delete_reminder", "delete_contact", "delete_eva_reminder", "send_email", "send_whatsapp_business_message", "delete_email", "trash_emails"}
+        risky = {"delete_calendar_event", "delete_reminder", "delete_contact", "delete_eva_reminder", "delete_memory", "send_email", "send_whatsapp_business_message", "delete_email", "trash_emails"}
         if name == "send_whatsapp_message" and bool(args.get("send_now", False)): risky.add(name)
         if name not in risky: return None
         confirmation_id = str(args.get("confirmation_id", "")).strip(); payload = self._confirmation_payload(name, args)
@@ -172,6 +172,7 @@ class ToolExecutor:
 
     def _confirmed_action(self, name: str, args: dict):
         if name == "send_email": return send_email(args.get("draft_id", ""), "")
+        if name == "delete_memory": return delete_memory(args.get("category", ""), args.get("key", ""), args.get("match_text", ""))
         if name == "delete_email": return delete_email(args.get("confirmation_id", ""))
         if name == "trash_emails": return trash_emails(args.get("confirmation_id", ""))
         if name == "delete_calendar_event": return delete_calendar_event(args.get("title", ""), args.get("start_iso", ""), args.get("calendar_name", ""), bool(args.get("delete_all_matches", False)))
@@ -239,7 +240,7 @@ class ToolExecutor:
                 elif name == "send_email": result = await loop.run_in_executor(None, lambda: send_email(args.get("draft_id", ""), args.get("confirmation_id", ""))) or "Email göndərildi."
                 elif name == "sync_google_contacts": result = await loop.run_in_executor(None, sync_google_contacts) or "Google Contacts sinxronizasiyası tamamlandı."
                 elif name == "create_contact": result = await loop.run_in_executor(None, lambda: create_contact(args.get("display_name", ""), args.get("phone_number", ""))) or "Google kontaktı yaradıldı."
-                elif name == "update_contact": result = await loop.run_in_executor(None, lambda: update_contact(args.get("resource_name", ""), args.get("display_name", ""), args.get("phone_number", ""))) or "Google kontaktı yeniləndi."
+                elif name == "update_contact": result = await loop.run_in_executor(None, lambda: update_contact(args.get("resource_name", ""), args.get("display_name", ""), args.get("phone_number", ""))) or "Google kontaktı yaradıldı."
                 elif name == "delete_contact": result = await loop.run_in_executor(None, lambda: delete_contact(args.get("resource_name", ""))) or "Google kontaktı silindi."
                 elif name == "browser_control": result = await loop.run_in_executor(None, lambda: browser_control(args.get("action"), args.get("url"), args.get("query"))) or "Tamam."
                 elif name == "shell_run": result = await loop.run_in_executor(None, lambda: shell_run(args.get("command", ""))) or "Əmr icra edildi."
@@ -261,7 +262,7 @@ class ToolExecutor:
                     else: self.webcam_streamer.stop(); self.ui.set_webcam_active(False); result = "Webcam axını dayandırıldı."
                 else: result = f"Naməlum alət: {name}"
         except Exception as e:
-            result = f"Xəta: {e}"; had_exception = True; traceback.print_exc(); self.speak_error(name, e); self.ui.set_state("ERROR")
+            result = "Xəta: alət icra edilərkən daxili xəta baş verdi."; had_exception = True; traceback.print_exc(); self.speak_error(name, "Alət icra edilərkən daxili xəta baş verdi."); self.ui.set_state("ERROR")
         tool_failed = self.result_looks_like_error(result)
         if tool_failed:
             if not had_exception: self.ui.set_state("ERROR")
