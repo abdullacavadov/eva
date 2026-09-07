@@ -16,6 +16,7 @@ from actions.agenda import get_daily_agenda
 from actions.email import search_emails
 from memory.memory_manager import load_memory
 from core.notification_digest import build_notification_digest
+from core.proactive_correlation import correlate_events
 from core.proactive_priority import rank_events
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -67,6 +68,10 @@ def _event_title(source: str, item: dict[str, Any]) -> str:
         return f"Təqvim: {str(item.get('title') or item.get('summary') or 'Yeni hadisə').strip()}"
     if source == "tasks":
         return f"Task: {str(item.get('title') or item.get('name') or 'Yeni task').strip()}"
+    if source == "correlated":
+        children = item.get("_correlated_events") or []
+        sources = [str(child.get("source")) for child in children if isinstance(child, dict)]
+        return f"Əlaqəli proaktiv siqnal ({', '.join(dict.fromkeys(sources))})"
     return "Yaddaş dəyişdi"
 
 
@@ -87,6 +92,16 @@ def _event_text(source: str, item: dict[str, Any]) -> str:
         title = str(item.get("title") or item.get("name") or "Task").strip()
         due = str(item.get("due") or item.get("date") or "").strip()
         return f"Task diqqət tələb edir: {title}" + (f" — son tarix {due}." if due else ".")
+    if source == "correlated":
+        children = item.get("_correlated_events") or []
+        details = []
+        for child in children:
+            if not isinstance(child, dict):
+                continue
+            child_source = str(child.get("source", ""))
+            child_item = child.get("item") or {}
+            details.append(_event_text(child_source, child_item))
+        return "Eyni vəziyyətlə əlaqəli bir neçə mənbədə siqnal aşkarlandı: " + " ".join(details)
     return "Yaddaşda dəyişiklik aşkarlandı."
 
 
@@ -154,7 +169,7 @@ class NotificationPolicy:
                 continue
             eligible.append(event)
 
-        for event in rank_events(eligible, now):
+        for event in rank_events(correlate_events(eligible), now):
             selected.append(event)
             if len(selected) + recent >= self.rate_limit:
                 break
@@ -288,8 +303,12 @@ class ProactiveEngine:
             selected = self.policy.choose(pending, history, now)
             for event in selected:
                 event["_offered_at"] = now.isoformat()
-                event["title"] = _event_title(str(event.get("source", "")), event.get("item") or {})
-                event["text"] = _event_text(str(event.get("source", "")), event.get("item") or {})
+                source = str(event.get("source", ""))
+                item = event.get("item") or {}
+                if source == "correlated":
+                    item = dict(event)
+                event["title"] = _event_title(source, item)
+                event["text"] = _event_text(source, item)
             state["snapshots"] = snapshots
             state["pending"] = pending
             state["history"] = history
@@ -305,8 +324,15 @@ class ProactiveEngine:
             if key not in pending:
                 return False
             history = state["history"]
-            history[str(key)] = (sent_at or datetime.now().astimezone()).isoformat()
-            pending.pop(key, None)
+            timestamp = (sent_at or datetime.now().astimezone()).isoformat()
+            event = pending.pop(key)
+            history[str(key)] = timestamp
+            for child_key in event.get("_correlated_keys", []):
+                if child_key == key:
+                    continue
+                if child_key in pending:
+                    pending.pop(child_key, None)
+                history[str(child_key)] = timestamp
             state["pending"] = pending
             state["history"] = history
             self._save(state)
