@@ -6,6 +6,8 @@ import re
 from datetime import datetime, timedelta
 from typing import Any
 
+from core.proactive_actionability import classify_actionability, is_noise
+
 _STOP_WORDS = {
     "the", "and", "for", "with", "from", "this", "that", "new", "email",
     "meeting", "task", "calendar", "message", "whatsapp", "gmail",
@@ -82,35 +84,47 @@ def _related(left: dict[str, Any], right: dict[str, Any]) -> bool:
     return len(shared_tokens) >= 2
 
 
+def _actionability_rank(value: str) -> int:
+    return {"informational": 0, "actionable": 1, "urgent": 2}.get(value, 0)
+
+
+def _with_actionability(event: dict[str, Any]) -> dict[str, Any]:
+    prepared = dict(event)
+    prepared["actionability"] = classify_actionability(event)
+    return prepared
+
+
 def correlate_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Əlaqəli müxtəlif mənbə hadisələrini bir notification-da qruplaşdırır.
 
     Yalnız artıq policy tərəfindən eligible hesab edilən hadisələr verilməlidir.
-    Giriş siyahısı mutasiya edilmir; əlaqəsiz hadisələr olduğu kimi qaytarılır.
+    Aşağı siqnallı Gmail hadisələri korrelyasiyadan əvvəl süzülür.
+    Giriş siyahısı mutasiya edilmir.
     """
-    if len(events) < 2:
-        return list(events)
+    filtered = [event for event in events if not is_noise(event)]
+    if len(filtered) < 2:
+        return [_with_actionability(event) for event in filtered]
 
     groups: list[list[dict[str, Any]]] = []
     assigned: set[int] = set()
 
-    for index, event in enumerate(events):
+    for index, event in enumerate(filtered):
         if index in assigned:
             continue
         group = [event]
         assigned.add(index)
-        for other_index in range(index + 1, len(events)):
+        for other_index in range(index + 1, len(filtered)):
             if other_index in assigned:
                 continue
-            if any(_related(member, events[other_index]) for member in group):
-                group.append(events[other_index])
+            if any(_related(member, filtered[other_index]) for member in group):
+                group.append(filtered[other_index])
                 assigned.add(other_index)
         groups.append(group)
 
     result: list[dict[str, Any]] = []
     for group in groups:
         if len(group) == 1:
-            result.append(group[0])
+            result.append(_with_actionability(group[0]))
             continue
         primary = max(group, key=lambda event: {"calendar": 3, "tasks": 2, "whatsapp": 1, "gmail": 1, "memory": 0}.get(str(event.get("source")), 0))
         merged = dict(primary)
@@ -120,6 +134,10 @@ def correlate_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
         merged["_correlated_keys"] = [str(event.get("key")) for event in group if event.get("key")]
         merged["key"] = str(primary.get("key"))
         merged["changed"] = any(bool(event.get("changed")) for event in group)
+        merged["actionability"] = max(
+            (classify_actionability(event) for event in group),
+            key=_actionability_rank,
+        )
         result.append(merged)
 
     return result
