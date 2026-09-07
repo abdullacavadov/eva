@@ -10,6 +10,7 @@ from core.media_video import create_slideshow
 BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_ROOT = (BASE_DIR / "media").resolve()
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+VIDEO_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".webm"}
 
 
 def _inside_media_root(path: str | Path) -> Path:
@@ -47,6 +48,36 @@ def _resolve_media_image(path: str | Path) -> Path:
     return matches[0]
 
 
+def _resolve_media_video(path: str | Path) -> Path:
+    candidate = _inside_media_root(path)
+    if candidate.suffix:
+        if candidate.suffix.lower() not in VIDEO_EXTENSIONS:
+            raise ValueError(f"Dəstəklənməyən video formatı: {candidate.suffix}")
+        return candidate
+
+    matches = sorted(
+        item for item in candidate.parent.glob(f"{candidate.name}.*")
+        if item.is_file() and item.suffix.lower() in VIDEO_EXTENSIONS
+    )
+    if not matches:
+        return candidate
+    if len(matches) > 1:
+        names = ", ".join(item.name for item in matches)
+        raise ValueError(f"Video adı üçün birdən çox uyğun fayl tapıldı: {names}")
+    return matches[0]
+
+
+def list_media_files() -> list[str]:
+    """Media qovluğundakı istifadə edilə bilən faylların adlarını qaytarır."""
+    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    return sorted(
+        str(item.relative_to(MEDIA_ROOT)).replace("\\", "/")
+        for item in MEDIA_ROOT.rglob("*")
+        if item.is_file()
+        and item.suffix.lower() in IMAGE_EXTENSIONS | VIDEO_EXTENSIONS | {".mp3", ".wav", ".m4a", ".aac", ".ogg"}
+    )
+
+
 def generate_media_image(prompt: str, filename: str = "generated.png", *, aspect_ratio: str = "16:9", image_size: str = "1K") -> str:
     MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
     destination = _inside_media_root(filename)
@@ -74,3 +105,8 @@ def create_media_slideshow(
         music_path=music,
         music_volume=music_volume,
     )
+
+
+def resolve_media_video(path: str | Path) -> Path:
+    """Videonu media qovluğunda ad və ya uzantısı ilə təhlükəsiz şəkildə tapır."""
+    return _resolve_media_video(path)
