@@ -148,3 +148,157 @@ def test_scheduler_poll_once_forwards_notifications():
     events = scheduler.poll_once()
     assert events[0]["key"] == "gmail:1"
     assert received == events
+
+
+def test_scheduler_does_not_ack_failed_notification():
+    class FakeEngine:
+        def __init__(self):
+            self.acked = []
+
+        def poll(self):
+            return [
+                {
+                    "key": "gmail:failed",
+                    "source": "gmail",
+                    "title": "Important email",
+                }
+            ]
+
+        def acknowledge_notification(self, event):
+            self.acked.append(event)
+
+    engine = FakeEngine()
+
+    scheduler = ProactiveScheduler(
+        engine=engine,
+        on_notification=lambda event: False,
+    )
+
+    events = scheduler.poll_once()
+
+    assert len(events) == 1
+    assert engine.acked == []
+
+
+def test_scheduler_acks_successful_notification():
+    class FakeEngine:
+        def __init__(self):
+            self.acked = []
+
+        def poll(self):
+            return [
+                {
+                    "key": "gmail:success",
+                    "source": "gmail",
+                    "title": "Important email",
+                }
+            ]
+
+        def acknowledge_notification(self, event):
+            self.acked.append(event)
+
+    engine = FakeEngine()
+
+    scheduler = ProactiveScheduler(
+        engine=engine,
+        on_notification=lambda event: True,
+    )
+
+    events = scheduler.poll_once()
+
+    assert len(events) == 1
+    assert len(engine.acked) == 1
+    assert engine.acked[0]["key"] == "gmail:success"
+
+
+def test_scheduler_does_not_ack_when_callback_raises():
+    class FakeEngine:
+        def __init__(self):
+            self.acked = []
+
+        def poll(self):
+            return [
+                {
+                    "key": "gmail:exception",
+                    "source": "gmail",
+                    "title": "Important email",
+                }
+            ]
+
+        def acknowledge_notification(self, event):
+            self.acked.append(event)
+
+    engine = FakeEngine()
+
+    def failing_callback(event):
+        raise RuntimeError("delivery failed")
+
+    scheduler = ProactiveScheduler(
+        engine=engine,
+        on_notification=failing_callback,
+    )
+
+    events = scheduler.poll_once()
+
+    assert len(events) == 1
+    assert engine.acked == []
+
+
+def test_failed_notification_can_be_retried_after_retry_window():
+    from datetime import datetime, timedelta, timezone
+
+    event = {
+        "key": "gmail:retry",
+        "source": "gmail",
+        "title": "Retry me",
+        "_offered_at": (
+            datetime.now(timezone.utc) - timedelta(minutes=2)
+        ).isoformat(),
+    }
+
+    policy = NotificationPolicy()
+
+    selected = policy.choose([event])
+
+    assert len(selected) == 1
+    assert selected[0]["key"] == "gmail:retry"
+
+
+def test_correlated_notification_acknowledges_all_children(tmp_path):
+    state_file = tmp_path / "proactive-state.json"
+
+    engine = ProactiveEngine(state_file)
+
+    event = {
+        "key": "calendar:primary",
+        "source": "correlated",
+        "title": "Payment deadline",
+        "_correlated_keys": [
+            "tasks:child",
+            "gmail:child",
+        ],
+    }
+
+    state = engine._load()
+
+    state["pending"] = {
+        "calendar:primary": event,
+        "tasks:child": {
+            "key": "tasks:child",
+            "source": "tasks",
+            "title": "Pay invoice",
+        },
+        "gmail:child": {
+            "key": "gmail:child",
+            "source": "gmail",
+            "title": "Invoice email",
+        },
+    }
+
+    engine._save(state)
+
+    engine.acknowledge_notification(event)
+
+    state = engine._load()
+
+    assert state["pending"] == {}
