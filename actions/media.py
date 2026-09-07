@@ -96,8 +96,6 @@ def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str
 
     normalized_provider = (provider or "auto").strip().lower()
 
-    # Phase 10.2: media creation is exposed through the existing media action
-    # to avoid changing the ToolExecutor dispatch contract in this phase.
     if normalized_provider in {"image", "generate_image", "image_generation"}:
         return f"Şəkil hazırlandı: {_create_image(query)}"
     if normalized_provider in {"slideshow", "video", "create_video"}:
@@ -117,3 +115,33 @@ def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str
     if "açılamadı" not in result:
         return result
     return _play_youtube(query)
+
+
+# Media action artıq yaradılmanı dəstəklədiyi üçün Gemini-yə bunu açıq şəkildə bildiririk.
+# ToolExecutor dəyişdirilmir: mövcud play_media dispatch müqaviləsi qorunur.
+def _register_media_tool_capabilities() -> None:
+    try:
+        import tool_defs
+    except ImportError:
+        return
+
+    for declaration in tool_defs.TOOL_DECLARATIONS:
+        if declaration.get("name") != "play_media":
+            continue
+        declaration["description"] = (
+            "Media əməliyyatlarını yerinə yetirir: YouTube/Spotify-da məzmun açır, "
+            "Gemini ilə şəkil yaradır və mövcud şəkillərdən FFmpeg slideshow videosu hazırlayır. "
+            "Mahnı/video çalmaq üçün provider=auto|youtube|spotify. "
+            "Yeni şəkil yaratmaq üçün provider=image və query-də təbii dildə image prompt ver. "
+            "Slideshow yaratmaq üçün provider=slideshow və query-də JSON payload ver: "
+            "{images:[...],filename,seconds_per_image,title_text,music_path,music_volume}. "
+            "İstifadəçi media yaratmağı istədikdə playback provider seçmə."
+        )
+        declaration["parameters"]["properties"]["provider"]["description"] = (
+            "auto | youtube | spotify | image | slideshow. "
+            "image şəkil generasiyası, slideshow şəkillərdən video yaradılması üçündür."
+        )
+        return
+
+
+_register_media_tool_capabilities()
