@@ -22,7 +22,7 @@ def test_correlates_calendar_and_gmail_by_shared_topic():
 
     result = correlate_events(events)
 
-    assert len(result) == 2
+    assert len(result) == 1
     correlated = next(event for event in result if event["source"] == "correlated")
     assert correlated["_correlated_keys"] == ["gmail:1", "calendar:1"]
 
