@@ -64,5 +64,5 @@ def test_email_action_exception_is_not_reported_as_success():
     )
     with patch("core.tool_executor.search_emails", side_effect=RuntimeError("gmail down")):
         response = asyncio.run(executor.execute(fc))
-    assert response.response["result"] == "Xəta: gmail down"
+    assert response.response["result"] == "Xəta: alət icra edilərkən daxili xəta baş verdi."
     executor.ui.set_state.assert_any_call("ERROR")
