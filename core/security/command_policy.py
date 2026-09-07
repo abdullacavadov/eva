@@ -47,14 +47,27 @@ BLOCKED_EXECUTABLES = {
     "rundll32.exe",
 }
 
+# Hər allowlisted executable üçün yalnız zərərsiz, gözlənilən arqumentlərə icazə verilir.
+# Digər executable-larda arqument qəbul edilmir.
+ALLOWED_ARGUMENTS = {
+    "whoami": set(),
+    "hostname": set(),
+    "ver": set(),
+    "ipconfig": {"/all"},
+    "getmac": set(),
+    "tasklist": set(),
+    "systeminfo": set(),
+}
 
+_SAFE_WHERE_TARGET = re.compile(r"^[A-Za-z0-9_.-]+(?:\.exe)?$", re.IGNORECASE)
 
 
 def validate_command(command: str) -> tuple[bool, str]:
     """
     Command-ı icra etməzdən əvvəl təhlükəsizlik baxımından yoxlayır.
 
-    Yalnız əvvəlcədən müəyyən edilmiş təhlükəsiz executable-lara icazə verilir.
+    Yalnız əvvəlcədən müəyyən edilmiş təhlükəsiz executable-lara və onların
+    məhdud, read-only arqumentlərinə icazə verilir.
     """
 
     if not isinstance(command, str):
@@ -88,6 +101,18 @@ def validate_command(command: str) -> tuple[bool, str]:
 
     if executable not in ALLOWED_COMMANDS:
         return False, f"Bu executable üçün icazə yoxdur: {executable}"
+
+    args = [part.strip('"').strip("'") for part in parts[1:]]
+
+    if executable == "where":
+        if len(args) != 1 or not _SAFE_WHERE_TARGET.fullmatch(args[0]):
+            return False, "where üçün yalnız sadə executable adı icazəlidir."
+    else:
+        allowed_args = ALLOWED_ARGUMENTS[executable]
+        if args and any(arg.lower() not in {item.lower() for item in allowed_args} for arg in args):
+            return False, f"Bu executable üçün arqumentə icazə yoxdur: {executable}"
+        if len(args) > len(allowed_args):
+            return False, f"Bu executable üçün arqument sayı icazə veriləndən çoxdur: {executable}"
 
     normalized = command.lower()
 

@@ -83,6 +83,36 @@ def test_destructive_commands_are_blocked(command):
     assert reason
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "ipconfig /release",
+        "ipconfig /renew",
+        "ipconfig /release6",
+        "ipconfig /renew6",
+        "systeminfo /s remote-host",
+        "tasklist /v",
+        "whoami /all",
+        "hostname unexpected",
+        "ver unexpected",
+        "where C:\\Windows\\System32\\cmd.exe",
+        "where python cmd",
+    ],
+)
+def test_unapproved_arguments_are_blocked(command):
+    allowed, reason = validate_command(command)
+
+    assert allowed is False
+    assert reason
+
+
+def test_where_accepts_simple_executable_name():
+    allowed, reason = validate_command("where python.exe")
+
+    assert allowed is True
+    assert reason == ""
+
+
 def test_unknown_executable_is_blocked():
     allowed, reason = validate_command("notepad")
 
