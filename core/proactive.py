@@ -196,10 +196,19 @@ class ProactiveEngine:
                 value.setdefault("pending", {})
                 value.setdefault("history", {})
                 value.setdefault("quiet_digest_sent", None)
+                value.setdefault("quiet_digest_keys", [])
+                value.setdefault("quiet_digest_offered_at", None)
                 return value
         except Exception:
             pass
-        return {"snapshots": {}, "pending": {}, "history": {}, "quiet_digest_sent": None}
+        return {
+            "snapshots": {},
+            "pending": {},
+            "history": {},
+            "quiet_digest_sent": None,
+            "quiet_digest_keys": [],
+            "quiet_digest_offered_at": None,
+        }
 
     def _save(self, state: dict[str, Any]) -> None:
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -284,14 +293,35 @@ class ProactiveEngine:
                                 pending[key] = {"key": key, "source": source, "item": item, "changed": old_item is not None}
                 snapshots[source] = current
             digest_offered_at = _parse_datetime(state.get("quiet_digest_offered_at"))
+            digest_keys = [str(key) for key in state.get("quiet_digest_keys", []) if str(key) in pending]
             recent = sum(1 for timestamp in history.values() if (parsed := _parse_datetime(timestamp)) and now - parsed <= timedelta(hours=1))
+            digest_retry_expired = bool(state.get("quiet_digest_sent")) and bool(digest_keys) and (
+                digest_offered_at is None or now - digest_offered_at >= timedelta(minutes=DEFAULT_RETRY_MINUTES)
+            )
+            if digest_retry_expired and recent < rate_limit:
+                digest_pending = {key: pending[key] for key in digest_keys}
+                digest = build_notification_digest(digest_pending)
+                if digest:
+                    digest_key = str(state["quiet_digest_sent"])
+                    digest["key"] = digest_key
+                    digest["_digest_keys"] = digest_keys
+                    state["quiet_digest_keys"] = digest_keys
+                    state["quiet_digest_offered_at"] = now.isoformat()
+                    state["snapshots"] = snapshots
+                    state["pending"] = pending
+                    state["history"] = history
+                    state["last_poll"] = now.isoformat()
+                    self._save(state)
+                    return [digest]
             if was_quiet and not is_quiet and len(pending) > 1 and recent < rate_limit and not (digest_offered_at and now - digest_offered_at < timedelta(minutes=DEFAULT_RETRY_MINUTES)):
                 digest = build_notification_digest(pending)
                 if digest:
-                    digest_key = f"digest:{_fingerprint(sorted(pending))}"
+                    digest_keys = list(pending)
+                    digest_key = f"digest:{_fingerprint(sorted(digest_keys))}"
                     digest["key"] = digest_key
-                    digest["_digest_keys"] = list(pending)
+                    digest["_digest_keys"] = digest_keys
                     state["quiet_digest_sent"] = digest_key
+                    state["quiet_digest_keys"] = digest_keys
                     state["quiet_digest_offered_at"] = now.isoformat()
                     state["snapshots"] = snapshots
                     state["pending"] = pending
@@ -352,13 +382,16 @@ class ProactiveEngine:
                 return False
             pending = state["pending"]
             history = state["history"]
+            digest_keys = [str(child_key) for child_key in state.get("quiet_digest_keys", [])]
             timestamp = (sent_at or datetime.now().astimezone()).isoformat()
-            for child_key in list(pending):
-                history[str(child_key)] = timestamp
-                pending.pop(child_key, None)
+            for child_key in digest_keys:
+                if child_key in pending:
+                    pending.pop(child_key, None)
+                history[child_key] = timestamp
             state["pending"] = pending
             state["history"] = history
             state["quiet_digest_sent"] = None
+            state["quiet_digest_keys"] = []
             state["quiet_digest_offered_at"] = None
             self._save(state)
             return True
