@@ -19,7 +19,7 @@ def _inside_media_root(path: str | Path) -> Path:
         # MEDIA_ROOT artıq "media" qovluğunu göstərdiyi üçün prefiksi
         # bir dəfəlik çıxarırıq və təhlükəsizlik yoxlamasını saxlayırıq.
         parts = candidate.parts
-        if parts and parts[0].lower() == MEDIA_ROOT.name.lower():
+        if parts and parts[0].lower() == "media":
             candidate = Path(*parts[1:]) if len(parts) > 1 else Path(".")
         candidate = MEDIA_ROOT / candidate
     candidate = candidate.resolve()
