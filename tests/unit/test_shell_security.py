@@ -1,6 +1,9 @@
+from unittest.mock import patch
+
 import pytest
 
 from core.security.command_policy import validate_command
+from core.security.command_runner import run_command
 
 
 @pytest.mark.parametrize(
@@ -130,3 +133,43 @@ def test_non_string_command_is_blocked():
     allowed, reason = validate_command(None)
 
     assert allowed is False
+
+
+def test_nonzero_exit_does_not_expose_stderr():
+    completed = type(
+        "CompletedProcessStub",
+        (),
+        {"returncode": 1, "stdout": "", "stderr": "C:\\Users\\Abdulla\\secret\\missing.txt"},
+    )()
+
+    with patch("core.security.command_runner.subprocess.run", return_value=completed):
+        result = run_command("whoami")
+
+    assert result == "Komanda uğursuz oldu (exit code 1)."
+    assert "Abdulla" not in result
+    assert "missing.txt" not in result
+
+
+def test_exception_does_not_expose_internal_details():
+    with patch(
+        "core.security.command_runner.subprocess.run",
+        side_effect=OSError("C:\\Users\\Abdulla\\private\\runner.exe not found"),
+    ):
+        result = run_command("whoami")
+
+    assert result == "Xəta: komanda icra edilərkən daxili xəta baş verdi."
+    assert "Abdulla" not in result
+    assert "runner.exe" not in result
+
+
+def test_successful_stdout_is_preserved():
+    completed = type(
+        "CompletedProcessStub",
+        (),
+        {"returncode": 0, "stdout": "Abdulla\n", "stderr": ""},
+    )()
+
+    with patch("core.security.command_runner.subprocess.run", return_value=completed):
+        result = run_command("whoami")
+
+    assert result == "Abdulla"
