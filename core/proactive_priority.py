@@ -43,6 +43,12 @@ def priority_score(event: dict[str, Any], now: datetime | None = None) -> int:
     """
     now = now or datetime.now().astimezone()
     source = str(event.get("source", "")).casefold()
+
+    if source == "correlated":
+        children = event.get("_correlated_events") or []
+        child_scores = [priority_score(child, now) for child in children if isinstance(child, dict)]
+        return max(child_scores, default=20) + (5 if child_scores else 0)
+
     item = event.get("item") or {}
     if not isinstance(item, dict):
         item = {}
