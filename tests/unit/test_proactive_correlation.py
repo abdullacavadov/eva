@@ -60,8 +60,8 @@ def test_does_not_correlate_same_source_or_unrelated_topics():
 
 def test_correlated_priority_uses_highest_child_priority_plus_bonus():
     events = [
-        _event("gmail:1", "gmail", "URGENT payment deadline"),
-        _event("tasks:1", "tasks", "Pay invoice", due="2026-09-07T15:00:00+04:00"),
+        _event("gmail:1", "gmail", "URGENT payment invoice deadline"),
+        _event("tasks:1", "tasks", "Payment invoice", due="2026-09-07T15:00:00+04:00"),
     ]
 
     correlated = correlate_events(events)[0]
