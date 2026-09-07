@@ -9,7 +9,7 @@ def test_spotify_playback_does_not_use_shell(monkeypatch):
 
     result = media._play_spotify('test" & whoami & "')
 
-    assert "axtarışı açıldı" in result
+    assert "araması açıldı" in result
     assert calls == ["spotify:search:test%22%20%26%20whoami%20%26%20%22"]
 
 
@@ -25,4 +25,4 @@ def test_spotify_detection_uses_non_shell_where(monkeypatch):
     monkeypatch.setattr(media.subprocess, "run", fake_run)
 
     assert media._spotify_installed() is False
-    assert calls == [(("where", "Spotify"), {"shell": False, "capture_output": True})]
+    assert calls == [((["where", "Spotify"],), {"shell": False, "capture_output": True})]
