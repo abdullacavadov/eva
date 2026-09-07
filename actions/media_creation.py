@@ -9,6 +9,7 @@ from core.media_video import create_slideshow
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_ROOT = (BASE_DIR / "media").resolve()
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 
 
 def _inside_media_root(path: str | Path) -> Path:
@@ -18,7 +19,7 @@ def _inside_media_root(path: str | Path) -> Path:
         # MEDIA_ROOT artıq "media" qovluğunu göstərdiyi üçün prefiksi
         # bir dəfəlik çıxarırıq və təhlükəsizlik yoxlamasını saxlayırıq.
         parts = candidate.parts
-        if parts and parts[0].lower() == MEDIA_ROOT.name.lower():
+        if parts and parts[0].lower() == "media":
             candidate = Path(*parts[1:]) if len(parts) > 1 else Path(".")
         candidate = MEDIA_ROOT / candidate
     candidate = candidate.resolve()
@@ -27,6 +28,23 @@ def _inside_media_root(path: str | Path) -> Path:
     except ValueError as exc:
         raise ValueError("Media faylı yalnız EVA media qovluğunda ola bilər.") from exc
     return candidate
+
+
+def _resolve_media_image(path: str | Path) -> Path:
+    candidate = _inside_media_root(path)
+    if candidate.suffix:
+        return candidate
+
+    matches = sorted(
+        item for item in candidate.parent.glob(f"{candidate.name}.*")
+        if item.is_file() and item.suffix.lower() in IMAGE_EXTENSIONS
+    )
+    if not matches:
+        return candidate
+    if len(matches) > 1:
+        names = ", ".join(item.name for item in matches)
+        raise ValueError(f"Şəkil adı üçün birdən çox uyğun fayl tapıldı: {names}")
+    return matches[0]
 
 
 def generate_media_image(prompt: str, filename: str = "generated.png", *, aspect_ratio: str = "16:9", image_size: str = "1K") -> str:
@@ -45,7 +63,7 @@ def create_media_slideshow(
     music_volume: float = 0.22,
 ) -> str:
     MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
-    images = [_inside_media_root(path) for path in image_paths]
+    images = [_resolve_media_image(path) for path in image_paths]
     music = _inside_media_root(music_path) if music_path else None
     destination = _inside_media_root(filename)
     return create_slideshow(
