@@ -1,5 +1,5 @@
 """
-Uygulama açma — Windows üçün os.startfile / start komutu ilə işləyir.
+Uygulama açma — Windows için os.startfile / start komutu ile çalışır.
 """
 
 import os
@@ -10,36 +10,36 @@ import subprocess
 APP_ALIASES = {
     "edge":              "msedge",
     "microsoft edge":    "msedge",
-    "chrome":             "chrome",
-    "google chrome":      "chrome",
-    "firefox":             "firefox",
-    "terminal":           "cmd",
-    "cmd":                "cmd",
-    "powershell":         "powershell",
-    "explorer":           "explorer",
-    "dosya gezgini":      "explorer",
+    "chrome":            "chrome",
+    "google chrome":     "chrome",
+    "firefox":           "firefox",
+    "terminal":          "cmd",
+    "cmd":               "cmd",
+    "powershell":        "powershell",
+    "explorer":          "explorer",
+    "dosya gezgini":     "explorer",
     "file explorer":     "explorer",
-    "spotify":            "Spotify",
-    "vscode":             "code",
-    "vs code":            "code",
-    "code":               "code",
-    "discord":            "Discord",
-    "slack":              "Slack",
-    "whatsapp":           "WhatsApp",
-    "telegram":           "Telegram",
-    "zoom":               "Zoom",
-    "notepad":            "notepad",
-    "notlar":             "notepad",
-    "not defteri":        "notepad",
-    "word":               "winword",
-    "excel":              "excel",
-    "powerpoint":         "powerpnt",
-    "calculator":         "calc",
-    "hesap makinesi":     "calc",
-    "task manager":       "taskmgr",
-    "görev yöneticisi":   "taskmgr",
-    "settings":           "ms-settings:",
-    "ayarlar":            "ms-settings:",
+    "spotify":           "Spotify",
+    "vscode":            "code",
+    "vs code":           "code",
+    "code":              "code",
+    "discord":           "Discord",
+    "slack":             "Slack",
+    "whatsapp":          "WhatsApp",
+    "telegram":          "Telegram",
+    "zoom":              "Zoom",
+    "notepad":           "notepad",
+    "notlar":            "notepad",
+    "not defteri":       "notepad",
+    "word":              "winword",
+    "excel":             "excel",
+    "powerpoint":        "powerpnt",
+    "calculator":        "calc",
+    "hesap makinesi":    "calc",
+    "task manager":      "taskmgr",
+    "görev yöneticisi":  "taskmgr",
+    "settings":          "ms-settings:",
+    "ayarlar":           "ms-settings:",
     "paint":              "mspaint",
     "wordpad":            "wordpad",
     "snipping tool":      "SnippingTool",
@@ -88,7 +88,7 @@ def open_app(app_name: str) -> str:
         except Exception as e:
             return f"'{app_name}' açılamadı: {e}"
 
-    # PATH-də tapılmayan tətbiqlər üçün də shell istifadə etmədən birbaşa icra et.
+    # PATH-də tapılmayan tətbiqlər üçün shell istifadə etmədən birbaşa icra et.
     try:
         subprocess.Popen([resolved], shell=False)
         return f"{app_name} açıldı."
