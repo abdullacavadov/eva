@@ -3,12 +3,14 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from actions.media_creation import _inside_media_root
+from actions.media_creation import MEDIA_ROOT, _inside_media_root
 from core.media_video import _prepare_frame, _resolve_image
 
 
 def test_media_paths_are_confined_to_media_root():
     assert _inside_media_root("renders/test.png").name == "test.png"
+    assert _inside_media_root("media/renders/test.png") == MEDIA_ROOT / "renders" / "test.png"
+    assert _inside_media_root("MEDIA/renders/test.png") == MEDIA_ROOT / "renders" / "test.png"
     with pytest.raises(ValueError):
         _inside_media_root("../outside.png")
 
