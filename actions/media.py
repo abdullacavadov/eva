@@ -1,10 +1,11 @@
 """
-Medya oynatma — Windows için YouTube, Spotify URI scheme.
-Apple Music desteği Windows'ta bulunmamaktadır.
+Medya oynatma — Windows üçün YouTube, Spotify URI scheme.
+Apple Music dəstəyi Windows-da mövcud deyil.
 """
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import urllib.parse
 import webbrowser
@@ -37,9 +38,8 @@ def _copy_to_clipboard(text: str) -> tuple[bool, str]:
 
 
 def _spotify_installed() -> bool:
-    import shutil
     return shutil.which("Spotify") is not None or subprocess.run(
-        "where Spotify", shell=True, capture_output=True
+        ["where", "Spotify"], shell=False, capture_output=True
     ).returncode == 0
 
 
@@ -51,7 +51,7 @@ def _play_spotify(query: str, autoplay: bool = True) -> str:
     encoded_query = urllib.parse.quote(query.strip())
     search_url = f"spotify:search:{encoded_query}"
     try:
-        subprocess.run(["start", "", search_url], shell=True, timeout=10)
+        webbrowser.open(search_url)
     except Exception as exc:
         return f"Spotify açılamadı: {exc}"
     return f"Spotify'da '{query}' araması açıldı."
@@ -73,7 +73,7 @@ def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str
     if normalized_provider == "youtube":
         return _play_youtube(query)
 
-    # auto: Spotify URI dene, yoksa YouTube
+    # auto: Spotify URI dene, yoxsa YouTube
     result = _play_spotify(query, autoplay=autoplay)
     if "açılamadı" not in result:
         return result
