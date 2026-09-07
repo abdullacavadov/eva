@@ -21,7 +21,7 @@ def test_open_app_never_uses_shell_for_unresolved_app(monkeypatch):
     result = open_app.open_app('example" & whoami & "')
 
     assert calls == [(['example" & whoami & "'], {"shell": False})]
-    assert "açılamadı" in result
+    assert "açıla bilmədi" in result
 
 
 def test_open_app_uses_allowlisted_executable_path_without_shell(monkeypatch):
@@ -76,7 +76,7 @@ def test_open_app_does_not_expose_exception_details(monkeypatch):
         lambda *args, **kwargs: (_ for _ in ()).throw(OSError(secret)),
     )
 
-    result = open_app("example")
+    result = open_app.open_app("example")
 
     assert secret not in result
     assert result == "'example' açılamadı."
