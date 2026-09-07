@@ -40,22 +40,22 @@ APP_ALIASES = {
     "görev yöneticisi":  "taskmgr",
     "settings":          "ms-settings:",
     "ayarlar":           "ms-settings:",
-    "paint":             "mspaint",
-    "wordpad":           "wordpad",
-    "snipping tool":     "SnippingTool",
-    "ekran alıntısı":    "SnippingTool",
-    "photos":            "ms-photos:",
-    "fotoğraflar":       "ms-photos:",
-    "maps":              "bingmaps:",
-    "haritalar":         "bingmaps:",
-    "mail":              "outlookmail:",
-    "calendar":          "outlookcal:",
-    "takvim":            "outlookcal:",
-    "store":             "ms-windows-store:",
-    "mağaza":            "ms-windows-store:",
-    "music":             "mswindowsmusic:",
-    "müzik":             "mswindowsmusic:",
-    "notion":            "Notion",
+    "paint":              "mspaint",
+    "wordpad":            "wordpad",
+    "snipping tool":      "SnippingTool",
+    "ekran alıntısı":     "SnippingTool",
+    "photos":             "ms-photos:",
+    "fotoğraflar":        "ms-photos:",
+    "maps":               "bingmaps:",
+    "haritalar":          "bingmaps:",
+    "mail":               "outlookmail:",
+    "calendar":           "outlookcal:",
+    "takvim":             "outlookcal:",
+    "store":              "ms-windows-store:",
+    "mağaza":             "ms-windows-store:",
+    "music":              "mswindowsmusic:",
+    "müzik":              "mswindowsmusic:",
+    "notion":             "Notion",
 }
 
 URI_SCHEMES = {
@@ -88,21 +88,14 @@ def open_app(app_name: str) -> str:
         except Exception as e:
             return f"'{app_name}' açılamadı: {e}"
 
-    # start komutu (Windows shell'i aracılığıyla)
+    # PATH-də tapılmayan tətbiqlər üçün shell istifadə etmədən birbaşa icra et.
     try:
-        result = subprocess.run(
-            f'start "" "{resolved}"',
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode == 0:
-            return f"{app_name} açıldı."
+        subprocess.Popen([resolved], shell=False)
+        return f"{app_name} açıldı."
     except Exception:
         pass
 
-    # os.startfile son çare
+    # os.startfile son çarə
     try:
         os.startfile(resolved)
         return f"{app_name} açıldı."
