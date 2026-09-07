@@ -227,7 +227,6 @@ class ProactiveEngine:
         except Exception:
             sources["gmail"] = []
             self._collection_failures.add("gmail")
-        
         try:
             result = get_daily_agenda(limit=50, date_text=datetime.now().astimezone().date().isoformat())
             if isinstance(result, dict) and result.get("status") == "error": raise RuntimeError("agenda source error")
@@ -302,7 +301,14 @@ class ProactiveEngine:
                     return [digest]
             selected = self.policy.choose(pending, history, now)
             for event in selected:
-                event["_offered_at"] = now.isoformat()
+                offered_at = now.isoformat()
+                event["_offered_at"] = offered_at
+                event_key = str(event.get("key", ""))
+                if event_key in pending:
+                    pending[event_key]["_offered_at"] = offered_at
+                for child_key in event.get("_correlated_keys", []):
+                    if child_key in pending:
+                        pending[child_key]["_offered_at"] = offered_at
                 source = str(event.get("source", ""))
                 item = event.get("item") or {}
                 if source == "correlated":
