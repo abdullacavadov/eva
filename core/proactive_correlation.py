@@ -124,7 +124,9 @@ def correlate_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     for group in groups:
         if len(group) == 1:
-            result.append(_with_actionability(group[0]))
+            # Preserve object identity for singleton events. NotificationPolicy.choose()
+            # relies on the selected event receiving _offered_at in the pending state.
+            result.append(group[0])
             continue
         primary = max(group, key=lambda event: {"calendar": 3, "tasks": 2, "whatsapp": 1, "gmail": 1, "memory": 0}.get(str(event.get("source")), 0))
         merged = dict(primary)
