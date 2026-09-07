@@ -1,16 +1,17 @@
 """
-Medya oynatma — Windows üçün YouTube, Spotify URI scheme.
-Apple Music dəstəyi Windows-da mövcud deyil.
+Medya oynatma və yaradılması — Windows üçün YouTube, Spotify və EVA media pipeline.
 """
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import urllib.parse
 import webbrowser
 
 from actions.browser import browser_control
+from actions.media_creation import create_media_slideshow, generate_media_image
 
 try:
     import pyperclip
@@ -26,7 +27,6 @@ def _copy_to_clipboard(text: str) -> tuple[bool, str]:
             return True, "ok"
         except Exception as exc:
             return False, f"Panoya kopyalanamadı: {exc}"
-    # PowerShell fallback
     try:
         subprocess.run(
             ["powershell", "-Command", f"Set-Clipboard -Value '{text.replace(chr(39), chr(96))}'"],
@@ -57,15 +57,55 @@ def _play_spotify(query: str, autoplay: bool = True) -> str:
     return f"Spotify'da '{query}' araması açıldı."
 
 
+def _create_image(query: str) -> str:
+    prompt = query.strip()
+    if not prompt:
+        raise ValueError("Şəkil prompt-u boş ola bilməz.")
+    return generate_media_image(prompt, "generated.png")
+
+
+def _create_slideshow(query: str) -> str:
+    """JSON payload ilə media slideshow yaradır.
+
+    Payload:
+    {"images":["a.png","b.jpg"],"filename":"video.mp4",
+     "seconds_per_image":3,"title_text":"","music_path":"","music_volume":0.22}
+    """
+    try:
+        payload = json.loads(query)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Slideshow üçün JSON media parametrləri tələb olunur.") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("Slideshow parametrləri obyekt olmalıdır.")
+    images = payload.get("images")
+    if not isinstance(images, list) or not images:
+        raise ValueError("Slideshow üçün ən azı bir şəkil tələb olunur.")
+    return create_media_slideshow(
+        [str(item) for item in images],
+        str(payload.get("filename", "slideshow.mp4")),
+        seconds_per_image=float(payload.get("seconds_per_image", 3.0)),
+        title_text=str(payload.get("title_text", "")),
+        music_path=str(payload.get("music_path", "")),
+        music_volume=float(payload.get("music_volume", 0.22)),
+    )
+
+
 def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str:
     if not query or not query.strip():
-        return "Çalınacak içerik belirtilmedi."
+        return "Çalınacaq və ya yaradılacaq məzmun göstərilməyib."
 
     normalized_provider = (provider or "auto").strip().lower()
+
+    # Phase 10.2: media creation is exposed through the existing media action
+    # to avoid changing the ToolExecutor dispatch contract in this phase.
+    if normalized_provider in {"image", "generate_image", "image_generation"}:
+        return f"Şəkil hazırlandı: {_create_image(query)}"
+    if normalized_provider in {"slideshow", "video", "create_video"}:
+        return f"Video hazırlandı: {_create_slideshow(query)}"
+
     if normalized_provider in {"yt", "youtube music"}:
         normalized_provider = "youtube"
     elif normalized_provider in {"apple music", "music", "apple_music"}:
-        # Apple Music Windows'ta yok, YouTube'a yönlendir
         return _play_youtube(query)
 
     if normalized_provider == "spotify":
@@ -73,7 +113,6 @@ def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str
     if normalized_provider == "youtube":
         return _play_youtube(query)
 
-    # auto: Spotify URI dene, yoxsa YouTube
     result = _play_spotify(query, autoplay=autoplay)
     if "açılamadı" not in result:
         return result
