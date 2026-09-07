@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from actions.media_creation import MEDIA_ROOT, _inside_media_root
+from actions.media_creation import MEDIA_ROOT, _inside_media_root, _resolve_media_image
 from core.media_video import _prepare_frame, _resolve_image
 
 
@@ -13,6 +13,24 @@ def test_media_paths_are_confined_to_media_root():
     assert _inside_media_root("MEDIA/renders/test.png") == MEDIA_ROOT / "renders" / "test.png"
     with pytest.raises(ValueError):
         _inside_media_root("../outside.png")
+
+
+def test_resolve_media_image_finds_supported_extension(tmp_path, monkeypatch):
+    monkeypatch.setattr("actions.media_creation.MEDIA_ROOT", tmp_path)
+    image = tmp_path / "img2.jpeg"
+    image.touch()
+
+    assert _resolve_media_image("img2") == image
+    assert _resolve_media_image("media/img2") == image
+
+
+def test_resolve_media_image_rejects_ambiguous_extension(tmp_path, monkeypatch):
+    monkeypatch.setattr("actions.media_creation.MEDIA_ROOT", tmp_path)
+    (tmp_path / "img2.jpg").touch()
+    (tmp_path / "img2.png").touch()
+
+    with pytest.raises(ValueError, match="birdən çox uyğun fayl"):
+        _resolve_media_image("img2")
 
 
 def test_prepare_frame_writes_standardized_png(tmp_path):
