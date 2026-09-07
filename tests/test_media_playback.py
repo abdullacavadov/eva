@@ -37,11 +37,12 @@ def test_resolve_media_video_rejects_ambiguous_name(tmp_path, monkeypatch):
 
 def test_open_video_uses_default_windows_handler(tmp_path, monkeypatch):
     monkeypatch.setattr("actions.media_creation.MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr(media, "MEDIA_ROOT", tmp_path)
     video = tmp_path / "slideshow.mp4"
     video.touch()
     monkeypatch.setattr(media.os, "name", "nt")
     opened = []
-    monkeypatch.setattr(media.os, "startfile", lambda path: opened.append(path))
+    monkeypatch.setattr(media.os, "startfile", lambda path: opened.append(path), raising=False)
 
     result = media._open_video("slideshow")
 
@@ -51,9 +52,10 @@ def test_open_video_uses_default_windows_handler(tmp_path, monkeypatch):
 
 def test_open_media_folder_uses_windows_explorer(tmp_path, monkeypatch):
     monkeypatch.setattr("actions.media_creation.MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr(media, "MEDIA_ROOT", tmp_path)
     monkeypatch.setattr(media.os, "name", "nt")
     opened = []
-    monkeypatch.setattr(media.os, "startfile", lambda path: opened.append(path))
+    monkeypatch.setattr(media.os, "startfile", lambda path: opened.append(path), raising=False)
 
     result = media._open_media_folder()
 
