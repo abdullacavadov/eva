@@ -5,8 +5,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-from core.proactive_actionability import prepare_proactive_events
-
 URGENT_TERMS = (
     "urgent",
     "vacib",
@@ -103,10 +101,9 @@ def priority_score(event: dict[str, Any], now: datetime | None = None) -> int:
 
 
 def rank_events(events: list[dict[str, Any]], now: datetime | None = None) -> list[dict[str, Any]]:
-    """Noise süzərək hadisələri prioritetə görə sıralayır."""
+    """Hadisələri prioritetə görə sıralayır; giriş siyahısını mutasiya etmir."""
     now = now or datetime.now().astimezone()
-    prepared = prepare_proactive_events(events)
     return sorted(
-        prepared,
+        events,
         key=lambda event: (-priority_score(event, now), str(event.get("key", ""))),
     )
