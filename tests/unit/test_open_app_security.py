@@ -11,7 +11,12 @@ def test_open_app_never_uses_shell_for_unresolved_app(monkeypatch):
         raise FileNotFoundError("not found")
 
     monkeypatch.setattr(open_app.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(open_app.os, "startfile", lambda _: (_ for _ in ()).throw(OSError("not found")))
+    monkeypatch.setattr(
+        open_app.os,
+        "startfile",
+        lambda _: (_ for _ in ()).throw(OSError("not found")),
+        raising=False,
+    )
 
     result = open_app.open_app('example" & whoami & "')
 
@@ -48,7 +53,12 @@ def test_open_app_does_not_fallback_to_shell_start(monkeypatch):
         "run",
         lambda *args, **kwargs: run_calls.append((args, kwargs)),
     )
-    monkeypatch.setattr(open_app.os, "startfile", lambda _: (_ for _ in ()).throw(OSError("not found")))
+    monkeypatch.setattr(
+        open_app.os,
+        "startfile",
+        lambda _: (_ for _ in ()).throw(OSError("not found")),
+        raising=False,
+    )
 
     open_app.open_app("unknown-app")
 
