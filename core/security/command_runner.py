@@ -30,19 +30,13 @@ def run_command(command: str, timeout: int = 30) -> str:
     except subprocess.TimeoutExpired:
         return "Xəta: komanda vaxt limitini keçdi."
 
-    except Exception as exc:
-        return f"Xəta: {exc}"
+    except Exception:
+        return "Xəta: komanda icra edilərkən daxili xəta baş verdi."
 
     stdout = (completed.stdout or "").strip()
     stderr = (completed.stderr or "").strip()
 
     if completed.returncode != 0:
-        if stderr:
-            return f"Komanda uğursuz oldu (exit code {completed.returncode}): {stderr}"
-
-        return (
-            f"Komanda uğursuz oldu "
-            f"(exit code {completed.returncode})."
-        )
+        return f"Komanda uğursuz oldu (exit code {completed.returncode})."
 
     return stdout or "Komanda uğurla icra edildi."
