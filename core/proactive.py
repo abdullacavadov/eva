@@ -16,6 +16,7 @@ from actions.agenda import get_daily_agenda
 from actions.email import search_emails
 from memory.memory_manager import load_memory
 from core.notification_digest import build_notification_digest
+from core.proactive_priority import rank_events
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_STATE_FILE = BASE_DIR / ".eva" / "proactive-state.json"
@@ -141,6 +142,7 @@ class NotificationPolicy:
             return []
         selected: list[dict[str, Any]] = []
         retry_window = timedelta(minutes=DEFAULT_RETRY_MINUTES)
+        eligible: list[dict[str, Any]] = []
         for event in pending.values():
             last_sent = _parse_datetime(str(history.get(event.get("key"), "")))
             if last_sent and now - last_sent < self.cooldown:
@@ -150,6 +152,9 @@ class NotificationPolicy:
                 continue
             if not self._eligible(event, now):
                 continue
+            eligible.append(event)
+
+        for event in rank_events(eligible, now):
             selected.append(event)
             if len(selected) + recent >= self.rate_limit:
                 break

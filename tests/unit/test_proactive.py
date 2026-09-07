@@ -105,6 +105,28 @@ def test_whatsapp_read_state_does_not_trigger_notification(tmp_path, monkeypatch
     assert events[0]["source"] == "whatsapp"
 
 
+def test_policy_orders_eligible_events_by_priority():
+    policy = NotificationPolicy(quiet_start="00:00", quiet_end="00:01")
+    pending = {
+        "gmail:normal": {"key": "gmail:normal", "source": "gmail", "item": {"subject": "Newsletter"}},
+        "gmail:urgent": {"key": "gmail:urgent", "source": "gmail", "item": {"subject": "URGENT: payment deadline"}},
+        "calendar:near": {"key": "calendar:near", "source": "calendar", "item": {"title": "Meeting", "start": "2026-08-25T12:10:00+00:00"}},
+    }
+    selected = policy.choose(pending, {}, _now(12))
+    assert [item["key"] for item in selected] == ["calendar:near", "gmail:urgent", "gmail:normal"]
+
+
+def test_policy_priority_does_not_change_eligibility():
+    policy = NotificationPolicy(rate_limit=2, quiet_start="00:00", quiet_end="00:01")
+    pending = {
+        "gmail:urgent": {"key": "gmail:urgent", "source": "gmail", "item": {"subject": "URGENT"}},
+        "calendar:far": {"key": "calendar:far", "source": "calendar", "item": {"title": "Later", "start": "2026-08-27T12:00:00+00:00"}},
+        "tasks:due": {"key": "tasks:due", "source": "tasks", "item": {"title": "Due", "due": "2026-08-25T11:00:00+00:00"}},
+    }
+    selected = policy.choose(pending, {}, _now(12))
+    assert [item["key"] for item in selected] == ["tasks:due", "gmail:urgent"]
+
+
 def test_scheduler_poll_once_forwards_notifications():
     received = []
 
