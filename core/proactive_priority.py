@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-
 URGENT_TERMS = (
     "urgent",
     "vacib",
     "təcili",
     "tecilı",
+    "acil",
     "deadline",
     "son tarix",
     "immediate",
@@ -38,8 +38,8 @@ def _text(item: dict[str, Any]) -> str:
 def priority_score(event: dict[str, Any], now: datetime | None = None) -> int:
     """Hadisə üçün 0-100 arası deterministik prioritet hesablayır.
 
-    Bu mərhələdə LLM çağırışı edilmir və mövcud notification davranışı dəyişmir.
-    Hesablamanın məqsədi pending hadisələri daha faydalı ardıcıllıqla seçməkdir.
+    Bu mərhələdə LLM çağırışı edilmir. Mənbə yalnız başlanğıc çəkisidir;
+    təcililik və vaxt yaxınlığı konkret hadisənin yekun prioritetini dəyişir.
     """
     now = now or datetime.now().astimezone()
     source = str(event.get("source", "")).casefold()
@@ -48,9 +48,9 @@ def priority_score(event: dict[str, Any], now: datetime | None = None) -> int:
         item = {}
 
     score = {
-        "calendar": 70,
-        "tasks": 65,
-        "whatsapp": 55,
+        "calendar": 60,
+        "tasks": 55,
+        "whatsapp": 50,
         "gmail": 45,
         "memory": 35,
     }.get(source, 20)
