@@ -64,3 +64,19 @@ def test_open_app_does_not_fallback_to_shell_start(monkeypatch):
 
     assert run_calls == []
     assert popen_calls == [(["unknown-app"], {"shell": False})]
+
+
+def test_open_app_does_not_expose_exception_details(monkeypatch):
+    secret = r"C:\Users\abdulla\private\launcher-error.exe"
+
+    monkeypatch.setattr(open_app.shutil, "which", lambda _: secret)
+    monkeypatch.setattr(
+        open_app.subprocess,
+        "Popen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError(secret)),
+    )
+
+    result = open_app("example")
+
+    assert secret not in result
+    assert result == "'example' açılamadı."
