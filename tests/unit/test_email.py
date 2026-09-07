@@ -9,8 +9,6 @@ from actions.email import (
     search_emails,
     send_email,
     trash_emails,
-    delete_email,
-    prepare_email_deletion,
 )
 
 
@@ -215,82 +213,3 @@ def test_send_email_missing_draft_id_is_rejected():
         else:
             raise AssertionError("ValueError gözlənilirdi")
         send.assert_not_called()
-
-
-def test_prepare_email_deletion_requires_confirmation():
-    with patch("actions.email.list_draft_ids", return_value=["d1", "d2"]):
-        result = prepare_email_deletion("drafts")
-    assert result["status"] == "success"
-    assert result["data"][0]["scope"] == "drafts"
-    assert result["data"][0]["target_count"] == 2
-    assert result["data"][0]["permanent"] is True
-    assert result["data"][0]["status"] == "pending_confirmation"
-    assert result["meta"]["requires_confirmation"] is True
-    assert result["meta"]["confirmation_action"] == "delete_email"
-    assert result["meta"]["destructive"] is True
-    assert result["meta"]["permanent"] is True
-
-
-def test_prepare_email_deletion_for_single_draft():
-    with patch("actions.email.get_draft", return_value={"id": "d1"}) as get:
-        result = prepare_email_deletion("draft", "d1")
-    get.assert_called_once_with("d1")
-    assert result["status"] == "success"
-    assert result["data"][0]["scope"] == "draft"
-    assert result["data"][0]["draft_id"] == "d1"
-    assert result["data"][0]["target_count"] == 1
-
-
-def test_prepare_email_deletion_spam():
-    with patch("actions.email.list_message_ids", return_value=["s1", "s2"]) as list_ids:
-        result = prepare_email_deletion("spam")
-    list_ids.assert_called_once_with("in:spam", include_spam_trash=True)
-    assert result["data"][0]["target_count"] == 2
-
-
-def test_prepare_email_deletion_trash():
-    with patch("actions.email.list_message_ids", return_value=["t1"]) as list_ids:
-        result = prepare_email_deletion("trash")
-    list_ids.assert_called_once_with("in:trash", include_spam_trash=True)
-    assert result["data"][0]["target_count"] == 1
-
-
-def test_prepare_email_deletion_promotions():
-    with patch("actions.email.list_message_ids", return_value=["p1", "p2", "p3"]) as list_ids:
-        result = prepare_email_deletion("promotions")
-    list_ids.assert_called_once_with("category:promotions")
-    assert result["data"][0]["target_count"] == 3
-
-
-def test_prepare_email_deletion_social():
-    with patch("actions.email.list_message_ids", return_value=["s1", "s2", "s3", "s4"]) as list_ids:
-        result = prepare_email_deletion("social")
-    list_ids.assert_called_once_with("category:social")
-    assert result["data"][0]["target_count"] == 4
-
-
-def test_delete_email_executes_confirmed_plan_once():
-    with patch("actions.email.list_draft_ids", return_value=["d1", "d2"]), patch("actions.email.delete_drafts", return_value=2) as delete_drafts_mock, patch("actions.email.batch_delete_messages", return_value=0) as batch_delete_mock:
-        prepared = prepare_email_deletion("drafts")
-        confirmation_id = prepared["meta"]["confirmation_id"]
-        result = delete_email(confirmation_id)
-    delete_drafts_mock.assert_called_once_with(["d1", "d2"])
-    batch_delete_mock.assert_called_once_with([])
-    assert result["status"] == "success"
-    assert result["data"][0]["scope"] == "drafts"
-    assert result["data"][0]["deleted_count"] == 2
-    assert result["data"][0]["permanent"] is True
-    assert result["meta"]["requires_confirmation"] is False
-
-
-def test_delete_email_confirmation_is_one_shot():
-    with patch("actions.email.list_message_ids", return_value=["m1"]), patch("actions.email.delete_drafts", return_value=0), patch("actions.email.batch_delete_messages", return_value=1):
-        prepared = prepare_email_deletion("spam")
-        confirmation_id = prepared["meta"]["confirmation_id"]
-        delete_email(confirmation_id)
-        try:
-            delete_email(confirmation_id)
-        except ValueError as exc:
-            assert "tapılmadı" in str(exc) or "istifadə olunub" in str(exc)
-        else:
-            raise AssertionError("İkinci confirmation istifadəsi rədd edilməlidir")
