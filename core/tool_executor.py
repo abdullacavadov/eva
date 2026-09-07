@@ -240,7 +240,7 @@ class ToolExecutor:
                 elif name == "send_email": result = await loop.run_in_executor(None, lambda: send_email(args.get("draft_id", ""), args.get("confirmation_id", ""))) or "Email göndərildi."
                 elif name == "sync_google_contacts": result = await loop.run_in_executor(None, sync_google_contacts) or "Google Contacts sinxronizasiyası tamamlandı."
                 elif name == "create_contact": result = await loop.run_in_executor(None, lambda: create_contact(args.get("display_name", ""), args.get("phone_number", ""))) or "Google kontaktı yaradıldı."
-                elif name == "update_contact": result = await loop.run_in_executor(None, lambda: update_contact(args.get("resource_name", ""), args.get("display_name", ""), args.get("phone_number", ""))) or "Google kontaktı silindi."
+                elif name == "update_contact": result = await loop.run_in_executor(None, lambda: update_contact(args.get("resource_name", ""), args.get("display_name", ""), args.get("phone_number", ""))) or "Google kontaktı yaradıldı."
                 elif name == "delete_contact": result = await loop.run_in_executor(None, lambda: delete_contact(args.get("resource_name", ""))) or "Google kontaktı silindi."
                 elif name == "browser_control": result = await loop.run_in_executor(None, lambda: browser_control(args.get("action"), args.get("url"), args.get("query"))) or "Tamam."
                 elif name == "shell_run": result = await loop.run_in_executor(None, lambda: shell_run(args.get("command", ""))) or "Əmr icra edildi."
