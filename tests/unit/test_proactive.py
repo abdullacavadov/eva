@@ -113,7 +113,7 @@ def test_policy_orders_eligible_events_by_priority():
         "calendar:near": {"key": "calendar:near", "source": "calendar", "item": {"title": "Meeting", "start": "2026-08-25T12:10:00+00:00"}},
     }
     selected = policy.choose(pending, {}, _now(12))
-    assert [item["key"] for item in selected] == ["calendar:near", "gmail:urgent", "gmail:normal"]
+    assert [item["key"] for item in selected] == ["calendar:near", "gmail:urgent"]
 
 
 def test_policy_priority_does_not_change_eligibility():
@@ -125,6 +125,16 @@ def test_policy_priority_does_not_change_eligibility():
     }
     selected = policy.choose(pending, {}, _now(12))
     assert [item["key"] for item in selected] == ["tasks:due", "gmail:urgent"]
+
+
+def test_policy_suppresses_gmail_newsletter_noise():
+    policy = NotificationPolicy(quiet_start="00:00", quiet_end="00:01")
+    pending = {
+        "gmail:newsletter": {"key": "gmail:newsletter", "source": "gmail", "item": {"subject": "Weekly newsletter"}},
+        "gmail:important": {"key": "gmail:important", "source": "gmail", "item": {"subject": "Client payment approval"}},
+    }
+    selected = policy.choose(pending, {}, _now(12))
+    assert [item["key"] for item in selected] == ["gmail:important"]
 
 
 def test_scheduler_poll_once_forwards_notifications():
