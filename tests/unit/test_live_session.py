@@ -90,3 +90,57 @@ def test_context_token_estimate_is_four_characters_per_token():
     assert _estimate_tokens("1234") == 1
     assert _estimate_tokens("12345678") == 2
     assert _estimate_tokens("123") == 1
+
+
+def test_session_config_includes_stored_resume_handle():
+    manager = LiveSessionManager("test-model", "test-key")
+    manager.resume_handle = "resume-123"
+    session = _ResilientLiveSession(manager, config={})
+
+    config = session._session_config
+
+    assert config["session_resumption"].handle == "resume-123"
+
+
+def test_resume_handle_update_persists_in_manager():
+    manager = LiveSessionManager("test-model", "test-key")
+
+    class Update:
+        resumable = True
+        new_handle = "resume-123"
+
+    class Message:
+        session_resumption_update = Update()
+
+    current = _ResilientLiveSession._update_resume_handle(manager, None, Message())
+
+    assert current == "resume-123"
+    assert manager.resume_handle == "resume-123"
+
+
+def test_force_fresh_reconnect_clears_resume_handle(monkeypatch):
+    manager = LiveSessionManager("test-model", "test-key")
+    manager.resume_handle = "resume-123"
+    session = _ResilientLiveSession(manager, config={})
+    session._resume_handle = "resume-123"
+
+    async def fake_sleep(_delay):
+        return None
+
+    async def fake_close_current():
+        return None
+
+    async def fake_connect(*, clear_handle_on_failure=False):
+        session._closed = True
+
+    monkeypatch.setattr("core.live_session.asyncio.sleep", fake_sleep)
+    monkeypatch.setattr(session, "_close_current", fake_close_current)
+    monkeypatch.setattr(session, "_connect", fake_connect)
+
+    async def run():
+        await session._reconnect_impl(force_fresh=True)
+
+    asyncio.run(run())
+
+    assert session._resume_handle is None
+    assert manager.resume_handle is None
