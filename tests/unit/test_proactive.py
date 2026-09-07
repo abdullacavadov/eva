@@ -11,12 +11,14 @@ def _now(hour: int = 12) -> datetime:
 
 def test_quiet_hours_suppress_notifications():
     policy = NotificationPolicy(quiet_start="23:00", quiet_end="07:00")
-    pending = {"gmail:1": {"key": "gmail:1", "source": "gmail", "item": {"subject": "Test"}}}
+    pending = {"gmail:1": {"key": "gmail:1",
+                           "source": "gmail", "item": {"subject": "Test"}}}
     assert policy.choose(pending, {}, _now(2)) == []
 
 
 def test_rate_limit_caps_notifications_per_hour():
-    policy = NotificationPolicy(rate_limit=2, quiet_start="00:00", quiet_end="00:01")
+    policy = NotificationPolicy(
+        rate_limit=2, quiet_start="00:00", quiet_end="00:01")
     pending = {
         f"gmail:{index}": {"key": f"gmail:{index}", "source": "gmail", "item": {"subject": str(index)}}
         for index in range(5)
@@ -46,16 +48,21 @@ def test_task_policy_requires_due_within_24_hours():
 
 
 def test_engine_first_poll_only_creates_baseline(tmp_path, monkeypatch):
-    engine = ProactiveEngine(tmp_path / "state.json", NotificationPolicy(quiet_start="00:00", quiet_end="00:01"))
-    monkeypatch.setattr(engine, "_collect", lambda: {"gmail": [{"id": "1", "subject": "Existing"}], "whatsapp": [], "calendar": [], "tasks": [], "memory": {"notes": []}})
+    engine = ProactiveEngine(
+        tmp_path / "state.json", NotificationPolicy(quiet_start="00:00", quiet_end="00:01"))
+    monkeypatch.setattr(engine, "_collect", lambda: {"gmail": [{"id": "1", "subject": "Existing"}], "whatsapp": [
+    ], "calendar": [], "tasks": [], "memory": {"notes": []}})
     assert engine.poll(_now(12)) == []
     assert (tmp_path / "state.json").exists()
 
 
 def test_engine_detects_new_gmail_after_baseline(tmp_path, monkeypatch):
-    engine = ProactiveEngine(tmp_path / "state.json", NotificationPolicy(quiet_start="00:00", quiet_end="00:01"))
-    values = [[{"id": "1", "subject": "Existing"}], [{"id": "1", "subject": "Existing"}, {"id": "2", "subject": "New"}]]
-    monkeypatch.setattr(engine, "_collect", lambda: {"gmail": values.pop(0), "whatsapp": [], "calendar": [], "tasks": [], "memory": {}})
+    engine = ProactiveEngine(
+        tmp_path / "state.json", NotificationPolicy(quiet_start="00:00", quiet_end="00:01"))
+    values = [[{"id": "1", "subject": "Existing"}], [
+        {"id": "1", "subject": "Existing"}, {"id": "2", "subject": "New"}]]
+    monkeypatch.setattr(engine, "_collect", lambda: {"gmail": values.pop(
+        0), "whatsapp": [], "calendar": [], "tasks": [], "memory": {}})
     assert engine.poll(_now(12)) == []
     events = engine.poll(_now(12))
     assert len(events) == 1
@@ -64,26 +71,30 @@ def test_engine_detects_new_gmail_after_baseline(tmp_path, monkeypatch):
 
 
 def test_engine_does_not_repeat_same_notification(tmp_path, monkeypatch):
-    engine = ProactiveEngine(tmp_path / "state.json", NotificationPolicy(quiet_start="00:00", quiet_end="00:01"))
+    engine = ProactiveEngine(
+        tmp_path / "state.json", NotificationPolicy(quiet_start="00:00", quiet_end="00:01"))
     values = [
         [{"id": "1", "subject": "Existing"}],
         [{"id": "1", "subject": "Existing"}, {"id": "2", "subject": "New"}],
         [{"id": "1", "subject": "Existing"}, {"id": "2", "subject": "New"}],
     ]
-    monkeypatch.setattr(engine, "_collect", lambda: {"gmail": values.pop(0), "whatsapp": [], "calendar": [], "tasks": [], "memory": {}})
+    monkeypatch.setattr(engine, "_collect", lambda: {"gmail": values.pop(
+        0), "whatsapp": [], "calendar": [], "tasks": [], "memory": {}})
     engine.poll(_now(12))
     assert len(engine.poll(_now(12))) == 1
     assert engine.poll(_now(12)) == []
 
 
 def test_engine_keeps_quiet_hour_event_pending(tmp_path, monkeypatch):
-    engine = ProactiveEngine(tmp_path / "state.json", NotificationPolicy(quiet_start="23:00", quiet_end="07:00"))
+    engine = ProactiveEngine(
+        tmp_path / "state.json", NotificationPolicy(quiet_start="23:00", quiet_end="07:00"))
     values = [
         [{"id": "1", "subject": "Existing"}],
         [{"id": "1", "subject": "Existing"}, {"id": "2", "subject": "Night"}],
         [{"id": "1", "subject": "Existing"}, {"id": "2", "subject": "Night"}],
     ]
-    monkeypatch.setattr(engine, "_collect", lambda: {"gmail": values.pop(0), "whatsapp": [], "calendar": [], "tasks": [], "memory": {}})
+    monkeypatch.setattr(engine, "_collect", lambda: {"gmail": values.pop(
+        0), "whatsapp": [], "calendar": [], "tasks": [], "memory": {}})
     engine.poll(_now(12))
     assert engine.poll(_now(2)) == []
     events = engine.poll(_now(8))
@@ -91,13 +102,15 @@ def test_engine_keeps_quiet_hour_event_pending(tmp_path, monkeypatch):
 
 
 def test_whatsapp_read_state_does_not_trigger_notification(tmp_path, monkeypatch):
-    engine = ProactiveEngine(tmp_path / "state.json", NotificationPolicy(quiet_start="00:00", quiet_end="00:01"))
+    engine = ProactiveEngine(
+        tmp_path / "state.json", NotificationPolicy(quiet_start="00:00", quiet_end="00:01"))
     values = [
         [{"conversation_id": "c1", "title": "Ali", "unread_count": 2}],
         [{"conversation_id": "c1", "title": "Ali", "unread_count": 0}],
         [{"conversation_id": "c1", "title": "Ali", "unread_count": 1}],
     ]
-    monkeypatch.setattr(engine, "_collect", lambda: {"gmail": [], "whatsapp": values.pop(0), "calendar": [], "tasks": [], "memory": {}})
+    monkeypatch.setattr(engine, "_collect", lambda: {
+                        "gmail": [], "whatsapp": values.pop(0), "calendar": [], "tasks": [], "memory": {}})
     assert engine.poll(_now(12)) == []
     assert engine.poll(_now(12)) == []
     events = engine.poll(_now(12))
@@ -113,11 +126,13 @@ def test_policy_orders_eligible_events_by_priority():
         "calendar:near": {"key": "calendar:near", "source": "calendar", "item": {"title": "Meeting", "start": "2026-08-25T12:10:00+00:00"}},
     }
     selected = policy.choose(pending, {}, _now(12))
-    assert [item["key"] for item in selected] == ["calendar:near", "gmail:urgent"]
+    assert [item["key"] for item in selected] == [
+        "calendar:near", "gmail:urgent"]
 
 
 def test_policy_priority_does_not_change_eligibility():
-    policy = NotificationPolicy(rate_limit=2, quiet_start="00:00", quiet_end="00:01")
+    policy = NotificationPolicy(
+        rate_limit=2, quiet_start="00:00", quiet_end="00:01")
     pending = {
         "gmail:urgent": {"key": "gmail:urgent", "source": "gmail", "item": {"subject": "URGENT"}},
         "calendar:far": {"key": "calendar:far", "source": "calendar", "item": {"title": "Later", "start": "2026-08-27T12:00:00+00:00"}},
@@ -164,19 +179,19 @@ def test_scheduler_does_not_ack_failed_notification():
                 }
             ]
 
-        def acknowledge_notification(self, event):
-            self.acked.append(event)
+        def acknowledge_notification(self, key):
+            self.acked.append(key)
 
     engine = FakeEngine()
 
     scheduler = ProactiveScheduler(
-        engine=engine,
-        on_notification=lambda event: False,
+        engine,
+        lambda event: False,
     )
 
     events = scheduler.poll_once()
 
-    assert len(events) == 1
+    assert events == []
     assert engine.acked == []
 
 
@@ -194,21 +209,21 @@ def test_scheduler_acks_successful_notification():
                 }
             ]
 
-        def acknowledge_notification(self, event):
-            self.acked.append(event)
+        def acknowledge_notification(self, key):
+            self.acked.append(key)
+            return True
 
     engine = FakeEngine()
 
     scheduler = ProactiveScheduler(
-        engine=engine,
-        on_notification=lambda event: True,
+        engine,
+        lambda event: True,
     )
 
     events = scheduler.poll_once()
 
     assert len(events) == 1
-    assert len(engine.acked) == 1
-    assert engine.acked[0]["key"] == "gmail:success"
+    assert engine.acked == ["gmail:success"]
 
 
 def test_scheduler_does_not_ack_when_callback_raises():
@@ -225,8 +240,8 @@ def test_scheduler_does_not_ack_when_callback_raises():
                 }
             ]
 
-        def acknowledge_notification(self, event):
-            self.acked.append(event)
+        def acknowledge_notification(self, key):
+            self.acked.append(key)
 
     engine = FakeEngine()
 
@@ -234,31 +249,38 @@ def test_scheduler_does_not_ack_when_callback_raises():
         raise RuntimeError("delivery failed")
 
     scheduler = ProactiveScheduler(
-        engine=engine,
-        on_notification=failing_callback,
+        engine,
+        failing_callback,
     )
 
     events = scheduler.poll_once()
 
-    assert len(events) == 1
+    assert events == []
     assert engine.acked == []
 
 
 def test_failed_notification_can_be_retried_after_retry_window():
-    from datetime import datetime, timedelta, timezone
+    from datetime import timedelta
+
+    now = _now(12)
 
     event = {
         "key": "gmail:retry",
         "source": "gmail",
-        "title": "Retry me",
-        "_offered_at": (
-            datetime.now(timezone.utc) - timedelta(minutes=2)
-        ).isoformat(),
+        "item": {"subject": "Retry me"},
+        "_offered_at": (now - timedelta(minutes=2)).isoformat(),
     }
 
-    policy = NotificationPolicy()
+    policy = NotificationPolicy(
+        quiet_start="00:00",
+        quiet_end="00:01",
+    )
 
-    selected = policy.choose([event])
+    pending = {
+        "gmail:retry": event,
+    }
+
+    selected = policy.choose(pending, {}, now)
 
     assert len(selected) == 1
     assert selected[0]["key"] == "gmail:retry"
@@ -297,8 +319,13 @@ def test_correlated_notification_acknowledges_all_children(tmp_path):
 
     engine._save(state)
 
-    engine.acknowledge_notification(event)
+    assert engine.acknowledge_notification("calendar:primary") is True
 
     state = engine._load()
 
     assert state["pending"] == {}
+    assert set(state["history"]) == {
+        "calendar:primary",
+        "tasks:child",
+        "gmail:child",
+    }
