@@ -5,13 +5,20 @@ Medya oynatma və yaradılması — Windows üçün YouTube, Spotify və EVA med
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import urllib.parse
 import webbrowser
 
 from actions.browser import browser_control
-from actions.media_creation import create_media_slideshow, generate_media_image
+from actions.media_creation import (
+    MEDIA_ROOT,
+    create_media_slideshow,
+    generate_media_image,
+    list_media_files,
+    resolve_media_video,
+)
 
 try:
     import pyperclip
@@ -65,12 +72,7 @@ def _create_image(query: str) -> str:
 
 
 def _create_slideshow(query: str) -> str:
-    """JSON payload ilə media slideshow yaradır.
-
-    Payload:
-    {"images":["a.png","b.jpg"],"filename":"video.mp4",
-     "seconds_per_image":3,"title_text":"","music_path":"","music_volume":0.22}
-    """
+    """JSON payload ilə media slideshow yaradır."""
     try:
         payload = json.loads(query)
     except json.JSONDecodeError as exc:
@@ -80,7 +82,7 @@ def _create_slideshow(query: str) -> str:
     images = payload.get("images")
     if not isinstance(images, list) or not images:
         raise ValueError("Slideshow üçün ən azı bir şəkil tələb olunur.")
-    return create_media_slideshow(
+    output = create_media_slideshow(
         [str(item) for item in images],
         str(payload.get("filename", "slideshow.mp4")),
         seconds_per_image=float(payload.get("seconds_per_image", 3.0)),
@@ -88,6 +90,28 @@ def _create_slideshow(query: str) -> str:
         music_path=str(payload.get("music_path", "")),
         music_volume=float(payload.get("music_volume", 0.22)),
     )
+    _open_media_folder()
+    return output
+
+
+def _open_media_folder() -> str:
+    """Windows Explorer-də EVA media qovluğunu açır."""
+    if os.name != "nt":
+        raise RuntimeError("Media qovluğunu avtomatik açmaq yalnız Windows-da dəstəklənir.")
+    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    os.startfile(str(MEDIA_ROOT))
+    return str(MEDIA_ROOT)
+
+
+def _open_video(query: str) -> str:
+    """Media qovluğundakı videonu standart Windows media player ilə açır."""
+    if os.name != "nt":
+        raise RuntimeError("Video faylını avtomatik açmaq yalnız Windows-da dəstəklənir.")
+    video = resolve_media_video(query.strip())
+    if not video.is_file():
+        raise FileNotFoundError(f"Video tapılmadı: {video}")
+    os.startfile(str(video))
+    return f"Video açıldı: {video}"
 
 
 def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str:
@@ -100,6 +124,13 @@ def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str
         return f"Şəkil hazırlandı: {_create_image(query)}"
     if normalized_provider in {"slideshow", "video", "create_video"}:
         return f"Video hazırlandı: {_create_slideshow(query)}"
+    if normalized_provider in {"open_video", "video_open", "play_local_video", "local_video"}:
+        return _open_video(query)
+    if normalized_provider in {"list", "list_media", "media_list", "files"}:
+        files = list_media_files()
+        return "Media faylları: " + (", ".join(files) if files else "media qovluğu boşdur.")
+    if normalized_provider in {"open_folder", "media_folder", "folder"}:
+        return f"Media qovluğu açıldı: {_open_media_folder()}"
 
     if normalized_provider in {"yt", "youtube music"}:
         normalized_provider = "youtube"
@@ -117,7 +148,7 @@ def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str
     return _play_youtube(query)
 
 
-# Media action artıq yaradılmanı dəstəklədiyi üçün Gemini-yə bunu açıq şəkildə bildiririk.
+# Media action artıq yaradılmanı və lokal media idarəsini dəstəkləyir.
 # ToolExecutor dəyişdirilmir: mövcud play_media dispatch müqaviləsi qorunur.
 def _register_media_tool_capabilities() -> None:
     try:
@@ -130,16 +161,25 @@ def _register_media_tool_capabilities() -> None:
             continue
         declaration["description"] = (
             "Media əməliyyatlarını yerinə yetirir: YouTube/Spotify-da məzmun açır, "
-            "Gemini ilə şəkil yaradır və mövcud şəkillərdən FFmpeg slideshow videosu hazırlayır. "
+            "Gemini ilə şəkil yaradır, mövcud media fayllarını siyahılayır, "
+            "şəkillərdən FFmpeg slideshow videosu hazırlayır və lokal videonu açır. "
             "Mahnı/video çalmaq üçün provider=auto|youtube|spotify. "
-            "Yeni şəkil yaratmaq üçün provider=image və query-də təbii dildə image prompt ver. "
-            "Slideshow yaratmaq üçün provider=slideshow və query-də JSON payload ver: "
+            "Yeni şəkil yaratmaq üçün provider=image və query-də image prompt ver. "
+            "Slideshow üçün provider=slideshow və JSON payload ver: "
             "{images:[...],filename,seconds_per_image,title_text,music_path,music_volume}. "
+            "Slideshow yaratmazdan əvvəl şəkillərin adlarını bilmirsənsə provider=list_media çağır "
+            "və qaytarılan fayl siyahısından uyğun şəkilləri seç. "
+            "Slideshow uğurla bitəndə media qovluğu avtomatik açılır. "
+            "İstifadəçi 'videonu aç', 'göstər', 'baxım' kimi lokal videoya baxmaq istədiyini deyirsə "
+            "provider=open_video istifadə et və query-də video adını ver; uzantı yoxdursa özü tapacaq. "
+            "Media qovluğunu ayrıca açmaq üçün provider=open_folder istifadə et. "
             "İstifadəçi media yaratmağı istədikdə playback provider seçmə."
         )
         declaration["parameters"]["properties"]["provider"]["description"] = (
-            "auto | youtube | spotify | image | slideshow. "
-            "image şəkil generasiyası, slideshow şəkillərdən video yaradılması üçündür."
+            "auto | youtube | spotify | image | slideshow | list_media | open_video | open_folder. "
+            "image şəkil generasiyası, slideshow şəkillərdən video yaradılması, "
+            "list_media media fayllarının siyahısı, open_video lokal videonun açılması, "
+            "open_folder media qovluğunun açılması üçündür."
         )
         return
 
