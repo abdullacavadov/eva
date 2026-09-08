@@ -8,8 +8,10 @@ import json
 import os
 import shutil
 import subprocess
+import time
 import urllib.parse
 import webbrowser
+from pathlib import Path
 
 from actions.browser import browser_control
 from actions.media_creation import (
@@ -19,13 +21,15 @@ from actions.media_creation import (
     list_media_files,
     resolve_media_video,
 )
-from core.media_producer import set_job_notifier, start_media_production
+from core.media_producer import get_media_job, set_job_notifier, start_media_production
 
 try:
     import pyperclip
     HAS_PYPERCLIP = True
 except ImportError:
     HAS_PYPERCLIP = False
+
+_MEDIA_JOBS: dict[str, dict] = {}
 
 
 def _copy_to_clipboard(text: str) -> tuple[bool, str]:
@@ -162,10 +166,87 @@ def _speak_background_notification(text: str) -> None:
         pass
 
 
+def _remember_media_job(job_id: str, query: str) -> None:
+    _MEDIA_JOBS[job_id] = {"brief": query, "started_at": time.time()}
+
+
+def _production_stage(job_id: str) -> tuple[str, int]:
+    """Mövcud artefaktlardan istifadə edib canlı prodakşn mərhələsini göstərir.
+
+    Pipeline-ın daxili thread-i dəyişdirilmədən status müşahidə olunur; buna görə
+    status göstəricisi heç vaxt saxta dəqiq progress iddiası etmir.
+    """
+    job = _MEDIA_JOBS.get(job_id, {})
+    started_at = float(job.get("started_at", 0.0) or 0.0)
+    status = get_media_job(job_id)
+    if status == "completed":
+        return "Tamamlandı", 100
+    if status == "failed":
+        return "Xəta baş verdi", 0
+
+    recent = []
+    try:
+        recent = [
+            path for path in MEDIA_ROOT.rglob("*")
+            if path.is_file() and (not started_at or path.stat().st_mtime >= started_at)
+        ]
+    except OSError:
+        pass
+
+    generated_images = [p for p in recent if p.name.startswith("generated_") and p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}]
+    narration = [p for p in recent if p.name.endswith("_narration.wav")]
+    music = [p for p in recent if p.name.endswith("_music.mp3")]
+    videos = [p for p in recent if p.suffix.lower() == ".mp4"]
+
+    if videos:
+        return "Final video renderi tamamlanır", 95
+    if narration:
+        if music:
+            return "FFmpeg final renderi hazırlanır", 85
+        return "Musiqi hazırlanır və ya seçilir", 75
+    if generated_images:
+        return f"Gemini vizualları yaradır — {len(generated_images)} şəkil hazırdır", 50
+    return "Mövzu analiz edilir və vizuallar seçilir", 20
+
+
+def _media_production_status(query: str = "") -> str:
+    """Aktiv və ya son video prodakşn işinin canlı statusunu qaytarır."""
+    job_id = query.strip()
+    if not job_id:
+        if not _MEDIA_JOBS:
+            return "Hazırda izlənən video prodakşn işi yoxdur."
+        job_id = next(reversed(_MEDIA_JOBS))
+    if job_id not in _MEDIA_JOBS:
+        return f"Bu video prodakşn işi tapılmadı: {job_id}"
+
+    stage, progress = _production_stage(job_id)
+    job = _MEDIA_JOBS[job_id]
+    elapsed = max(0, int(time.time() - float(job.get("started_at", time.time()))))
+    minutes, seconds = divmod(elapsed, 60)
+    elapsed_text = f"{minutes} dəq {seconds} san" if minutes else f"{seconds} san"
+    status = get_media_job(job_id)
+    brief = str(job.get("brief", "")).strip()
+    bar_units = 20
+    filled = min(bar_units, round(progress / 100 * bar_units))
+    bar = "█" * filled + "░" * (bar_units - filled)
+    return (
+        f"🎬 VİDEO PRODÜKSİYASI\n"
+        f"{bar} {progress}%\n"
+        f"İş: {job_id}\n"
+        f"Sorğu: {brief}\n"
+        f"Mərhələ: {stage}\n"
+        f"Status: {status}\n"
+        f"Keçən vaxt: {elapsed_text}"
+    )
+
+
 def _media_job_ui_event(event: dict) -> None:
     """Arxa plan media işinin statusunu və tamamlanmasını bildirir."""
     status = str(event.get("status", "")).lower()
     if status == "started":
+        job_id = str(event.get("job_id", "")).strip()
+        if job_id:
+            _remember_media_job(job_id, str(event.get("brief", "")))
         _speak_background_notification("Video generasiyasına başladım. Hazır olanda xəbər verəcəyəm.")
         return
     if status == "completed":
@@ -194,12 +275,16 @@ def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str
 
     if normalized_provider in {"production", "media_production", "create_production_video", "video_production"}:
         job_id = start_media_production(query)
+        _remember_media_job(job_id, query)
         return f"Video prodakşn işi başladıldı: {job_id}. Arxa planda davam edir; E.V.A digər əmrləri qəbul edə bilər."
 
     if normalized_provider == "auto" and _looks_like_video_creation_request(query):
         job_id = start_media_production(query)
+        _remember_media_job(job_id, query)
         return f"Video prodakşn işi başladıldı: {job_id}. Arxa planda davam edir; E.V.A digər əmrləri qəbul edə bilər."
 
+    if normalized_provider in {"production_status", "media_status", "video_status", "status"}:
+        return _media_production_status(query)
     if normalized_provider in {"image", "generate_image", "image_generation"}:
         return f"Şəkil hazırlandı: {_create_image(query)}"
     if normalized_provider in {"slideshow", "video", "create_video"}:
@@ -248,6 +333,9 @@ def _register_media_tool_capabilities() -> None:
             "lokal şəkilləri fayl adına görə kor-koranə seçmir: Gemini kontakt vərəqini vizual olaraq analiz edir, "
             "uyğun aktivləri seçir və çatışmayan səhnələr üçün Gemini şəkil yaradır. "
             "Ssenari, narrasiya, keçidlər, ekrandakı mətn, musiqi və FFmpeg renderi avtomatik planlanır. "
+            "İstifadəçi 'video nə yerdədir?', 'proses necə gedir?' və ya 'video prosesini göstər' deyirsə provider=production_status istifadə et; "
+            "query boşdursa son başladılan video işinin canlı statusunu qaytar. Konkret job ID verilərsə həmin işi göstər. "
+            "Status dəqiq olmayan faiz uydurmur; mərhələ və müşahidə olunan artefaktlara əsaslanan təxmini progress göstərir. "
             "İstifadəçi sadə slideshow istəyirsə provider=slideshow və JSON payload istifadə et. "
             "İstifadəçi 'videonu aç', 'göstər', 'baxım' deyirsə provider=open_video istifadə et; "
             "query konkret ad vermirsə ən son yaradılmış MP4 açılır. "
@@ -255,8 +343,9 @@ def _register_media_tool_capabilities() -> None:
             "Media qovluğunu ayrıca açmaq üçün provider=open_folder istifadə et."
         )
         declaration["parameters"]["properties"]["provider"]["description"] = (
-            "auto | youtube | spotify | image | production | slideshow | list_media | open_video | "
-            "close_media_player | open_folder. production peşəkar, avtonom YouTube video hazırlamaq üçündür və arxa planda işləyir."
+            "auto | youtube | spotify | image | production | production_status | slideshow | list_media | open_video | "
+            "close_media_player | open_folder. production peşəkar, avtonom YouTube video hazırlamaq üçündür və arxa planda işləyir; "
+            "production_status canlı mərhələ/progress məlumatını göstərir."
         )
         return
 
