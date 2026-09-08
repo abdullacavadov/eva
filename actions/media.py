@@ -212,6 +212,16 @@ def _production_stage(job_id: str) -> tuple[str, int]:
 def _media_production_status(query: str = "") -> str:
     """Aktiv və ya son video prodakşn işinin canlı statusunu qaytarır."""
     job_id = query.strip()
+    current_project_aliases = {
+        "current_video_project",
+        "current_video",
+        "current_media_project",
+        "current_media",
+        "latest_video",
+        "latest_media",
+    }
+    if job_id.casefold() in current_project_aliases:
+        job_id = ""
     if not job_id:
         if not _MEDIA_JOBS:
             return "Hazırda izlənən video prodakşn işi yoxdur."
