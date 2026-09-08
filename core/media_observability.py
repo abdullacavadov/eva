@@ -49,6 +49,19 @@ def install(bridge) -> None:
                 "progress": 2,
                 "message": "Video prodakşn işi qəbul edildi.",
             })
+        elif status == "running" and job_id and event.get("stage"):
+            bridge.emit("media.production", data={
+                "job_id": job_id,
+                "status": "running",
+                "stage": str(event.get("stage", "")),
+                "progress": int(event.get("progress", 0) or 0),
+                "message": str(event.get("message", "")).strip(),
+                **{
+                    key: value
+                    for key, value in event.items()
+                    if key not in {"status", "job_id", "stage", "progress", "message"}
+                },
+            })
         elif status == "completed" and job_id:
             bridge.emit("media.production", data={
                 "job_id": job_id,
