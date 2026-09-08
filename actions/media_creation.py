@@ -63,7 +63,7 @@ def _resolve_media_video(path: str | Path) -> Path:
         return candidate
     if len(matches) > 1:
         names = ", ".join(item.name for item in matches)
-        raise ValueError(f"Video adı üçün birdən çox uyğun fayl tapıldı: {names}")
+        raise ValueError(f"birdən çox uyğun video faylı tapıldı: {names}")
     return matches[0]
 
 
