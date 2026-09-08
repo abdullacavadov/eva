@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,23 @@ def _emit(stage: str, *, progress: int, message: str, **payload: Any) -> None:
         "message": message,
         **payload,
     })
+
+
+def _is_retryable_planner_error(exc: Exception) -> bool:
+    """Gemini-nin müvəqqəti overload/rate-limit xətalarını müəyyən edir."""
+    text = str(exc).upper()
+    return any(marker in text for marker in ("503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED"))
+
+
+def _plan_with_retry(plan_fn, brief, contact_sheet, asset_labels, audio_labels):
+    """Planner üçün yalnız transient Gemini xətalarında qısa retry edir."""
+    for attempt in range(3):
+        try:
+            return plan_fn(brief, contact_sheet, asset_labels, audio_labels)
+        except Exception as exc:
+            if attempt == 2 or not _is_retryable_planner_error(exc):
+                raise
+            time.sleep(2 ** attempt)
 
 
 def install(bridge) -> None:
@@ -91,7 +109,7 @@ def install(bridge) -> None:
     def plan(brief: str, contact_sheet, asset_labels, audio_labels):
         _emit("transcribing", progress=8, message="Mövzu üzrə transkripsiya və narrasiya hazırlanır.")
         _emit("planning_scenes", progress=16, message="Səhnə quruluşu və vizual tələblər müəyyənləşdirilir.")
-        result = original_plan(brief, contact_sheet, asset_labels, audio_labels)
+        result = _plan_with_retry(original_plan, brief, contact_sheet, asset_labels, audio_labels)
         scenes = result.get("scenes", []) if isinstance(result, dict) else []
         transcript = str(result.get("narration", "")) if isinstance(result, dict) else ""
         _emit("transcript_ready", progress=24, message="Transkripsiya hazırdır.", transcript=transcript)
