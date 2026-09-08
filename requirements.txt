@@ -16,6 +16,7 @@ websockets>=15,<18                        # React UI üçün lokal WebSocket bri
 pycaw                                     # Windows master səs səviyyəsi
 comtypes                                  # Windows Core Audio COM interfeysi
 screen-brightness-control                 # Windows ekran parlaqlığı
+fal-client                                # LTX-2.3 AI video provider
 
 google-api-python-client                  # Google Calendar API
 google-auth-httplib2                      # Google API auth transport

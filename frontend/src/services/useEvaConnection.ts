@@ -51,6 +51,9 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
           if (event.type === 'runtime.snapshot' && event.control) {
             window.dispatchEvent(new CustomEvent('eva:control-state', { detail: event.control }))
           }
+          if (event.type === 'media.production') {
+            window.dispatchEvent(new CustomEvent('eva:media-production', { detail: event.data }))
+          }
           onEventRef.current(event)
         } catch {
           // Gözlənilməz WebSocket mesajı UI state-i pozmamalıdır.
