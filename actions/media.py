@@ -114,34 +114,38 @@ def _open_video(query: str) -> str:
     return f"Video açıldı: {video}"
 
 
-def _media_job_ui_event(event: dict) -> None:
-    """Arxa plan media işini mövcud EVA UI-a təhlükəsiz şəkildə çatdırır."""
+def _speak_background_notification(text: str) -> None:
+    """Windows SAPI ilə qısa EVA bildirişi səsləndirir; əsas Live sessiyanı bloklamır."""
+    if os.name != "nt":
+        return
+    safe = str(text or "").replace("'", "''")
     try:
-        import tkinter as tk
-        root = getattr(tk, "_default_root", None)
-        if root is None:
-            return
-        status = str(event.get("status", "")).lower()
-
-        def apply_event():
-            ui = getattr(root, "_jarvis_ui", None)
-            if ui is None:
-                return
-            if status == "started":
-                ui.set_state("Video Generasiya olunur")
-                ui.write_log("SYS: Video Generasiya olunur. Bu vaxt E.V.A digər əmrləri qəbul edir.")
-            elif status == "completed":
-                path = str(event.get("path", ""))
-                ui.set_state("LISTENING")
-                ui.write_log(f"SYS: Video hazırdır — {path}")
-                _open_media_folder()
-            elif status == "failed":
-                ui.set_state("ERROR")
-                ui.write_log(f"ERR: Video generasiyası uğursuz oldu — {event.get('error', 'naməlum xəta')}")
-
-        root.after(0, apply_event)
+        subprocess.Popen(
+            [
+                "powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command",
+                "Add-Type -AssemblyName System.Speech; "
+                f"$s=New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Speak('{safe}');",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     except Exception:
         pass
+
+
+def _media_job_ui_event(event: dict) -> None:
+    """Arxa plan media işinin statusunu və tamamlanmasını bildirir."""
+    status = str(event.get("status", "")).lower()
+    if status == "started":
+        _speak_background_notification("Video generasiyasına başladım. Hazır olanda xəbər verəcəyəm.")
+        return
+    if status == "completed":
+        path = str(event.get("path", ""))
+        _open_media_folder()
+        _speak_background_notification("Video hazırdır. Media qovluğunu açdım.")
+        return
+    if status == "failed":
+        _speak_background_notification("Video hazırlamaq mümkün olmadı. Xətanı yoxlamaq lazımdır.")
 
 
 set_job_notifier(_media_job_ui_event)
