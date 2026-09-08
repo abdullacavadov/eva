@@ -103,15 +103,44 @@ def _open_media_folder() -> str:
     return str(MEDIA_ROOT)
 
 
+def _latest_media_video():
+    videos = sorted(
+        (item for item in MEDIA_ROOT.rglob("*.mp4") if item.is_file()),
+        key=lambda item: item.stat().st_mtime,
+        reverse=True,
+    )
+    return videos[0] if videos else None
+
+
 def _open_video(query: str) -> str:
-    """Media qovluğundakı videonu standart Windows media player ilə açır."""
+    """Lokal videonu standart Windows media player ilə açır."""
     if os.name != "nt":
         raise RuntimeError("Video faylını avtomatik açmaq yalnız Windows-da dəstəklənir.")
-    video = resolve_media_video(query.strip())
-    if not video.is_file():
-        raise FileNotFoundError(f"Video tapılmadı: {video}")
+    clean_query = query.strip()
+    generic = clean_query.casefold() in {"", "video", "videonu", "videonu göstər", "videonu goster", "göstər", "goster", "baxım", "baxim", "bax"}
+    video = _latest_media_video() if generic else resolve_media_video(clean_query)
+    if video is None or not video.is_file():
+        raise FileNotFoundError("Media qovluğunda açılacaq video tapılmadı.")
     os.startfile(str(video))
     return f"Video açıldı: {video}"
+
+
+def _close_media_player() -> str:
+    """Yalnız Windows Media Player proseslərini bağlayır; ümumi shell/taskkill açmır."""
+    if os.name != "nt":
+        raise RuntimeError("Media Player-i avtomatik bağlama yalnız Windows-da dəstəklənir.")
+    result = subprocess.run(
+        [
+            "powershell", "-NoProfile", "-Command",
+            "Get-Process -Name wmplayer,MediaPlayer -ErrorAction SilentlyContinue | Stop-Process -Force",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode not in {0}:
+        raise RuntimeError("Media Player bağlana bilmədi.")
+    return "Media Player bağlandı."
 
 
 def _speak_background_notification(text: str) -> None:
@@ -140,7 +169,6 @@ def _media_job_ui_event(event: dict) -> None:
         _speak_background_notification("Video generasiyasına başladım. Hazır olanda xəbər verəcəyəm.")
         return
     if status == "completed":
-        path = str(event.get("path", ""))
         _open_media_folder()
         _speak_background_notification("Video hazırdır. Media qovluğunu açdım.")
         return
@@ -178,6 +206,8 @@ def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str
         return f"Video hazırlandı: {_create_slideshow(query)}"
     if normalized_provider in {"open_video", "video_open", "play_local_video", "local_video"}:
         return _open_video(query)
+    if normalized_provider in {"close_media_player", "close_player", "stop_media_player"}:
+        return _close_media_player()
     if normalized_provider in {"list", "list_media", "media_list", "files"}:
         files = list_media_files()
         return "Media faylları: " + (", ".join(files) if files else "media qovluğu boşdur.")
@@ -201,7 +231,6 @@ def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str
 
 
 # Media action yaradılmanı, lokal media idarəsini və avtonom video prodakşnını dəstəkləyir.
-# ToolExecutor dəyişdirilmir: mövcud play_media dispatch müqaviləsi qorunur.
 def _register_media_tool_capabilities() -> None:
     try:
         import tool_defs
@@ -220,12 +249,14 @@ def _register_media_tool_capabilities() -> None:
             "uyğun aktivləri seçir və çatışmayan səhnələr üçün Gemini şəkil yaradır. "
             "Ssenari, narrasiya, keçidlər, ekrandakı mətn, musiqi və FFmpeg renderi avtomatik planlanır. "
             "İstifadəçi sadə slideshow istəyirsə provider=slideshow və JSON payload istifadə et. "
-            "İstifadəçi 'videonu aç', 'göstər', 'baxım' deyirsə provider=open_video istifadə et. "
+            "İstifadəçi 'videonu aç', 'göstər', 'baxım' deyirsə provider=open_video istifadə et; "
+            "query konkret ad vermirsə ən son yaradılmış MP4 açılır. "
+            "İstifadəçi 'Media Player-ı bağla' deyirsə provider=close_media_player istifadə et. "
             "Media qovluğunu ayrıca açmaq üçün provider=open_folder istifadə et."
         )
         declaration["parameters"]["properties"]["provider"]["description"] = (
-            "auto | youtube | spotify | image | production | slideshow | list_media | open_video | open_folder. "
-            "production peşəkar, avtonom YouTube video hazırlamaq üçündür və arxa planda işləyir."
+            "auto | youtube | spotify | image | production | slideshow | list_media | open_video | "
+            "close_media_player | open_folder. production peşəkar, avtonom YouTube video hazırlamaq üçündür və arxa planda işləyir."
         )
         return
 
