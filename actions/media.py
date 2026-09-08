@@ -161,7 +161,7 @@ def _play_background_notification_sfx() -> None:
 
 
 def _remember_media_job(job_id: str, query: str) -> None:
-    _MEDIA_JOBS[job_id] = {"brief": query, "started_at": time.time()}
+    _MEDIA_JOBS[job_id] = {"brief": query, "started_at": time.time(), "error": ""}
 
 
 def _production_stage(job_id: str) -> tuple[str, int]:
@@ -230,9 +230,11 @@ def _media_production_status(query: str = "") -> str:
     elapsed_text = f"{minutes} dəq {seconds} san" if minutes else f"{seconds} san"
     status = get_media_job(job_id)
     brief = str(job.get("brief", "")).strip()
+    error = str(job.get("error", "")).strip()
     bar_units = 20
     filled = min(bar_units, round(progress / 100 * bar_units))
     bar = "█" * filled + "░" * (bar_units - filled)
+    error_line = f"\nXəta: {error}" if status == "failed" and error else ""
     return (
         f"🎬 VİDEO PRODÜKSİYASI\n"
         f"{bar} {progress}%\n"
@@ -241,17 +243,23 @@ def _media_production_status(query: str = "") -> str:
         f"Mərhələ: {stage}\n"
         f"Status: {status}\n"
         f"Keçən vaxt: {elapsed_text}"
+        f"{error_line}"
     )
 
 
 def _media_job_ui_event(event: dict) -> None:
     """Arxa plan media işinin statusunu və tamamlanmasını bildirir."""
     status = str(event.get("status", "")).lower()
+    job_id = str(event.get("job_id", "")).strip()
     if status == "started":
-        job_id = str(event.get("job_id", "")).strip()
         if job_id:
             _remember_media_job(job_id, str(event.get("brief", "")))
         _play_background_notification_sfx()
+        return
+    if status == "failed":
+        if job_id:
+            job = _MEDIA_JOBS.setdefault(job_id, {"brief": "", "started_at": time.time(), "error": ""})
+            job["error"] = str(event.get("error", "")).strip()
         return
     if status == "completed":
         _open_media_folder()
@@ -338,6 +346,7 @@ def _register_media_tool_capabilities() -> None:
             "İstifadəçi 'video nə yerdədir?', 'proses necə gedir?' və ya 'video prosesini göstər' deyirsə provider=production_status istifadə et; "
             "query boşdursa son başladılan video işinin canlı statusunu qaytar. Konkret job ID verilərsə həmin işi göstər. "
             "Status dəqiq olmayan faiz uydurmur; mərhələ və müşahidə olunan artefaktlara əsaslanan təxmini progress göstərir. "
+            "Uğursuz işdə status cavabında saxlanılmış real xəta detalını da göstərir. "
             "İstifadəçi sadə slideshow istəyirsə provider=slideshow və JSON payload istifadə et. "
             "İstifadəçi 'videonu aç', 'göstər', 'baxım' deyirsə provider=open_video istifadə et; "
             "query konkret ad vermirsə ən son yaradılmış MP4 açılır. "
@@ -347,7 +356,7 @@ def _register_media_tool_capabilities() -> None:
         declaration["parameters"]["properties"]["provider"]["description"] = (
             "auto | youtube | spotify | image | production | production_status | slideshow | list_media | open_video | "
             "close_media_player | open_folder. production peşəkar, avtonom YouTube video hazırlamaq üçündür və arxa planda işləyir; "
-            "production_status canlı mərhələ/progress məlumatını göstərir."
+            "production_status canlı mərhələ/progress və uğursuzluq detalını göstərir."
         )
         return
 
