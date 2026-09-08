@@ -1,16 +1,16 @@
 .media-production-trigger {
   position: fixed;
-  right: 26px;
-  bottom: 26px;
+  right: 110px;
+  top: 20px;
   z-index: 1000;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  border: 1px solid rgba(0, 212, 192, 0.55);
+  border: 1px solid var(--cyan);
   border-radius: 8px;
   background: rgba(3, 15, 15, 0.94);
-  color: #7dfff6;
+  color: var(--cyan);
   box-shadow: 0 0 24px rgba(0, 212, 192, 0.14);
   cursor: pointer;
   font: inherit;
