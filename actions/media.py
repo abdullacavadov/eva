@@ -147,21 +147,15 @@ def _close_media_player() -> str:
     return "Media Player bağlandı."
 
 
-def _speak_background_notification(text: str) -> None:
-    """Windows SAPI ilə qısa EVA bildirişi səsləndirir; əsas Live sessiyanı bloklamır."""
+def _play_background_notification_sfx() -> None:
+    """Media prodakşn başlayanda SFX/Start.mp3 faylını səssizcə başladır."""
     if os.name != "nt":
         return
-    safe = str(text or "").replace("'", "''")
+    start_sound = Path(__file__).resolve().parent.parent / "SFX" / "Start.mp3"
+    if not start_sound.is_file():
+        return
     try:
-        subprocess.Popen(
-            [
-                "powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command",
-                "Add-Type -AssemblyName System.Speech; "
-                f"$s=New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Speak('{safe}');",
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        os.startfile(str(start_sound))
     except Exception:
         pass
 
@@ -257,14 +251,11 @@ def _media_job_ui_event(event: dict) -> None:
         job_id = str(event.get("job_id", "")).strip()
         if job_id:
             _remember_media_job(job_id, str(event.get("brief", "")))
-        _speak_background_notification("Video generasiyasına başladım. Hazır olanda xəbər verəcəyəm.")
+        _play_background_notification_sfx()
         return
     if status == "completed":
         _open_media_folder()
-        _speak_background_notification("Video hazırdır. Media qovluğunu açdım.")
         return
-    if status == "failed":
-        _speak_background_notification("Video hazırlamaq mümkün olmadı. Xətanı yoxlamaq lazımdır.")
 
 
 set_job_notifier(_media_job_ui_event)
