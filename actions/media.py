@@ -96,10 +96,9 @@ def _create_slideshow(query: str) -> str:
 
 def _open_media_folder() -> str:
     """Windows Explorer-də EVA media qovluğunu açır."""
-    if os.name != "nt":
-        raise RuntimeError("Media qovluğunu avtomatik açmaq yalnız Windows-da dəstəklənir.")
     MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
-    os.startfile(str(MEDIA_ROOT))
+    if os.name == "nt":
+        os.startfile(str(MEDIA_ROOT))
     return str(MEDIA_ROOT)
 
 
@@ -169,7 +168,7 @@ def _register_media_tool_capabilities() -> None:
             "{images:[...],filename,seconds_per_image,title_text,music_path,music_volume}. "
             "Slideshow yaratmazdan əvvəl şəkillərin adlarını bilmirsənsə provider=list_media çağır "
             "və qaytarılan fayl siyahısından uyğun şəkilləri seç. "
-            "Slideshow uğurla bitəndə media qovluğu avtomatik açılır. "
+            "Slideshow uğurla bitəndə media qovluğu Windows-da avtomatik açılır. "
             "İstifadəçi 'videonu aç', 'göstər', 'baxım' kimi lokal videoya baxmaq istədiyini deyirsə "
             "provider=open_video istifadə et və query-də video adını ver; uzantı yoxdursa özü tapacaq. "
             "Media qovluğunu ayrıca açmaq üçün provider=open_folder istifadə et. "
