@@ -16,7 +16,7 @@ def test_production_status_reports_active_job(monkeypatch):
     assert "media:test-status" in result
     assert "Roma tarixi" in result
     assert "Mövzu analiz edilir" in result
-    assert "61 san" in result
+    assert "1 dəq 1 san" in result
     assert "20%" in result
 
 
