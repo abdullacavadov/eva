@@ -41,6 +41,28 @@ export type EvaControlState = {
   microphone_muted?: boolean
 }
 
+export interface MediaProductionScene {
+  index: number
+  asset?: string
+  text?: string
+  visual_prompt?: string
+  duration?: number
+  generated?: boolean
+}
+
+export interface MediaProductionEvent {
+  job_id: string
+  status: 'running' | 'completed' | 'failed'
+  stage?: string
+  progress?: number
+  message?: string
+  transcript?: string
+  scenes?: MediaProductionScene[]
+  error?: string
+  provider?: string
+  model?: string
+}
+
 export type EvaEvent =
   | { type: 'connection.ready' }
   | {
@@ -61,3 +83,4 @@ export type EvaEvent =
   | { type: 'webcam.frame'; data: string }
   | { type: 'tool.started'; tool: string; args?: Record<string, unknown> }
   | { type: 'tool.completed'; tool: string; success: boolean; result?: string }
+  | { type: 'media.production'; data: MediaProductionEvent }
