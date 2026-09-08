@@ -19,6 +19,7 @@ from actions.media_creation import (
     list_media_files,
     resolve_media_video,
 )
+from core.media_producer import set_job_notifier, start_media_production
 
 try:
     import pyperclip
@@ -72,7 +73,7 @@ def _create_image(query: str) -> str:
 
 
 def _create_slideshow(query: str) -> str:
-    """JSON payload ilə media slideshow yaradır."""
+    """JSON payload ilə legacy slideshow yaradır."""
     try:
         payload = json.loads(query)
     except json.JSONDecodeError as exc:
@@ -113,11 +114,59 @@ def _open_video(query: str) -> str:
     return f"Video açıldı: {video}"
 
 
+def _media_job_ui_event(event: dict) -> None:
+    """Arxa plan media işini mövcud EVA UI-a təhlükəsiz şəkildə çatdırır."""
+    try:
+        import tkinter as tk
+        root = getattr(tk, "_default_root", None)
+        if root is None:
+            return
+        status = str(event.get("status", "")).lower()
+
+        def apply_event():
+            ui = getattr(root, "_jarvis_ui", None)
+            if ui is None:
+                return
+            if status == "started":
+                ui.set_state("Video Generasiya olunur")
+                ui.write_log("SYS: Video Generasiya olunur. Bu vaxt E.V.A digər əmrləri qəbul edir.")
+            elif status == "completed":
+                path = str(event.get("path", ""))
+                ui.set_state("LISTENING")
+                ui.write_log(f"SYS: Video hazırdır — {path}")
+                _open_media_folder()
+            elif status == "failed":
+                ui.set_state("ERROR")
+                ui.write_log(f"ERR: Video generasiyası uğursuz oldu — {event.get('error', 'naməlum xəta')}")
+
+        root.after(0, apply_event)
+    except Exception:
+        pass
+
+
+set_job_notifier(_media_job_ui_event)
+
+
+def _looks_like_video_creation_request(query: str) -> bool:
+    text = str(query or "").casefold()
+    creation = ("hazırla", "hazirla", "yarat", "yaratmaq", "düzəlt", "duzelt", "hazırlamaq", "hazirlamaq")
+    video_terms = ("video", "short", "youtube", "slayd-şou", "slideshow", "rolik")
+    return any(item in text for item in creation) and any(item in text for item in video_terms)
+
+
 def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str:
     if not query or not query.strip():
         return "Çalınacaq və ya yaradılacaq məzmun göstərilməyib."
 
     normalized_provider = (provider or "auto").strip().lower()
+
+    if normalized_provider in {"production", "media_production", "create_production_video", "video_production"}:
+        job_id = start_media_production(query)
+        return f"Video prodakşn işi başladıldı: {job_id}. Arxa planda davam edir; E.V.A digər əmrləri qəbul edə bilər."
+
+    if normalized_provider == "auto" and _looks_like_video_creation_request(query):
+        job_id = start_media_production(query)
+        return f"Video prodakşn işi başladıldı: {job_id}. Arxa planda davam edir; E.V.A digər əmrləri qəbul edə bilər."
 
     if normalized_provider in {"image", "generate_image", "image_generation"}:
         return f"Şəkil hazırlandı: {_create_image(query)}"
@@ -147,7 +196,7 @@ def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str
     return _play_youtube(query)
 
 
-# Media action artıq yaradılmanı və lokal media idarəsini dəstəkləyir.
+# Media action yaradılmanı, lokal media idarəsini və avtonom video prodakşnını dəstəkləyir.
 # ToolExecutor dəyişdirilmir: mövcud play_media dispatch müqaviləsi qorunur.
 def _register_media_tool_capabilities() -> None:
     try:
@@ -160,25 +209,19 @@ def _register_media_tool_capabilities() -> None:
             continue
         declaration["description"] = (
             "Media əməliyyatlarını yerinə yetirir: YouTube/Spotify-da məzmun açır, "
-            "Gemini ilə şəkil yaradır, mövcud media fayllarını siyahılayır, "
-            "şəkillərdən FFmpeg slideshow videosu hazırlayır və lokal videonu açır. "
-            "Mahnı/video çalmaq üçün provider=auto|youtube|spotify. "
-            "Yeni şəkil yaratmaq üçün provider=image və query-də image prompt ver. "
-            "Slideshow üçün provider=slideshow və JSON payload ver: "
-            "{images:[...],filename,seconds_per_image,title_text,music_path,music_volume}. "
-            "Slideshow yaratmazdan əvvəl şəkillərin adlarını bilmirsənsə provider=list_media çağır "
-            "və qaytarılan fayl siyahısından uyğun şəkilləri seç. "
-            "Slideshow uğurla bitəndə media qovluğu Windows-da avtomatik açılır. "
-            "İstifadəçi 'videonu aç', 'göstər', 'baxım' kimi lokal videoya baxmaq istədiyini deyirsə "
-            "provider=open_video istifadə et və query-də video adını ver; uzantı yoxdursa özü tapacaq. "
-            "Media qovluğunu ayrıca açmaq üçün provider=open_folder istifadə et. "
-            "İstifadəçi media yaratmağı istədikdə playback provider seçmə."
+            "Gemini ilə şəkil yaradır, lokal media fayllarını idarə edir və peşəkar video prodakşnı başladır. "
+            "YouTube Short və ya böyük video kimi video yaratma tələblərində provider=production istifadə et; "
+            "query-də yalnız istifadəçinin təbii video tələbi olsun. Production arxa planda işləyir, "
+            "lokal şəkilləri fayl adına görə kor-koranə seçmir: Gemini kontakt vərəqini vizual olaraq analiz edir, "
+            "uyğun aktivləri seçir və çatışmayan səhnələr üçün Gemini şəkil yaradır. "
+            "Ssenari, narrasiya, keçidlər, ekrandakı mətn, musiqi və FFmpeg renderi avtomatik planlanır. "
+            "İstifadəçi sadə slideshow istəyirsə provider=slideshow və JSON payload istifadə et. "
+            "İstifadəçi 'videonu aç', 'göstər', 'baxım' deyirsə provider=open_video istifadə et. "
+            "Media qovluğunu ayrıca açmaq üçün provider=open_folder istifadə et."
         )
         declaration["parameters"]["properties"]["provider"]["description"] = (
-            "auto | youtube | spotify | image | slideshow | list_media | open_video | open_folder. "
-            "image şəkil generasiyası, slideshow şəkillərdən video yaradılması, "
-            "list_media media fayllarının siyahısı, open_video lokal videonun açılması, "
-            "open_folder media qovluğunun açılması üçündür."
+            "auto | youtube | spotify | image | production | slideshow | list_media | open_video | open_folder. "
+            "production peşəkar, avtonom YouTube video hazırlamaq üçündür və arxa planda işləyir."
         )
         return
 
