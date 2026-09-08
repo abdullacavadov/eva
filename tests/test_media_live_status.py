@@ -5,7 +5,7 @@ def test_production_status_reports_active_job(monkeypatch):
     media._MEDIA_JOBS.clear()
     media._MEDIA_JOBS["media:test-status"] = {
         "brief": "Roma tarixi haqqında YouTube Short hazırla",
-        "started_at": 1_000_000_000,
+        "started_at": 1_000_000,
     }
     monkeypatch.setattr(media, "get_media_job", lambda job_id: "running")
     monkeypatch.setattr(media.time, "time", lambda: 1_000_061)
