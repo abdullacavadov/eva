@@ -209,6 +209,21 @@ def _production_stage(job_id: str) -> tuple[str, int]:
     return "Mövzu analiz edilir və vizuallar seçilir", 20
 
 
+def _resolve_media_job_id(query: str) -> str:
+    """Model job ID-nin yalnız son hissəsini ötürsə belə real işi tapır."""
+    clean_query = str(query or "").strip()
+    if clean_query in _MEDIA_JOBS:
+        return clean_query
+
+    suffix_matches = [
+        job_id for job_id in _MEDIA_JOBS
+        if clean_query and job_id.casefold().endswith(clean_query.casefold())
+    ]
+    if len(suffix_matches) == 1:
+        return suffix_matches[0]
+    return clean_query
+
+
 def _media_production_status(query: str = "") -> str:
     """Aktiv və ya son video prodakşn işinin canlı statusunu qaytarır."""
     job_id = query.strip()
@@ -226,6 +241,8 @@ def _media_production_status(query: str = "") -> str:
         if not _MEDIA_JOBS:
             return "Hazırda izlənən video prodakşn işi yoxdur."
         job_id = next(reversed(_MEDIA_JOBS))
+    else:
+        job_id = _resolve_media_job_id(job_id)
     if job_id not in _MEDIA_JOBS:
         return f"Bu video prodakşn işi tapılmadı: {job_id}"
 
@@ -345,6 +362,7 @@ def _register_media_tool_capabilities() -> None:
             "Ssenari, narrasiya, keçidlər, ekrandakı mətn, musiqi və FFmpeg renderi avtomatik planlanır. "
             "İstifadəçi 'video nə yerdədir?', 'proses necə gedir?' və ya 'video prosesini göstər' deyirsə provider=production_status istifadə et; "
             "query boşdursa son başladılan video işinin canlı statusunu qaytar. Konkret job ID verilərsə həmin işi göstər. "
+            "Job ID yalnız son hissə ilə verilsə belə mövcud işin suffix-i ilə uyğunlaşdırılır. "
             "Status dəqiq olmayan faiz uydurmur; mərhələ və müşahidə olunan artefaktlara əsaslanan təxmini progress göstərir. "
             "İstifadəçi sadə slideshow istəyirsə provider=slideshow və JSON payload istifadə et. "
             "İstifadəçi 'videonu aç', 'göstər', 'baxım' deyirsə provider=open_video istifadə et; "
