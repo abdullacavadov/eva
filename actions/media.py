@@ -269,10 +269,13 @@ def _looks_like_video_creation_request(query: str) -> bool:
 
 
 def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str:
+    normalized_provider = (provider or "auto").strip().lower()
+
+    if normalized_provider in {"production_status", "media_status", "video_status", "status"}:
+        return _media_production_status(query)
+
     if not query or not query.strip():
         return "Çalınacaq və ya yaradılacaq məzmun göstərilməyib."
-
-    normalized_provider = (provider or "auto").strip().lower()
 
     if normalized_provider in {"production", "media_production", "create_production_video", "video_production"}:
         job_id = start_media_production(query)
@@ -284,8 +287,6 @@ def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str
         _remember_media_job(job_id, query)
         return f"Video prodakşn işi başladıldı: {job_id}. Arxa planda davam edir; E.V.A digər əmrləri qəbul edə bilər."
 
-    if normalized_provider in {"production_status", "media_status", "video_status", "status"}:
-        return _media_production_status(query)
     if normalized_provider in {"image", "generate_image", "image_generation"}:
         return f"Şəkil hazırlandı: {_create_image(query)}"
     if normalized_provider in {"slideshow", "video", "create_video"}:
