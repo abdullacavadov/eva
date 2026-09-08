@@ -17,6 +17,7 @@ from core.location_runtime import set_current_location
 from core.proactive import ProactiveEngine, ProactiveScheduler
 from core.settings_runtime import apply_saved_settings, install_settings_bridge
 from core.ui_bridge import UiBridge
+from core.media_observability import install as install_media_observability
 from main import JarvisLive
 from ui import JarvisUI
 
@@ -67,8 +68,6 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         except Exception as exc:
             payload = json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False).encode("utf-8")
             self.send_response(500)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
             self.wfile.write(payload)
 
@@ -218,6 +217,7 @@ def main():
 
         ui.on_control_command = handle_control
         bridge = UiBridge(ui, tool_executor=jarvis._tool_executor)
+        install_media_observability(bridge)
         install_settings_bridge(bridge, ui)
         proactive_scheduler = None
         if str(os.getenv("EVA_PROACTIVE_ENABLED", "true")).strip().lower() not in {"0", "false", "no", "off"}:
@@ -237,7 +237,3 @@ def main():
 
     threading.Thread(target=runner, daemon=True).start()
     ui.root.mainloop()
-
-
-if __name__ == "__main__":
-    main()
