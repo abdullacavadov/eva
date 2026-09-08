@@ -31,7 +31,7 @@ def test_auto_provider_routes_video_creation_to_production(monkeypatch):
     assert "media:auto123" in result
 
 
-def test_contact_sheet_uses_visual_assets_not_filename_semantics(tmp_path):
+def test_contact_sheet_uses_visual_assets_not_filename_semantics(tmp_path, monkeypatch):
     from PIL import Image
 
     media_root = tmp_path / "media"
@@ -39,7 +39,7 @@ def test_contact_sheet_uses_visual_assets_not_filename_semantics(tmp_path):
     image_path = media_root / "download_184.jpg"
     Image.new("RGB", (640, 360), "black").save(image_path)
 
-    monkeypatch = None
+    monkeypatch.setattr(producer, "MEDIA_ROOT", media_root)
     sheet = tmp_path / "contact.jpg"
     labels = producer._contact_sheet([image_path], sheet)
 
