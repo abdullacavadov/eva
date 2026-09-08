@@ -237,3 +237,7 @@ def main():
 
     threading.Thread(target=runner, daemon=True).start()
     ui.root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
