@@ -28,6 +28,8 @@ class _RealtimeEchoCanceller:
         self._far_segments = deque()
         self._delay_ms = max(0, int(os.getenv("EVA_AEC_DELAY_MS", "0")))
         self._max_reference_seconds = 2.0
+        self._playback_cursor = None
+        self._playback_gap_reset_seconds = 0.1
         if AudioProcessor is not None:
             try:
                 self._processor = AudioProcessor(
@@ -67,17 +69,22 @@ class _RealtimeEchoCanceller:
         if not len(reference):
             return
 
-        start_time = time.monotonic() + self._delay_ms / 1000.0
+        now = time.monotonic()
         duration = len(reference) / SEND_SAMPLE_RATE
 
         with self._lock:
-            if self._far_segments:
-                previous_start, previous = self._far_segments[-1]
-                previous_end = previous_start + len(previous) / SEND_SAMPLE_RATE
-                if start_time < previous_end:
-                    start_time = previous_end
+            if self._playback_cursor is None:
+                start_time = now + self._delay_ms / 1000.0
+            else:
+                gap = now - self._playback_cursor
+                if gap > self._playback_gap_reset_seconds:
+                    start_time = now + self._delay_ms / 1000.0
+                else:
+                    start_time = self._playback_cursor
+
             self._far_segments.append((start_time, reference))
-            self._trim_reference(start_time + duration)
+            self._playback_cursor = start_time + duration
+            self._trim_reference(self._playback_cursor)
 
     def _trim_reference(self, current_time: float):
         cutoff = current_time - self._max_reference_seconds
@@ -150,6 +157,7 @@ class _RealtimeEchoCanceller:
     def reset(self):
         with self._lock:
             self._far_segments.clear()
+            self._playback_cursor = None
             if self._processor is not None:
                 try:
                     self._processor.reset()
