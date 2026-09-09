@@ -1,10 +1,17 @@
 """EVA-nın real vaxt səs axını üçün köməkçi funksiyalar."""
 
 import asyncio
+import os
 import struct
 import threading
 
+import numpy as np
 import pyaudio
+
+try:
+    from pywebrtc_audio import AudioProcessor
+except Exception:
+    AudioProcessor = None
 
 from core.config import (
     CHANNELS,
@@ -19,6 +26,125 @@ from core.config import (
 _active_output_stream = None
 _output_stream_lock = threading.Lock()
 _output_interrupt_generation = 0
+
+
+class _RealtimeEchoCanceller:
+    """Mikrofon siqnalından EVA-nın səsgücləndirici əks-sədasını WebRTC AEC3 ilə süzür."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._processor = None
+        self._far_reference = np.zeros(0, dtype=np.int16)
+        self._far_base_position = 0
+        self._far_position = 0
+        self._mic_position = 0
+        self._delay_ms = max(0, int(os.getenv("EVA_AEC_DELAY_MS", "60")))
+        self._max_reference_samples = SEND_SAMPLE_RATE * 2
+        if AudioProcessor is not None:
+            try:
+                self._processor = AudioProcessor(
+                    sample_rate=SEND_SAMPLE_RATE,
+                    num_channels=CHANNELS,
+                    echo_cancellation=True,
+                    noise_suppression=True,
+                    auto_gain_control=False,
+                    stream_delay_ms=self._delay_ms,
+                )
+            except Exception as exc:
+                print(f"[E.V.A] ⚠️ AEC aktivləşdirilə bilmədi: {exc}", flush=True)
+
+    @property
+    def enabled(self) -> bool:
+        return self._processor is not None
+
+    @staticmethod
+    def _resample(data: bytes) -> np.ndarray:
+        samples = np.frombuffer(data, dtype=np.int16)
+        if not len(samples):
+            return np.zeros(0, dtype=np.int16)
+        if RECV_SAMPLE_RATE == SEND_SAMPLE_RATE:
+            return samples.copy()
+        target_size = round(len(samples) * SEND_SAMPLE_RATE / RECV_SAMPLE_RATE)
+        if target_size <= 0:
+            return np.zeros(0, dtype=np.int16)
+        positions = np.linspace(0, len(samples) - 1, target_size)
+        return np.interp(positions, np.arange(len(samples)), samples).astype(np.int16)
+
+    def add_playback_reference(self, data: bytes):
+        if not self.enabled or not data:
+            return
+        reference = self._resample(data)
+        if not len(reference):
+            return
+        with self._lock:
+            self._far_reference = np.concatenate((self._far_reference, reference))
+            self._far_position += len(reference)
+            self._trim_reference()
+
+    def _trim_reference(self):
+        if len(self._far_reference) <= self._max_reference_samples:
+            return
+        trim = len(self._far_reference) - self._max_reference_samples
+        self._far_reference = self._far_reference[trim:]
+        self._far_base_position += trim
+
+    def _append_silence_until(self, target_position: int):
+        if target_position <= self._far_position:
+            return
+        missing = target_position - self._far_position
+        self._far_reference = np.concatenate(
+            (self._far_reference, np.zeros(missing, dtype=np.int16))
+        )
+        self._far_position = target_position
+        self._trim_reference()
+
+    def process_microphone(self, data: bytes) -> bytes:
+        if not self.enabled or not data:
+            return data
+        near = np.frombuffer(data, dtype=np.int16)
+        if not len(near):
+            return data
+        with self._lock:
+            target_end = self._mic_position + len(near) - round(
+                SEND_SAMPLE_RATE * self._delay_ms / 1000
+            )
+            self._append_silence_until(target_end)
+            reference_end = target_end
+            reference_start = reference_end - len(near)
+            far_start = reference_start - self._far_base_position
+            far_end = reference_end - self._far_base_position
+            far = np.zeros(len(near), dtype=np.int16)
+            source_start = max(0, far_start)
+            source_end = min(len(self._far_reference), far_end)
+            if source_end > source_start:
+                destination_start = source_start - far_start
+                destination_end = destination_start + (source_end - source_start)
+                far[destination_start:destination_end] = self._far_reference[
+                    source_start:source_end
+                ]
+            self._mic_position += len(near)
+            try:
+                cleaned = self._processor.process(near, far)
+            except Exception as exc:
+                print(f"[E.V.A] ⚠️ AEC emalı uğursuz oldu: {exc}", flush=True)
+                return data
+        return np.asarray(cleaned, dtype=np.int16).tobytes()
+
+    def reset(self):
+        if not self.enabled:
+            return
+        with self._lock:
+            try:
+                self._processor.reset()
+            except Exception:
+                pass
+            self._far_reference = np.zeros(0, dtype=np.int16)
+            self._far_base_position = 0
+            self._far_position = 0
+            self._mic_position = 0
+
+
+_echo_canceller = _RealtimeEchoCanceller()
 
 
 def create_audio() -> pyaudio.PyAudio:
@@ -55,12 +181,13 @@ async def open_output_stream(audio: pyaudio.PyAudio):
 
 
 async def read_chunk(stream, size: int = CHUNK_SIZE) -> bytes:
-    """Mikrofon axınından bir hissəni ayrıca worker thread-də oxuyur."""
-    return await asyncio.to_thread(
+    """Mikrofon hissəsini oxuyur və EVA playback əks-sədasını AEC ilə təmizləyir."""
+    data = await asyncio.to_thread(
         stream.read,
         size,
         exception_on_overflow=False,
     )
+    return _echo_canceller.process_microphone(data)
 
 
 def get_output_interrupt_generation() -> int:
@@ -75,6 +202,7 @@ def interrupt_output_stream() -> bool:
     with _output_stream_lock:
         stream = _active_output_stream
         _output_interrupt_generation += 1
+    _echo_canceller.reset()
     if stream is None:
         return False
 
@@ -119,9 +247,10 @@ def apply_gain(data: bytes, gain: float) -> bytes:
 
 
 async def write_chunk(stream, data: bytes, gain: float = 1.0) -> None:
-    """Səs hissəsini qazanc tətbiq edib ayrıca worker thread-də səsləndirir."""
+    """Səs hissəsini səsləndirir və AEC üçün eyni playback referensini qeyd edir."""
     if gain < 0.999:
         data = apply_gain(data, gain)
+    _echo_canceller.add_playback_reference(data)
     generation = get_output_interrupt_generation()
     try:
         await asyncio.to_thread(
