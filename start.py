@@ -144,8 +144,6 @@ def main():
     apply_saved_settings(ui)
     dashboard_server = _start_dashboard_api()
     frontend_process = _start_react_frontend()
-    ui.sound.play_startup()
-    print(f"[E.V.A] 🔊 Startup SFX: enabled={ui.sound._enabled}, file={__import__('ui')._START_FILE}, exists={__import__('ui')._START_FILE.exists()}", flush=True)
 
     def runner():
         ui.wait_for_api_key()
