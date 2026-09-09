@@ -105,11 +105,11 @@ class _RealtimeEchoCanceller:
         if not len(near):
             return data
         with self._lock:
-            target_end = self._mic_position + len(near) - round(
+            mic_end = self._mic_position + len(near)
+            self._append_silence_until(mic_end)
+            reference_end = mic_end - round(
                 SEND_SAMPLE_RATE * self._delay_ms / 1000
             )
-            self._append_silence_until(target_end)
-            reference_end = target_end
             reference_start = reference_end - len(near)
             far_start = reference_start - self._far_base_position
             far_end = reference_end - self._far_base_position
@@ -122,7 +122,7 @@ class _RealtimeEchoCanceller:
                 far[destination_start:destination_end] = self._far_reference[
                     source_start:source_end
                 ]
-            self._mic_position += len(near)
+            self._mic_position = mic_end
             try:
                 cleaned = self._processor.process(near, far)
             except Exception as exc:
