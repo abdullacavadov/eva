@@ -8,6 +8,8 @@ from collections import deque
 import numpy as np
 import pyaudio
 
+from core.config import CHUNK_SIZE, PLAYBACK_CHUNK_SIZE
+
 try:
     from pywebrtc_audio import AudioProcessor
 except Exception:
@@ -17,8 +19,6 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 1
 SEND_SAMPLE_RATE = 16000
 RECV_SAMPLE_RATE = 24000
-CHUNK_SIZE = 1024
-PLAYBACK_CHUNK_SIZE = 768
 
 
 class _RealtimeEchoCanceller:
