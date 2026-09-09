@@ -12,6 +12,7 @@ import time
 import urllib.parse
 import webbrowser
 from pathlib import Path
+from typing import Callable
 
 from actions.browser import browser_control
 from actions.media_creation import (
@@ -30,6 +31,13 @@ except ImportError:
     HAS_PYPERCLIP = False
 
 _MEDIA_JOBS: dict[str, dict] = {}
+_MEDIA_NOTIFICATION_SFX: Callable[[], None] | None = None
+
+
+def set_media_notification_sfx(callback: Callable[[], None] | None) -> None:
+    """Media prodakşn bildiriş SFX-ini EVA-nın öz SoundManager-inə bağlayır."""
+    global _MEDIA_NOTIFICATION_SFX
+    _MEDIA_NOTIFICATION_SFX = callback
 
 
 def _copy_to_clipboard(text: str) -> tuple[bool, str]:
@@ -148,14 +156,12 @@ def _close_media_player() -> str:
 
 
 def _play_background_notification_sfx() -> None:
-    """Media prodakşn başlayanda SFX/Start.mp3 faylını səssizcə başladır."""
-    if os.name != "nt":
-        return
-    start_sound = Path(__file__).resolve().parent.parent / "SFX" / "Start.mp3"
-    if not start_sound.is_file():
+    """Media prodakşn başlayanda SFX-i EVA-nın daxili səs sistemində səsləndirir."""
+    callback = _MEDIA_NOTIFICATION_SFX
+    if callback is None:
         return
     try:
-        os.startfile(str(start_sound))
+        callback()
     except Exception:
         pass
 

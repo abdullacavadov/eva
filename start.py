@@ -19,6 +19,7 @@ from core.settings_runtime import apply_saved_settings, install_settings_bridge
 from core.ui_bridge import UiBridge
 from core.media_observability import install as install_media_observability
 from main import JarvisLive
+from actions.media import set_media_notification_sfx
 from ui import JarvisUI
 
 
@@ -47,6 +48,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         except Exception as exc:
             payload = json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False).encode("utf-8")
             self.send_response(400)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
@@ -141,6 +143,7 @@ def _start_react_frontend() -> subprocess.Popen | None:
 
 def main():
     ui = _create_hidden_ui()
+    set_media_notification_sfx(ui.sound.play_success)
     apply_saved_settings(ui)
     dashboard_server = _start_dashboard_api()
     frontend_process = _start_react_frontend()
