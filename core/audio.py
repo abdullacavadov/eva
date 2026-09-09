@@ -1,6 +1,7 @@
 """EVA-nın real vaxt səs axını üçün köməkçi funksiyalar."""
 
 import asyncio
+import struct
 
 import pyaudio
 
@@ -52,8 +53,23 @@ async def read_chunk(stream, size: int = CHUNK_SIZE) -> bytes:
     )
 
 
-async def write_chunk(stream, data: bytes) -> None:
-    """Səs hissəsini ayrıca worker thread-də dinamik axınına yazır."""
+def apply_gain(data: bytes, gain: float) -> bytes:
+    """16-bit PCM chunk-a proqram səviyyəsində səs qazancı tətbiq edir."""
+    gain = max(0.0, min(1.0, float(gain)))
+    if gain >= 0.999 or not data:
+        return data
+    sample_count = len(data) // 2
+    if sample_count <= 0:
+        return data
+    samples = struct.unpack(f"<{sample_count}h", data[: sample_count * 2])
+    scaled = [max(-32768, min(32767, int(sample * gain))) for sample in samples]
+    return struct.pack(f"<{sample_count}h", *scaled)
+
+
+async def write_chunk(stream, data: bytes, gain: float = 1.0) -> None:
+    """Səs hissəsini qazanc tətbiq edib ayrıca worker thread-də səsləndirir."""
+    if gain < 0.999:
+        data = apply_gain(data, gain)
     await asyncio.to_thread(
         stream.write,
         data,
