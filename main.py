@@ -11,6 +11,7 @@ import traceback
 import os
 import re
 import struct
+from collections import deque
 
 from google.genai import types  # type: ignore[reportMissingImports]
 
@@ -32,6 +33,7 @@ from core.config import (
     get_api_key,
     load_system_prompt,
 )
+from core.interruption import BargeInDetector
 from core.live_session import LiveSessionManager
 from core.proactive import ProactiveEngine, ProactiveScheduler
 from core.tool_executor import ToolExecutor
@@ -58,6 +60,14 @@ class JarvisLive:
         self._loop = None
         self._is_speaking = False
         self._speaking_lock = threading.Lock()
+        self._output_gain = 1.0
+        self._output_gain_lock = threading.Lock()
+        self._barge_in = BargeInDetector(
+            threshold=float(os.getenv("EVA_BARGE_IN_THRESHOLD", "0.045")),
+            confirm_ms=float(os.getenv("EVA_BARGE_IN_CONFIRM_MS", "260")),
+            sample_rate=SEND_SAMPLE_RATE,
+        )
+        self._barge_in_buffer = deque(maxlen=6)
         self._music_proc = None
         self._webcam_streamer = WebcamStreamer()
         self._audio = create_audio()
@@ -176,8 +186,17 @@ class JarvisLive:
                     self._pending_text_commands.insert(0, text)
                 break
 
+    def _set_output_gain(self, gain: float):
+        with self._output_gain_lock:
+            self._output_gain = max(0.0, min(1.0, float(gain)))
+
+    def _get_output_gain(self) -> float:
+        with self._output_gain_lock:
+            return self._output_gain
+
     def _interrupt_audio(self):
-        pass
+        if self._loop and self.audio_in_queue:
+            asyncio.run_coroutine_threadsafe(self._interrupt_audio_async(), self._loop)
 
     async def _interrupt_audio_async(self):
         try:
@@ -187,8 +206,8 @@ class JarvisLive:
                         self.audio_in_queue.get_nowait()
                     except Exception:
                         break
-            if self.session:
-                await self.session.send_realtime_input(audio_stream_end=True)
+            self._set_output_gain(1.0)
+            self._barge_in.reset()
             self.set_speaking(False)
         except Exception:
             pass
@@ -314,8 +333,30 @@ class JarvisLive:
                 data = await read_chunk(stream, CHUNK_SIZE)
                 with self._speaking_lock:
                     jarvis_speaking = self._is_speaking
-                if not jarvis_speaking and not self.ui.muted and not self._paused:
-                    await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
+                if self.ui.muted or self._paused:
+                    self._barge_in.reset()
+                    self._barge_in_buffer.clear()
+                    continue
+
+                if jarvis_speaking:
+                    self._barge_in_buffer.append(data)
+                    if self._barge_in.update(data):
+                        print("[E.V.A] 🎙️ İstifadəçi müdaxiləsi təsdiqləndi — səs dayandırılır.", flush=True)
+                        await self._interrupt_audio_async()
+                        buffered = list(self._barge_in_buffer)
+                        self._barge_in_buffer.clear()
+                        for buffered_chunk in buffered:
+                            await self.out_queue.put({"data": buffered_chunk, "mime_type": "audio/pcm"})
+                    else:
+                        # İstifadəçi danışmağa başlayanda EVA-nın səsi yumşaldılır.
+                        if self._barge_in.rms(data) >= self._barge_in.threshold:
+                            self._set_output_gain(0.25)
+                    continue
+
+                self._set_output_gain(1.0)
+                self._barge_in.reset()
+                self._barge_in_buffer.clear()
+                await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
         except Exception as e:
             print(f"[E.V.A] ❌ Mikrofon: {e}")
             raise
@@ -389,18 +430,20 @@ class JarvisLive:
                 chunk = await self.audio_in_queue.get()
                 if chunk is None:
                     self.set_speaking(False)
+                    self._set_output_gain(1.0)
                     callback = getattr(self.ui, "emit_event", None)
                     if callable(callback):
                         callback("audio.level", level=0.0)
                     continue
                 self.set_speaking(True)
                 self._emit_audio_level(chunk)
-                await write_chunk(stream, chunk)
+                await write_chunk(stream, chunk, gain=self._get_output_gain())
         except Exception as e:
             print(f"[E.V.A] ❌ Səs: {e}")
             raise
         finally:
             self.set_speaking(False)
+            self._set_output_gain(1.0)
             callback = getattr(self.ui, "emit_event", None)
             if callable(callback):
                 callback("audio.level", level=0.0)
