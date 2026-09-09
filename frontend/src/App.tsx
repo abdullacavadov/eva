@@ -81,6 +81,8 @@ const formatDate = (date: Date) =>
   }).split('.').join('.');
 const displayValue = (value: number | null | undefined, suffix = '') =>
   value == null ? '—' : `${Math.round(value)}${suffix}`;
+const displayWeatherValue = (value: number | null | undefined, suffix = '') =>
+  value == null ? '—' : `${value.toFixed(1)}${suffix}`;
 
 function getWeatherIcon(weatherCode: number | undefined) {
   switch (weatherCode) {
@@ -446,7 +448,7 @@ export default function App() {
                   </small>
                 </div>
                 <div className="weather-main">
-                  <strong>{displayValue(weather.temperature, '°C')}</strong>
+                  <strong>{displayWeatherValue(weather.temperature, '°C')}</strong>
                   <div
                     className="weather-icon"
                     aria-label={weather.condition || 'Hava məlumatı yoxdur'}
@@ -468,26 +470,26 @@ export default function App() {
                     <i>
                       <FontAwesomeIcon icon={faTemperatureLow} />
                     </i>{' '}
-                    Hiss edilən: {displayValue(weather.feels_like, '°C')}
+                    Hiss edilən: {displayWeatherValue(weather.feels_like, '°C')}
                   </span>
                   <span>
                     <i>
                       <FontAwesomeIcon icon={faWind} />
                     </i>{' '}
-                    Külək: {displayValue(weather.wind_speed, ' km/saat')},{' '}
+                    Külək: {displayWeatherValue(weather.wind_speed, ' km/saat')},{' '}
                     {weather.wind_direction || '—'}
                   </span>
                   <span>
                     <i>
                       <FontAwesomeIcon icon={faDroplet} />
                     </i>{' '}
-                    Rütubət: {displayValue(weather.humidity, '%')}
+                    Rütubət: {displayWeatherValue(weather.humidity, '%')}
                   </span>
                   <span>
                     <i>
                       <FontAwesomeIcon icon={faGaugeHigh} />
                     </i>{' '}
-                    Təzyiq: {displayValue(weather.pressure, ' hPa')}
+                    Təzyiq: {displayWeatherValue(weather.pressure, ' hPa')}
                   </span>
                 </div>
               </section>
