@@ -18,4 +18,4 @@ def test_media_start_notification_uses_start_sfx(monkeypatch):
 
     media._play_background_notification_sfx()
 
-    assert played == [str(Path(media.__file__).resolve().parent.parent / "SFX" / "Start.mp3")]
+    assert played == [str(Path(media.__file__).resolve().parent.parent / "SFX" / "Done.mp3")]

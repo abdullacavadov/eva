@@ -148,10 +148,10 @@ def _close_media_player() -> str:
 
 
 def _play_background_notification_sfx() -> None:
-    """Media prodakşn başlayanda SFX/Start.mp3 faylını səssizcə başladır."""
+    """Media prodakşn başlayanda SFX/Done.mp3 faylını səssizcə başladır."""
     if os.name != "nt":
         return
-    start_sound = Path(__file__).resolve().parent.parent / "SFX" / "Start.mp3"
+    start_sound = Path(__file__).resolve().parent.parent / "SFX" / "Done.mp3"
     if not start_sound.is_file():
         return
     try:
