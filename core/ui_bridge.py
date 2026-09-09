@@ -38,6 +38,7 @@ class UiBridge:
         self._activity_history: list[dict[str, Any]] = []
         self._last_context: dict[str, Any] | None = None
         self._last_webcam_preview_at = 0.0
+        self._startup_sfx_played = False
         self._control_state: dict[str, Any] = {
             "paused": False,
             "camera_active": False,
@@ -251,9 +252,18 @@ class UiBridge:
                 "context": self._last_context,
                 "control": dict(self._control_state),
             }
+            play_startup_sfx = not self._startup_sfx_played
+            if play_startup_sfx:
+                self._startup_sfx_played = True
         sender.start()
         self._queue_message(queue, json.dumps({"type": "connection.ready"}))
         self._queue_message(queue, json.dumps({"type": "runtime.snapshot", **snapshot}, ensure_ascii=False))
+        if play_startup_sfx:
+            try:
+                self.ui.sound.play_startup()
+                print("[E.V.A] 🔊 Startup SFX: UI hazırdır.", flush=True)
+            except Exception as exc:
+                print(f"[E.V.A] ⚠️ Startup SFX səsləndirilə bilmədi: {exc}", flush=True)
         try:
             for raw_message in websocket:
                 self._handle_message(websocket, raw_message)
