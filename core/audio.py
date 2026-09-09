@@ -2,6 +2,8 @@ import asyncio
 import os
 import struct
 import threading
+import time
+from collections import deque
 
 import numpy as np
 import pyaudio
@@ -23,12 +25,9 @@ class _RealtimeEchoCanceller:
     def __init__(self):
         self._lock = threading.Lock()
         self._processor = None
-        self._far_reference = np.zeros(0, dtype=np.int16)
-        self._far_base_position = 0
-        self._far_position = 0
-        self._mic_position = 0
-        self._delay_ms = max(0, int(os.getenv("EVA_AEC_DELAY_MS", "60")))
-        self._max_reference_samples = SEND_SAMPLE_RATE * 2
+        self._far_segments = deque()
+        self._delay_ms = max(0, int(os.getenv("EVA_AEC_DELAY_MS", "0")))
+        self._max_reference_seconds = 2.0
         if AudioProcessor is not None:
             try:
                 self._processor = AudioProcessor(
@@ -67,27 +66,66 @@ class _RealtimeEchoCanceller:
         reference = self._resample(data)
         if not len(reference):
             return
+
+        start_time = time.monotonic() + self._delay_ms / 1000.0
+        duration = len(reference) / SEND_SAMPLE_RATE
+
         with self._lock:
-            self._far_reference = np.concatenate((self._far_reference, reference))
-            self._far_position += len(reference)
-            self._trim_reference()
+            if self._far_segments:
+                previous_start, previous = self._far_segments[-1]
+                previous_end = previous_start + len(previous) / SEND_SAMPLE_RATE
+                if start_time < previous_end:
+                    start_time = previous_end
+            self._far_segments.append((start_time, reference))
+            self._trim_reference(start_time + duration)
 
-    def _trim_reference(self):
-        if len(self._far_reference) <= self._max_reference_samples:
-            return
-        trim = len(self._far_reference) - self._max_reference_samples
-        self._far_reference = self._far_reference[trim:]
-        self._far_base_position += trim
+    def _trim_reference(self, current_time: float):
+        cutoff = current_time - self._max_reference_seconds
+        while self._far_segments:
+            start_time, samples = self._far_segments[0]
+            end_time = start_time + len(samples) / SEND_SAMPLE_RATE
+            if end_time > cutoff:
+                break
+            self._far_segments.popleft()
 
-    def _append_silence_until(self, target_position: int):
-        if target_position <= self._far_position:
-            return
-        missing = target_position - self._far_position
-        self._far_reference = np.concatenate(
-            (self._far_reference, np.zeros(missing, dtype=np.int16))
-        )
-        self._far_position = target_position
-        self._trim_reference()
+    def _reference_for_interval(self, start_time: float, end_time: float) -> np.ndarray:
+        length = max(0, round((end_time - start_time) * SEND_SAMPLE_RATE))
+        far = np.zeros(length, dtype=np.int16)
+        if length == 0:
+            return far
+
+        for segment_start, samples in self._far_segments:
+            segment_end = segment_start + len(samples) / SEND_SAMPLE_RATE
+            if segment_end <= start_time:
+                continue
+            if segment_start >= end_time:
+                break
+
+            overlap_start = max(start_time, segment_start)
+            overlap_end = min(end_time, segment_end)
+            if overlap_end <= overlap_start:
+                continue
+
+            destination_start = round((overlap_start - start_time) * SEND_SAMPLE_RATE)
+            destination_end = round((overlap_end - start_time) * SEND_SAMPLE_RATE)
+            source_start = round((overlap_start - segment_start) * SEND_SAMPLE_RATE)
+            source_end = source_start + (destination_end - destination_start)
+
+            destination_start = max(0, min(length, destination_start))
+            destination_end = max(destination_start, min(length, destination_end))
+            source_start = max(0, min(len(samples), source_start))
+            source_end = max(source_start, min(len(samples), source_end))
+
+            copy_length = min(
+                destination_end - destination_start,
+                source_end - source_start,
+            )
+            if copy_length > 0:
+                far[destination_start:destination_start + copy_length] = samples[
+                    source_start:source_start + copy_length
+                ]
+
+        return far
 
     def process_microphone(self, data: bytes) -> bytes:
         if not self.enabled or not data or len(data) % 2:
@@ -95,50 +133,46 @@ class _RealtimeEchoCanceller:
         near = np.frombuffer(data, dtype=np.int16)
         if not len(near):
             return data
+
+        capture_end = time.monotonic()
+        capture_start = capture_end - len(near) / SEND_SAMPLE_RATE
+
         with self._lock:
-            mic_end = self._mic_position + len(near)
-            self._append_silence_until(mic_end)
-            reference_end = mic_end - round(
-                SEND_SAMPLE_RATE * self._delay_ms / 1000
-            )
-            reference_start = reference_end - len(near)
-            far_start = reference_start - self._far_base_position
-            far_end = reference_end - self._far_base_position
-            far = np.zeros(len(near), dtype=np.int16)
-            source_start = max(0, far_start)
-            source_end = min(len(self._far_reference), far_end)
-            if source_end > source_start:
-                destination_start = source_start - far_start
-                destination_end = destination_start + (source_end - source_start)
-                far[destination_start:destination_end] = self._far_reference[
-                    source_start:source_end
-                ]
-            self._mic_position = mic_end
+            far = self._reference_for_interval(capture_start, capture_end)
             try:
                 cleaned = self._processor.process(near, far)
             except Exception as exc:
                 print(f"[E.V.A] ⚠️ AEC emalı uğursuz oldu: {exc}", flush=True)
                 return data
+
         return np.asarray(cleaned, dtype=np.int16).tobytes()
 
     def reset(self):
         with self._lock:
-            self._far_reference = np.zeros(0, dtype=np.int16)
-            self._far_base_position = 0
-            self._far_position = 0
-            self._mic_position = 0
+            self._far_segments.clear()
+            if self._processor is not None:
+                try:
+                    self._processor.reset()
+                except Exception:
+                    pass
 
 
 def apply_gain(data: bytes, gain: float) -> bytes:
-    if gain >= 0.999:
+    gain = max(0.0, min(1.0, float(gain)))
+    if gain >= 0.999 or not data:
         return data
-    samples = struct.unpack(f"<{len(data) // 2}h", data[: len(data) - len(data) % 2])
+    sample_count = len(data) // 2
+    if sample_count <= 0:
+        return data
+    samples = struct.unpack(f"<{sample_count}h", data[: sample_count * 2])
     adjusted = [max(-32768, min(32767, int(sample * gain))) for sample in samples]
-    return struct.pack(f"<{len(adjusted)}h", *adjusted) + data[len(samples) * 2 :]
+    return struct.pack(f"<{sample_count}h", *adjusted) + data[sample_count * 2 :]
+
 
 def create_audio() -> pyaudio.PyAudio:
     """Proses üçün PyAudio idarəedicisi yaradır."""
     return pyaudio.PyAudio()
+
 
 _echo_canceller = _RealtimeEchoCanceller()
 _output_interrupt_generation = 0
