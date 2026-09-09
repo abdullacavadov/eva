@@ -24,6 +24,19 @@ def test_barge_in_confirms_continuous_speech():
     assert detector.update(chunk) is True
 
 
+def test_barge_in_aborts_playback_once(monkeypatch):
+    calls = []
+    monkeypatch.setattr("core.interruption.interrupt_output_stream", lambda: calls.append(True) or True)
+    detector = BargeInDetector(threshold=0.04, confirm_ms=250, sample_rate=16000)
+    chunk = _pcm(2500, 1600)
+
+    detector.update(chunk)
+    detector.update(chunk)
+    assert detector.update(chunk) is True
+    assert detector.update(chunk) is False
+    assert calls == [True]
+
+
 def test_barge_in_reset_clears_accumulated_speech():
     detector = BargeInDetector(threshold=0.04, confirm_ms=250, sample_rate=16000)
     chunk = _pcm(2500, 1600)
