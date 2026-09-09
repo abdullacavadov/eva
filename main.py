@@ -342,17 +342,25 @@ class JarvisLive:
 
                 if jarvis_speaking:
                     self._barge_in_buffer.append(data)
-                    if self._barge_in.update(data):
-                        print("[E.V.A] 🎙️ İstifadəçi müdaxiləsi təsdiqləndi — səs dayandırılır.", flush=True)
+
+                    confirmed = self._barge_in.update(data)
+                    if confirmed:
+                        print(
+                            "[E.V.A] 🎙️ İstifadəçi müdaxiləsi təsdiqləndi — səs dayandırılır.",
+                            flush=True,
+                        )
                         await self._interrupt_audio_async()
-                        buffered = list(self._barge_in_buffer)
-                        self._barge_in_buffer.clear()
-                        for buffered_chunk in buffered:
-                            await self.out_queue.put({"data": buffered_chunk, "mime_type": "audio/pcm"})
                     else:
                         # İstifadəçi danışmağa başlayanda EVA-nın səsi yumşaldılır.
                         if self._barge_in.rms(data) >= self._barge_in.threshold:
                             self._set_output_gain(0.25)
+
+                    # EVA danışsa belə mikrofon məlumatı Gemini Live-a ötürülməlidir.
+                    # Beləliklə server VAD istifadəçi müdaxiləsini görə və
+                    # server_content.interrupted hadisəsi yarada bilər.
+                    await self.out_queue.put(
+                        {"data": data, "mime_type": "audio/pcm"}
+                    )
                     continue
 
                 self._set_output_gain(1.0)
