@@ -9,6 +9,8 @@ from contextlib import asynccontextmanager
 from google import genai
 from google.genai import types
 
+from core.audio import is_playback_active
+
 
 class _ResilientLiveSession:
     """Gemini Live bağlantısını tək reconnect lifecycle-ı ilə idarə edən proxy."""
@@ -227,6 +229,12 @@ class _ResilientLiveSession:
             mime_type = str(media.get("mime_type") or "")
             data = media.get("data")
             if mime_type.startswith("audio/"):
+                # EVA danışarkən mikrofonu Gemini Live-a ötürmək server VAD-ın
+                # EVA-nın öz səsini müdaxilə kimi qəbul etməsinə səbəb ola bilər.
+                # Yerli BargeInDetector istifadəçi danışığını təsdiqləyənə qədər
+                # audio serverə buraxılmır; interrupt zamanı playback gate açılır.
+                if is_playback_active():
+                    return None
                 if mime_type == "audio/pcm":
                     mime_type = "audio/pcm;rate=16000"
                 kwargs["audio"] = types.Blob(data=data, mime_type=mime_type)
