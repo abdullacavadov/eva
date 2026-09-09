@@ -136,6 +136,9 @@ def apply_gain(data: bytes, gain: float) -> bytes:
     adjusted = [max(-32768, min(32767, int(sample * gain))) for sample in samples]
     return struct.pack(f"<{len(adjusted)}h", *adjusted) + data[len(samples) * 2 :]
 
+def create_audio() -> pyaudio.PyAudio:
+    """Proses üçün PyAudio idarəedicisi yaradır."""
+    return pyaudio.PyAudio()
 
 _echo_canceller = _RealtimeEchoCanceller()
 _output_interrupt_generation = 0
