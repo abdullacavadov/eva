@@ -22,6 +22,7 @@ from core.audio import (
     open_output_stream,
     read_chunk,
     write_chunk,
+    interrupt_output_stream,
 )
 from core.config import (
     CHUNK_SIZE,
@@ -200,6 +201,7 @@ class JarvisLive:
 
     async def _interrupt_audio_async(self):
         try:
+            interrupt_output_stream()
             if self.audio_in_queue:
                 while not self.audio_in_queue.empty():
                     try:
@@ -371,6 +373,10 @@ class JarvisLive:
         try:
             while True:
                 async for response in self.session.receive():
+                    if response.server_content and response.server_content.interrupted:
+                        print("[E.V.A] ⏹️ Server interruption — playback təmizlənir.", flush=True)
+                        await self._interrupt_audio_async()
+                        continue
                     if response.data:
                         self.set_speaking(True)
                         self.audio_in_queue.put_nowait(response.data)
