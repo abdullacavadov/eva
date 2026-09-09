@@ -2,6 +2,7 @@
 
 import asyncio
 import struct
+import threading
 
 import pyaudio
 
@@ -13,6 +14,11 @@ from core.config import (
     RECV_SAMPLE_RATE,
     SEND_SAMPLE_RATE,
 )
+
+
+_active_output_stream = None
+_output_stream_lock = threading.Lock()
+_output_interrupt_generation = 0
 
 
 def create_audio() -> pyaudio.PyAudio:
@@ -34,7 +40,7 @@ async def open_input_stream(audio: pyaudio.PyAudio):
 
 async def open_output_stream(audio: pyaudio.PyAudio):
     """EVA-nın dinamik axınını event loop-u bloklamadan açır."""
-    return await asyncio.to_thread(
+    stream = await asyncio.to_thread(
         audio.open,
         format=FORMAT,
         channels=CHANNELS,
@@ -42,6 +48,10 @@ async def open_output_stream(audio: pyaudio.PyAudio):
         output=True,
         frames_per_buffer=PLAYBACK_CHUNK_SIZE,
     )
+    global _active_output_stream
+    with _output_stream_lock:
+        _active_output_stream = stream
+    return stream
 
 
 async def read_chunk(stream, size: int = CHUNK_SIZE) -> bytes:
@@ -51,6 +61,48 @@ async def read_chunk(stream, size: int = CHUNK_SIZE) -> bytes:
         size,
         exception_on_overflow=False,
     )
+
+
+def get_output_interrupt_generation() -> int:
+    """Cari playback interruption nəsil nömrəsini qaytarır."""
+    with _output_stream_lock:
+        return _output_interrupt_generation
+
+
+def interrupt_output_stream() -> bool:
+    """Cari playback-i dərhal dayandırıb stream-i yenidən aktiv edir."""
+    global _active_output_stream, _output_interrupt_generation
+    with _output_stream_lock:
+        stream = _active_output_stream
+        _output_interrupt_generation += 1
+    if stream is None:
+        return False
+
+    try:
+        abort = getattr(stream, "abort_stream", None)
+        if callable(abort):
+            abort()
+        else:
+            stream.stop_stream()
+        start = getattr(stream, "start_stream", None)
+        if callable(start) and not stream.is_active():
+            start()
+        return True
+    except Exception:
+        try:
+            stream.stop_stream()
+            stream.start_stream()
+            return True
+        except Exception:
+            return False
+
+
+def clear_output_stream(stream) -> None:
+    """Aktiv playback stream qeydini təhlükəsiz şəkildə təmizləyir."""
+    global _active_output_stream
+    with _output_stream_lock:
+        if _active_output_stream is stream:
+            _active_output_stream = None
 
 
 def apply_gain(data: bytes, gain: float) -> bytes:
@@ -70,8 +122,14 @@ async def write_chunk(stream, data: bytes, gain: float = 1.0) -> None:
     """Səs hissəsini qazanc tətbiq edib ayrıca worker thread-də səsləndirir."""
     if gain < 0.999:
         data = apply_gain(data, gain)
-    await asyncio.to_thread(
-        stream.write,
-        data,
-        exception_on_underflow=False,
-    )
+    generation = get_output_interrupt_generation()
+    try:
+        await asyncio.to_thread(
+            stream.write,
+            data,
+            exception_on_underflow=False,
+        )
+    except Exception:
+        if get_output_interrupt_generation() != generation:
+            return
+        raise

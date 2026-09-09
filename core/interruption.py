@@ -5,6 +5,8 @@ from __future__ import annotations
 import math
 import struct
 
+from core.audio import interrupt_output_stream
+
 
 class BargeInDetector:
     """Qısa fon səslərini filtr edib davamlı insan nitqini aşkarlayır."""
@@ -14,6 +16,7 @@ class BargeInDetector:
         self.confirm_ms = max(1.0, float(confirm_ms))
         self.sample_rate = max(1, int(sample_rate))
         self._active_ms = 0.0
+        self._confirmed = False
 
     @staticmethod
     def rms(data: bytes) -> float:
@@ -33,7 +36,15 @@ class BargeInDetector:
             self._active_ms += duration_ms
         else:
             self._active_ms = 0.0
-        return self._active_ms >= self.confirm_ms
+
+        if self._active_ms < self.confirm_ms or self._confirmed:
+            return False
+
+        self._confirmed = True
+        # Cari PyAudio write() əməliyyatını mümkün qədər dərhal kəsir.
+        interrupt_output_stream()
+        return True
 
     def reset(self) -> None:
         self._active_ms = 0.0
+        self._confirmed = False
