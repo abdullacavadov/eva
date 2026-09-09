@@ -1,21 +1,10 @@
-from pathlib import Path
-from types import SimpleNamespace
-
 from actions import media
 
 
-def test_media_start_notification_uses_start_sfx(monkeypatch):
-    played: list[str] = []
-
-    monkeypatch.setattr(
-        media,
-        "os",
-        SimpleNamespace(
-            name="nt",
-            startfile=lambda path: played.append(path),
-        ),
-    )
+def test_media_start_notification_uses_eva_done_sfx():
+    calls = []
+    media.set_media_notification_sfx(lambda: calls.append("done"))
 
     media._play_background_notification_sfx()
 
-    assert played == [str(Path(media.__file__).resolve().parent.parent / "SFX" / "Done.mp3")]
+    assert calls == ["done"]
