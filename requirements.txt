@@ -3,6 +3,8 @@
 
 google-genai>=2.20.0,<3                   # Gemini Live API (ses + araç çağırışları)
 pyaudio                                   # Mikrofon / hoparlör (real-time səs)
+pywebrtc-audio>=0.2.0,<0.3                # WebRTC AEC/NS/AGC (real-time səs echo cancellation)
+numpy                                     # AEC PCM emalı
 psutil                                    # Sistem məlumatları (pil, CPU, RAM, disk)
 Pillow                                    # Görüntü işləmə (ekran + webcam analizi)
 requests                                  # Hava durumu, YouTube API, YouTube axtarış
