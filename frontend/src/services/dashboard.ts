@@ -48,6 +48,9 @@ export async function fetchDashboard(): Promise<DashboardData | null> {
     if (!response.ok) throw new Error(`Dashboard API: ${response.status}`)
     const data = (await response.json()) as DashboardData
     if (!data || typeof data !== 'object' || !data.overview || !data.system || !data.weather) throw new Error('Dashboard cavabı yanlışdır.')
+    if (typeof data.weather.wind_speed === 'number') {
+      data.weather.wind_speed *= 3.6
+    }
     const coordinates = await getBrowserCoordinates()
     if (coordinates) {
       try {
