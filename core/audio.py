@@ -71,10 +71,9 @@ def get_output_interrupt_generation() -> int:
 
 def interrupt_output_stream() -> bool:
     """Cari playback-i dərhal dayandırıb stream-i yenidən aktiv edir."""
-    global _output_stream_interrupt_generation, _active_output_stream
+    global _active_output_stream, _output_interrupt_generation
     with _output_stream_lock:
         stream = _active_output_stream
-        global _output_interrupt_generation
         _output_interrupt_generation += 1
     if stream is None:
         return False
