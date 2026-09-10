@@ -184,6 +184,12 @@ def create_audio() -> pyaudio.PyAudio:
 
 _echo_canceller = _RealtimeEchoCanceller()
 _output_interrupt_generation = 0
+_last_playback_activity_at = 0.0
+_PLAYBACK_ACTIVITY_GRACE_SECONDS = 0.35
+
+
+def is_playback_active() -> bool:
+    return time.monotonic() - _last_playback_activity_at < _PLAYBACK_ACTIVITY_GRACE_SECONDS
 
 
 def get_output_interrupt_generation() -> int:
@@ -191,8 +197,9 @@ def get_output_interrupt_generation() -> int:
 
 
 def interrupt_output_stream():
-    global _output_interrupt_generation
+    global _output_interrupt_generation, _last_playback_activity_at
     _output_interrupt_generation += 1
+    _last_playback_activity_at = 0.0
     _echo_canceller.reset()
 
 
@@ -229,9 +236,11 @@ async def read_chunk(stream, size: int = CHUNK_SIZE) -> bytes:
 
 
 async def write_chunk(stream, data: bytes, gain: float = 1.0) -> None:
+    global _last_playback_activity_at
     if gain < 0.999:
         data = apply_gain(data, gain)
     _echo_canceller.add_playback_reference(data)
+    _last_playback_activity_at = time.monotonic()
     generation = get_output_interrupt_generation()
     try:
         await asyncio.to_thread(
