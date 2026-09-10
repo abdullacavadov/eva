@@ -208,6 +208,12 @@ class JarvisLive:
                         self.audio_in_queue.get_nowait()
                     except Exception:
                         break
+            if self.out_queue:
+                while not self.out_queue.empty():
+                    try:
+                        self.out_queue.get_nowait()
+                    except Exception:
+                        break
             self._set_output_gain(1.0)
             self._barge_in.reset()
             self.set_speaking(False)
@@ -280,7 +286,7 @@ class JarvisLive:
             parts.append(mem_str + "\n\n")
         parts.append(sys_p)
         if not self._greeting_sent:
-            parts.append('\n\nİlk dəfə bu EVA runtime prosesi başladıqda istifadəçini "Salam, ser!" ifadəsi ilə qarşıla; sonrakı Live reconnect sessiyalarında avtomatik salamlaşma etmə.')
+            parts.append('\n\nİlk dəfə bu EVA runtime prosesində istifadəçini "Salam, ser!" ifadəsi ilə qarşıla; sonrakı Live reconnect sessiyalarında avtomatik salamlaşma etmə.')
         return types.LiveConnectConfig(
             response_modalities=["AUDIO"],
             output_audio_transcription={},
@@ -350,17 +356,15 @@ class JarvisLive:
                             flush=True,
                         )
                         await self._interrupt_audio_async()
+                        await self.out_queue.put(
+                            {"data": data, "mime_type": "audio/pcm"}
+                        )
                     else:
-                        # İstifadəçi danışmağa başlayanda EVA-nın səsi yumşaldılır.
+                        # EVA danışarkən xam mikrofon chunk-ları növbədə saxlanılmır.
+                        # Əks halda 260 ms-lik təsdiq müddətində yığılan EVA+istifadəçi
+                        # səsi müdaxilədən sonra serverə birlikdə gedə bilər.
                         if self._barge_in.rms(data) >= self._barge_in.threshold:
                             self._set_output_gain(0.25)
-
-                    # EVA danışsa belə mikrofon məlumatı Gemini Live-a ötürülməlidir.
-                    # Beləliklə server VAD istifadəçi müdaxiləsini görə və
-                    # server_content.interrupted hadisəsi yarada bilər.
-                    await self.out_queue.put(
-                        {"data": data, "mime_type": "audio/pcm"}
-                    )
                     continue
 
                 self._set_output_gain(1.0)
