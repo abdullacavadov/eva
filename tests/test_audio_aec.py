@@ -6,6 +6,38 @@ import numpy as np
 import core.audio as audio
 
 
+def test_aec_default_delay_matches_playback_buffer(monkeypatch):
+    captured = {}
+
+    class FakeAudioProcessor:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.delenv("EVA_AEC_DELAY_MS", raising=False)
+    monkeypatch.setattr(audio, "AudioProcessor", FakeAudioProcessor)
+
+    processor = audio._RealtimeEchoCanceller()
+
+    assert processor._delay_ms == 20
+    assert captured["stream_delay_ms"] == 20
+
+
+def test_aec_delay_can_be_overridden(monkeypatch):
+    captured = {}
+
+    class FakeAudioProcessor:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setenv("EVA_AEC_DELAY_MS", "35")
+    monkeypatch.setattr(audio, "AudioProcessor", FakeAudioProcessor)
+
+    processor = audio._RealtimeEchoCanceller()
+
+    assert processor._delay_ms == 35
+    assert captured["stream_delay_ms"] == 35
+
+
 def test_aec_reference_resamples_playback_to_microphone_rate():
     samples = np.arange(480, dtype=np.int16)
     data = samples.tobytes()
