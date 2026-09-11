@@ -36,13 +36,15 @@ class BargeInDetector:
         self._active_ms = 0.0
         self._confirmed = False
         self._speech_probability = 0.0
+        self._detection_ready = False
+        self._speech_candidate = False
         self._voice_detector = VoiceDetector(
             sample_rate=self.sample_rate,
             num_channels=1,
         ) if VoiceDetector is not None else None
 
     @staticmethod
-    def rms(data: bytes) -> float:
+    def _raw_rms(data: bytes) -> float:
         if not data:
             return 0.0
         sample_count = len(data) // 2
@@ -52,10 +54,17 @@ class BargeInDetector:
         mean_square = sum(sample * sample for sample in samples) / sample_count
         return math.sqrt(mean_square) / 32768.0
 
+    def rms(self, data: bytes) -> float:
+        """RMS-i qaytarır; VAD mənfi nəticə veribsə ducking üçün sıfırlayır."""
+        raw = self._raw_rms(data)
+        if self._detection_ready and not self._speech_candidate:
+            return 0.0
+        return raw
+
     def _detect_speech(self, data: bytes) -> tuple[bool, bool]:
         """Namizəd nitqi və təsdiq üçün kifayət qədər güclü nitqi qaytarır."""
         if not data or self._voice_detector is None:
-            fallback = self.rms(data) >= self.threshold
+            fallback = self._raw_rms(data) >= self.threshold
             return fallback, fallback
 
         try:
@@ -67,7 +76,7 @@ class BargeInDetector:
                 return False, False
             self._speech_probability = float(self._voice_detector.process(samples))
         except Exception:
-            fallback = self.rms(data) >= self.threshold
+            fallback = self._raw_rms(data) >= self.threshold
             self._speech_probability = 1.0 if fallback else 0.0
             return fallback, fallback
 
@@ -81,12 +90,14 @@ class BargeInDetector:
 
     def is_speech_candidate(self) -> bool:
         """Son chunk-un nitq namizədi olub-olmadığını qaytarır."""
-        return self._speech_probability >= self.speech_threshold
+        return self._speech_candidate
 
     def update(self, data: bytes) -> bool:
         """Chunk-u yoxlayır; təsdiqlənmiş nitq müdaxiləsində True qaytarır."""
         duration_ms = (len(data) / 2) / self.sample_rate * 1000.0
         candidate, strong_speech = self._detect_speech(data)
+        self._speech_candidate = candidate
+        self._detection_ready = True
 
         if candidate:
             self._active_ms += duration_ms
@@ -109,6 +120,8 @@ class BargeInDetector:
         self._active_ms = 0.0
         self._confirmed = False
         self._speech_probability = 0.0
+        self._speech_candidate = False
+        self._detection_ready = False
         if self._voice_detector is not None:
             try:
                 self._voice_detector.reset()
