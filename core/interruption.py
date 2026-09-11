@@ -26,6 +26,7 @@ class BargeInDetector:
         speech_threshold: float = 0.35,
         confirm_speech_threshold: float = 0.55,
         candidate_hold_ms: float = 1000.0,
+        min_confirm_rms: float = 0.01,   # YENİ: enerji həddi
     ):
         self.threshold = max(0.0, float(threshold))
         self.confirm_ms = max(1.0, float(confirm_ms))
@@ -35,6 +36,7 @@ class BargeInDetector:
             self.speech_threshold,
             min(1.0, float(confirm_speech_threshold)),
         )
+
         self.candidate_hold_ms = max(0.0, float(candidate_hold_ms))
         self._active_ms = 0.0
         self._candidate_gap_ms = 0.0
@@ -48,6 +50,7 @@ class BargeInDetector:
             sample_rate=self.sample_rate,
             num_channels=1,
         ) if VoiceDetector is not None else None
+        self.min_confirm_rms = max(0.0, float(min_confirm_rms))
 
     @staticmethod
     def _raw_rms(data: bytes) -> float:
@@ -76,9 +79,16 @@ class BargeInDetector:
     ) -> tuple[bool, bool]:
         """Namizəd nitqi və güclü nitq siqnalını qaytarır."""
         if speech_probability is not None:
-            self._speech_probability = max(0.0, min(1.0, float(speech_probability)))
+            self._speech_probability = max(
+                0.0, min(1.0, float(speech_probability)))
             candidate = self._speech_probability >= self.speech_threshold
             strong_speech = self._speech_probability >= self.confirm_speech_threshold
+
+            # YENİ: enerjisi olmayan (yalnız spektral) siqnalı candidate saymırıq
+            if self._raw_rms(data) < self.min_confirm_rms:
+                candidate = False
+                strong_speech = False
+
             return candidate, strong_speech
 
         if not data or self._voice_detector is None:
@@ -92,7 +102,8 @@ class BargeInDetector:
             if not len(samples):
                 self._speech_probability = 0.0
                 return False, False
-            self._speech_probability = float(self._voice_detector.process(samples))
+            self._speech_probability = float(
+                self._voice_detector.process(samples))
         except Exception:
             fallback = self._raw_rms(data) >= self.threshold
             self._speech_probability = 1.0 if fallback else 0.0
@@ -158,6 +169,8 @@ class BargeInDetector:
             or self._active_ms < self.confirm_ms
             or not self._strong_seen
             or self._confirmed
+            # YENİ — enerji yoxdursa, confirm yox
+            or self._raw_rms(data) < self.min_confirm_rms
         ):
             return False
 
