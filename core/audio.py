@@ -19,6 +19,9 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 1
 SEND_SAMPLE_RATE = 16000
 RECV_SAMPLE_RATE = 24000
+# Çıxış buffer-i hoparlöre çatana qədər far-reference-i qabaqlamaq üçün
+# PyAudio playback buffer ölçüsündən AEC render gecikməsi hesablanır.
+_AEC_DEFAULT_DELAY_MS = round(PLAYBACK_CHUNK_SIZE / RECV_SAMPLE_RATE * 1000)
 
 
 class _RealtimeEchoCanceller:
@@ -26,7 +29,10 @@ class _RealtimeEchoCanceller:
         self._lock = threading.Lock()
         self._processor = None
         self._far_segments = deque()
-        self._delay_ms = max(0, int(os.getenv("EVA_AEC_DELAY_MS", "0")))
+        self._delay_ms = max(
+            0,
+            int(os.getenv("EVA_AEC_DELAY_MS", str(_AEC_DEFAULT_DELAY_MS))),
+        )
         self._max_reference_seconds = 2.0
         self._playback_cursor = None
         self._playback_gap_reset_seconds = 0.1
@@ -219,8 +225,8 @@ async def open_output_stream(audio):
         audio.open,
         format=FORMAT,
         channels=CHANNELS,
-        output=True,
         rate=RECV_SAMPLE_RATE,
+        output=True,
         frames_per_buffer=PLAYBACK_CHUNK_SIZE,
     )
     return stream
