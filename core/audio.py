@@ -36,6 +36,7 @@ class _RealtimeEchoCanceller:
         self._max_reference_seconds = 2.0
         self._playback_cursor = None
         self._playback_gap_reset_seconds = 0.1
+        self._last_audio_debug_at = 0.0
         if AudioProcessor is not None:
             try:
                 self._processor = AudioProcessor(
@@ -140,6 +141,13 @@ class _RealtimeEchoCanceller:
 
         return far
 
+    @staticmethod
+    def _rms(samples: np.ndarray) -> float:
+        if not len(samples):
+            return 0.0
+        normalized = samples.astype(np.float32) / 32768.0
+        return float(np.sqrt(np.mean(normalized * normalized)))
+
     def process_microphone(self, data: bytes) -> bytes:
         global _last_microphone_speech_probability
 
@@ -166,6 +174,18 @@ class _RealtimeEchoCanceller:
                 print(f"[E.V.A] ⚠️ AEC emalı uğursuz oldu: {exc}", flush=True)
                 return data
 
+        now = time.monotonic()
+        if far.any() and now - self._last_audio_debug_at >= 0.5:
+            self._last_audio_debug_at = now
+            cleaned_array = np.asarray(cleaned, dtype=np.int16)
+            print(
+                "[MIC-AUDIO] "
+                f"raw_rms={self._rms(near):.4f} "
+                f"processed_rms={self._rms(cleaned_array):.4f} "
+                f"speech_probability={_last_microphone_speech_probability:.3f}",
+                flush=True,
+            )
+
         return np.asarray(cleaned, dtype=np.int16).tobytes()
 
     def reset(self):
@@ -174,6 +194,7 @@ class _RealtimeEchoCanceller:
         with self._lock:
             self._far_segments.clear()
             self._playback_cursor = None
+            self._last_audio_debug_at = 0.0
             _last_microphone_speech_probability = None
             if self._processor is not None:
                 try:
@@ -258,22 +279,3 @@ async def read_chunk(stream, size: int = CHUNK_SIZE) -> bytes:
         exception_on_overflow=False,
     )
     return _echo_canceller.process_microphone(data)
-
-
-async def write_chunk(stream, data: bytes, gain: float = 1.0) -> None:
-    global _last_playback_activity_at
-    if gain < 0.999:
-        data = apply_gain(data, gain)
-    _echo_canceller.add_playback_reference(data)
-    _last_playback_activity_at = time.monotonic()
-    generation = get_output_interrupt_generation()
-    try:
-        await asyncio.to_thread(
-            stream.write,
-            data,
-            exception_on_underflow=False,
-        )
-    except Exception:
-        if get_output_interrupt_generation() != generation:
-            return
-        raise
