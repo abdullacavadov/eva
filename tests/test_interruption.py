@@ -35,20 +35,11 @@ def test_short_speech_candidate_ducks_and_restores(monkeypatch):
     assert detector.update(pcm_chunk()) is False
     assert detector.is_speech_candidate() is True
 
-    # 8 x 32 ms? Xeyr: hər chunk 512 nümunə / 16 kHz = 32 ms.
-    # 4-cü chunk-dan sonra gap 32 ms-dir; 120 ms hysteresis hələ aktivdir.
+    # 3 x 32 ms = 96 ms səssizlikdə namizəd hələ aktiv qalır.
     assert detector.update(pcm_chunk()) is False
     assert detector.is_speech_candidate() is True
 
-    assert detector.update(pcm_chunk()) is False
-    assert detector.is_speech_candidate() is True
-
-    assert detector.update(pcm_chunk()) is False
-    assert detector.is_speech_candidate() is True
-
-    assert detector.update(pcm_chunk()) is False
-    assert detector.is_speech_candidate() is True
-
+    # Növbəti 32 ms ilə ümumi boşluq 128 ms olur və 120 ms həddini keçir.
     assert detector.update(pcm_chunk()) is False
     assert detector.is_speech_candidate() is False
     assert detector.rms(pcm_chunk()) == 0.0
