@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import struct
+import time
 
 from core.audio import get_microphone_speech_probability, interrupt_output_stream
 
@@ -42,6 +43,7 @@ class BargeInDetector:
         self._speech_probability = 0.0
         self._detection_ready = False
         self._speech_candidate = False
+        self._last_debug_log_at = 0.0
         self._voice_detector = VoiceDetector(
             sample_rate=self.sample_rate,
             num_channels=1,
@@ -111,11 +113,27 @@ class BargeInDetector:
     def update(self, data: bytes) -> bool:
         """Chunk-u yoxlayır; təsdiqlənmiş nitq müdaxiləsində True qaytarır."""
         duration_ms = (len(data) / 2) / self.sample_rate * 1000.0
+        speech_probability = get_microphone_speech_probability()
         candidate, strong_speech = self._detect_speech(
             data,
-            get_microphone_speech_probability(),
+            speech_probability,
         )
         self._detection_ready = True
+
+        now = time.monotonic()
+        if now - self._last_debug_log_at >= 0.5:
+            print(
+                "[MIC-VAD] "
+                f"chunk={len(data)}B "
+                f"rms={self._raw_rms(data):.4f} "
+                f"speech_probability={self._speech_probability:.3f} "
+                f"candidate={candidate} "
+                f"strong={strong_speech} "
+                f"active_ms={self._active_ms:.0f} "
+                f"speaking_candidate={self._speech_candidate}",
+                flush=True,
+            )
+            self._last_debug_log_at = now
 
         if candidate:
             self._speech_candidate = True
@@ -144,6 +162,10 @@ class BargeInDetector:
             return False
 
         self._confirmed = True
+        print(
+            "[MIC-VAD] CONFIRMED — istifadəçi müdaxiləsi təsdiqləndi; playback interrupt edilir.",
+            flush=True,
+        )
         # Cari PyAudio write() əməliyyatını mümkün qədər dərhal kəsir.
         interrupt_output_stream()
         return True
@@ -156,6 +178,7 @@ class BargeInDetector:
         self._speech_probability = 0.0
         self._speech_candidate = False
         self._detection_ready = False
+        self._last_debug_log_at = 0.0
         if self._voice_detector is not None:
             try:
                 self._voice_detector.reset()
