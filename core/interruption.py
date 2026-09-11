@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import struct
 
-from core.audio import interrupt_output_stream
+from core.audio import get_microphone_speech_probability, interrupt_output_stream
 
 try:
     from pywebrtc_audio import VoiceDetector
@@ -67,8 +67,18 @@ class BargeInDetector:
             return max(raw, self.threshold)
         return raw
 
-    def _detect_speech(self, data: bytes) -> tuple[bool, bool]:
+    def _detect_speech(
+        self,
+        data: bytes,
+        speech_probability: float | None = None,
+    ) -> tuple[bool, bool]:
         """Namizəd nitqi və güclü nitq siqnalını qaytarır."""
+        if speech_probability is not None:
+            self._speech_probability = max(0.0, min(1.0, float(speech_probability)))
+            candidate = self._speech_probability >= self.speech_threshold
+            strong_speech = self._speech_probability >= self.confirm_speech_threshold
+            return candidate, strong_speech
+
         if not data or self._voice_detector is None:
             fallback = self._raw_rms(data) >= self.threshold
             return fallback, fallback
@@ -101,7 +111,10 @@ class BargeInDetector:
     def update(self, data: bytes) -> bool:
         """Chunk-u yoxlayır; təsdiqlənmiş nitq müdaxiləsində True qaytarır."""
         duration_ms = (len(data) / 2) / self.sample_rate * 1000.0
-        candidate, strong_speech = self._detect_speech(data)
+        candidate, strong_speech = self._detect_speech(
+            data,
+            get_microphone_speech_probability(),
+        )
         self._detection_ready = True
 
         if candidate:

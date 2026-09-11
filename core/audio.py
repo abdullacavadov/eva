@@ -141,10 +141,14 @@ class _RealtimeEchoCanceller:
         return far
 
     def process_microphone(self, data: bytes) -> bytes:
+        global _last_microphone_speech_probability
+
         if not self.enabled or not data or len(data) % 2:
+            _last_microphone_speech_probability = None
             return data
         near = np.frombuffer(data, dtype=np.int16)
         if not len(near):
+            _last_microphone_speech_probability = None
             return data
 
         capture_end = time.monotonic()
@@ -154,21 +158,36 @@ class _RealtimeEchoCanceller:
             far = self._reference_for_interval(capture_start, capture_end)
             try:
                 cleaned = self._processor.process(near, far)
+                _last_microphone_speech_probability = float(
+                    self._processor.speech_probability
+                )
             except Exception as exc:
+                _last_microphone_speech_probability = None
                 print(f"[E.V.A] ⚠️ AEC emalı uğursuz oldu: {exc}", flush=True)
                 return data
 
         return np.asarray(cleaned, dtype=np.int16).tobytes()
 
     def reset(self):
+        global _last_microphone_speech_probability
+
         with self._lock:
             self._far_segments.clear()
             self._playback_cursor = None
+            _last_microphone_speech_probability = None
             if self._processor is not None:
                 try:
                     self._processor.reset()
                 except Exception:
                     pass
+
+
+_last_microphone_speech_probability: float | None = None
+
+
+def get_microphone_speech_probability() -> float | None:
+    """AEC/NS emalından çıxan cari mikrofon nitq ehtimalını qaytarır."""
+    return _last_microphone_speech_probability
 
 
 def apply_gain(data: bytes, gain: float) -> bytes:

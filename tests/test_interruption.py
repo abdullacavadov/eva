@@ -21,6 +21,7 @@ def pcm_chunk(value: int = 10000, samples: int = 512) -> bytes:
 
 def test_default_candidate_hold_is_long_enough_for_natural_pauses(monkeypatch):
     monkeypatch.setattr(interruption, "VoiceDetector", FakeVoiceDetector)
+    monkeypatch.setattr(interruption, "get_microphone_speech_probability", lambda: None)
     detector = BargeInDetector(sample_rate=16000)
     detector._voice_detector.probabilities = [0.40] + [0.10] * 22
 
@@ -39,6 +40,7 @@ def test_default_candidate_hold_is_long_enough_for_natural_pauses(monkeypatch):
 
 def test_short_speech_candidate_ducks_and_restores(monkeypatch):
     monkeypatch.setattr(interruption, "VoiceDetector", FakeVoiceDetector)
+    monkeypatch.setattr(interruption, "get_microphone_speech_probability", lambda: None)
     detector = BargeInDetector(sample_rate=16000, candidate_hold_ms=120.0)
     detector._voice_detector.probabilities = [0.40] + [0.10] * 8
 
@@ -65,6 +67,7 @@ def test_short_speech_candidate_ducks_and_restores(monkeypatch):
 
 def test_speech_candidate_survives_short_vad_gap(monkeypatch):
     monkeypatch.setattr(interruption, "VoiceDetector", FakeVoiceDetector)
+    monkeypatch.setattr(interruption, "get_microphone_speech_probability", lambda: None)
     detector = BargeInDetector(
         sample_rate=16000,
         confirm_ms=260.0,
@@ -86,6 +89,7 @@ def test_speech_candidate_survives_short_vad_gap(monkeypatch):
 
 def test_confirmed_speech_interrupts_after_confirmation(monkeypatch):
     monkeypatch.setattr(interruption, "VoiceDetector", FakeVoiceDetector)
+    monkeypatch.setattr(interruption, "get_microphone_speech_probability", lambda: None)
     interrupt_calls = []
     monkeypatch.setattr(
         interruption,
@@ -103,3 +107,23 @@ def test_confirmed_speech_interrupts_after_confirmation(monkeypatch):
     assert confirmed is True
     assert interrupt_calls == [True]
     assert detector.is_speech_candidate() is True
+
+
+def test_aec_speech_probability_drives_barge_in_without_reprocessing_cleaned_audio(monkeypatch):
+    monkeypatch.setattr(interruption, "VoiceDetector", None)
+    monkeypatch.setattr(interruption, "get_microphone_speech_probability", lambda: 0.80)
+    interrupt_calls = []
+    monkeypatch.setattr(
+        interruption,
+        "interrupt_output_stream",
+        lambda: interrupt_calls.append(True),
+    )
+
+    detector = BargeInDetector(sample_rate=16000, confirm_ms=260.0)
+    confirmed = False
+    for _ in range(9):
+        confirmed = detector.update(pcm_chunk(value=1000)) or confirmed
+
+    assert confirmed is True
+    assert detector.speech_probability == 0.80
+    assert interrupt_calls == [True]
