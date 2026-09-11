@@ -348,7 +348,6 @@ class JarvisLive:
 
                 if jarvis_speaking:
                     self._barge_in_buffer.append(data)
-
                     confirmed = self._barge_in.update(data)
                     if confirmed:
                         print(
@@ -359,12 +358,10 @@ class JarvisLive:
                         await self.out_queue.put(
                             {"data": data, "mime_type": "audio/pcm"}
                         )
+                    elif self._barge_in.is_speech_candidate():
+                        self._set_output_gain(0.25)
                     else:
-                        # EVA danışarkən xam mikrofon chunk-ları növbədə saxlanılmır.
-                        # Əks halda 260 ms-lik təsdiq müddətində yığılan EVA+istifadəçi
-                        # səsi müdaxilədən sonra serverə birlikdə gedə bilər.
-                        if self._barge_in.rms(data) >= self._barge_in.threshold:
-                            self._set_output_gain(0.25)
+                        self._set_output_gain(1.0)
                     continue
 
                 self._set_output_gain(1.0)

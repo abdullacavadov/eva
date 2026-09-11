@@ -24,6 +24,7 @@ class BargeInDetector:
         sample_rate: int = 16000,
         speech_threshold: float = 0.35,
         confirm_speech_threshold: float = 0.55,
+        candidate_hold_ms: float = 120.0,
     ):
         self.threshold = max(0.0, float(threshold))
         self.confirm_ms = max(1.0, float(confirm_ms))
@@ -33,7 +34,10 @@ class BargeInDetector:
             self.speech_threshold,
             min(1.0, float(confirm_speech_threshold)),
         )
+        self.candidate_hold_ms = max(0.0, float(candidate_hold_ms))
         self._active_ms = 0.0
+        self._candidate_gap_ms = 0.0
+        self._strong_seen = False
         self._confirmed = False
         self._speech_probability = 0.0
         self._detection_ready = False
@@ -64,7 +68,7 @@ class BargeInDetector:
         return raw
 
     def _detect_speech(self, data: bytes) -> tuple[bool, bool]:
-        """Namizəd nitqi və təsdiq üçün kifayət qədər güclü nitqi qaytarır."""
+        """Namizəd nitqi və güclü nitq siqnalını qaytarır."""
         if not data or self._voice_detector is None:
             fallback = self._raw_rms(data) >= self.threshold
             return fallback, fallback
@@ -83,32 +87,45 @@ class BargeInDetector:
             return fallback, fallback
 
         candidate = self._speech_probability >= self.speech_threshold
-        confirmed = self._speech_probability >= self.confirm_speech_threshold
-        return candidate, confirmed
+        strong_speech = self._speech_probability >= self.confirm_speech_threshold
+        return candidate, strong_speech
 
     @property
     def speech_probability(self) -> float:
         return self._speech_probability
 
     def is_speech_candidate(self) -> bool:
-        """Son chunk-un nitq namizədi olub-olmadığını qaytarır."""
+        """Cari state-ə görə nitq namizədinin aktiv olub-olmadığını qaytarır."""
         return self._speech_candidate
 
     def update(self, data: bytes) -> bool:
         """Chunk-u yoxlayır; təsdiqlənmiş nitq müdaxiləsində True qaytarır."""
         duration_ms = (len(data) / 2) / self.sample_rate * 1000.0
         candidate, strong_speech = self._detect_speech(data)
-        self._speech_candidate = candidate
         self._detection_ready = True
 
         if candidate:
+            self._speech_candidate = True
+            self._candidate_gap_ms = 0.0
             self._active_ms += duration_ms
+            if strong_speech:
+                self._strong_seen = True
+        elif self._speech_candidate:
+            self._candidate_gap_ms += duration_ms
+            if self._candidate_gap_ms > self.candidate_hold_ms:
+                self._speech_candidate = False
+                self._candidate_gap_ms = 0.0
+                self._active_ms = 0.0
+                self._strong_seen = False
         else:
             self._active_ms = 0.0
+            self._candidate_gap_ms = 0.0
+            self._strong_seen = False
 
         if (
-            not strong_speech
+            not self._speech_candidate
             or self._active_ms < self.confirm_ms
+            or not self._strong_seen
             or self._confirmed
         ):
             return False
@@ -120,6 +137,8 @@ class BargeInDetector:
 
     def reset(self) -> None:
         self._active_ms = 0.0
+        self._candidate_gap_ms = 0.0
+        self._strong_seen = False
         self._confirmed = False
         self._speech_probability = 0.0
         self._speech_candidate = False
