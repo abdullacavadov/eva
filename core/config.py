@@ -19,9 +19,8 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 1
 SEND_SAMPLE_RATE = 16000
 RECV_SAMPLE_RATE = 24000
-# 512 samples @ 16 kHz = 32 ms. Smaller realtime chunks reduce the amount of
-# audio EVA must buffer before Gemini receives it, improving turn latency.
-CHUNK_SIZE = 512
+# 480 samples @ 16 kHz = 30 ms. WebRTC VAD/APM üçün keçərli realtime frame ölçüsüdür.
+CHUNK_SIZE = 480
 # 480 samples @ 24 kHz = 20 ms. Keep playback buffering aligned with the
 # realtime audio cadence to reduce output jitter.
 PLAYBACK_CHUNK_SIZE = 480
