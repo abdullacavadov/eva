@@ -279,3 +279,22 @@ async def read_chunk(stream, size: int = CHUNK_SIZE) -> bytes:
         exception_on_overflow=False,
     )
     return _echo_canceller.process_microphone(data)
+
+
+async def write_chunk(stream, data: bytes, gain: float = 1.0) -> None:
+    global _last_playback_activity_at
+    if gain < 0.999:
+        data = apply_gain(data, gain)
+    _echo_canceller.add_playback_reference(data)
+    _last_playback_activity_at = time.monotonic()
+    generation = get_output_interrupt_generation()
+    try:
+        await asyncio.to_thread(
+            stream.write,
+            data,
+            exception_on_underflow=False,
+        )
+    except Exception:
+        if get_output_interrupt_generation() != generation:
+            return
+        raise
