@@ -55,10 +55,12 @@ class BargeInDetector:
         return math.sqrt(mean_square) / 32768.0
 
     def rms(self, data: bytes) -> float:
-        """RMS-i qaytarır; VAD mənfi nəticə veribsə ducking üçün sıfırlayır."""
+        """VAD namizədi olduqda mövcud ducking yoxlamasını aktiv saxlayır."""
         raw = self._raw_rms(data)
-        if self._detection_ready and not self._speech_candidate:
-            return 0.0
+        if self._detection_ready:
+            if not self._speech_candidate:
+                return 0.0
+            return max(raw, self.threshold)
         return raw
 
     def _detect_speech(self, data: bytes) -> tuple[bool, bool]:
