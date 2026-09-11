@@ -1,6 +1,7 @@
 import struct
 
 from core.audio import apply_gain
+from core import interruption
 from core.interruption import BargeInDetector
 
 
@@ -8,15 +9,42 @@ def _pcm(value: int, samples: int = 1600) -> bytes:
     return struct.pack(f"<{samples}h", *([value] * samples))
 
 
-def test_barge_in_ignores_short_noise():
-    detector = BargeInDetector(threshold=0.04, confirm_ms=260, sample_rate=16000)
+def _detector_with_vad(monkeypatch, probabilities, **kwargs):
+    class FakeVoiceDetector:
+        def __init__(self, sample_rate, num_channels):
+            self.probabilities = list(probabilities)
+
+        def process(self, samples):
+            return self.probabilities.pop(0)
+
+        def reset(self):
+            self.probabilities.clear()
+
+    monkeypatch.setattr(interruption, "VoiceDetector", FakeVoiceDetector)
+    return BargeInDetector(**kwargs)
+
+
+def test_barge_in_ignores_short_noise(monkeypatch):
+    detector = _detector_with_vad(
+        monkeypatch,
+        [0.10, 0.10],
+        threshold=0.04,
+        confirm_ms=260,
+        sample_rate=16000,
+    )
 
     assert detector.update(_pcm(1800, 1600)) is False  # 100 ms
     assert detector.update(_pcm(0, 1600)) is False
 
 
-def test_barge_in_confirms_continuous_speech():
-    detector = BargeInDetector(threshold=0.04, confirm_ms=250, sample_rate=16000)
+def test_barge_in_confirms_continuous_speech(monkeypatch):
+    detector = _detector_with_vad(
+        monkeypatch,
+        [0.80, 0.80, 0.80],
+        threshold=0.04,
+        confirm_ms=250,
+        sample_rate=16000,
+    )
     chunk = _pcm(2500, 1600)  # 100 ms
 
     assert detector.update(chunk) is False
@@ -27,7 +55,13 @@ def test_barge_in_confirms_continuous_speech():
 def test_barge_in_aborts_playback_once(monkeypatch):
     calls = []
     monkeypatch.setattr("core.interruption.interrupt_output_stream", lambda: calls.append(True) or True)
-    detector = BargeInDetector(threshold=0.04, confirm_ms=250, sample_rate=16000)
+    detector = _detector_with_vad(
+        monkeypatch,
+        [0.80, 0.80, 0.80, 0.80],
+        threshold=0.04,
+        confirm_ms=250,
+        sample_rate=16000,
+    )
     chunk = _pcm(2500, 1600)
 
     detector.update(chunk)
@@ -37,8 +71,14 @@ def test_barge_in_aborts_playback_once(monkeypatch):
     assert calls == [True]
 
 
-def test_barge_in_reset_clears_accumulated_speech():
-    detector = BargeInDetector(threshold=0.04, confirm_ms=250, sample_rate=16000)
+def test_barge_in_reset_clears_accumulated_speech(monkeypatch):
+    detector = _detector_with_vad(
+        monkeypatch,
+        [0.80, 0.80, 0.80],
+        threshold=0.04,
+        confirm_ms=250,
+        sample_rate=16000,
+    )
     chunk = _pcm(2500, 1600)
 
     detector.update(chunk)
