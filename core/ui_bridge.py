@@ -115,6 +115,8 @@ class UiBridge:
                 text = str(value or "")
                 failed = any(marker in text.lower() for marker in ("xəta", "error", "mümkün olmadı", "alınmadı"))
                 self.emit("tool.completed", tool=name, success=not failed, result=text[:500])
+                if name == "get_weather" and isinstance(value, dict) and value.get("image_url"):
+                    self.emit("background.city", city=str(value.get("image_city") or ""), image_url=str(value["image_url"]))
                 return result
             except Exception as exc:
                 self.emit("tool.completed", tool=name, success=False, result=str(exc)[:500])

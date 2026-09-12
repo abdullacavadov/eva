@@ -1,0 +1,160 @@
+From 08e4137ebb0685e0bea2c42a7ad50b0ca86a3c95 Mon Sep 17 00:00:00 2001
+From: EVA Assistant <eva@local>
+Date: Sat, 12 Sep 2026 13:17:13 +0000
+Subject: [PATCH] feat: hava sorgusunda sehir arxa fonu (get_weather ->
+ background.city event)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- actions/weather.py: reverse-geocoding ile rayon/mehelle adini esl sehere cevirir (Xetai->Baku, Manhattan->New York), Wikipedia REST API ile sehir sekli tapir
+- core/ui_bridge.py: get_weather ugurlu olanda background.city (city + image_url) websocket eventi yayimlayir
+- frontend/EvaOrb.tsx: cityBackground state-i, novbeti get_weather-e qeder qalir
+- eva-orb-state.css: tundlesdirilmis backdrop qatı (z-index: -1, overlay gradient)
+---
+ actions/weather.py                    | 40 +++++++++++++++++++++++++--
+ core/ui_bridge.py                     |  2 ++
+ frontend/src/components/EvaOrb.tsx    | 14 ++++++++++
+ frontend/src/styles/eva-orb-state.css | 13 +++++++++
+ 4 files changed, 67 insertions(+), 2 deletions(-)
+
+diff --git a/actions/weather.py b/actions/weather.py
+index b346c47..c0f10fa 100644
+--- a/actions/weather.py
++++ b/actions/weather.py
+@@ -26,11 +26,47 @@ def _resolve_location(target: str | None) -> tuple[float, float, str]:
+         return 40.4093, 49.8671, "Bakı"
+ 
+ 
++def _resolve_display_city(latitude: float, longitude: float, fallback: str) -> str:
++    """Rayon/məhəllə adını (Xətai, Manhetton və s.) əsl şəhərə çevirir — şəkil axtarışı üçün (EN, Wikipedia uyğunluğu üçün)."""
++    try:
++        response = requests.get(
++            "https://nominatim.openstreetmap.org/reverse",
++            params={"lat": latitude, "lon": longitude, "format": "jsonv2", "zoom": 10, "accept-language": "en"},
++            headers={"User-Agent": "EVA-assistant/1.0"},
++            timeout=6,
++        )
++        response.raise_for_status()
++        address = response.json().get("address", {})
++        city = address.get("city") or address.get("town") or address.get("municipality") or address.get("state")
++        return str(city) if city else fallback
++    except Exception:
++        return fallback
++
++
++def _resolve_city_image(image_city: str) -> str | None:
++    """Wikipedia REST API ilə şəhərin şəkil URL-ini tapır (Unsplash Source deaktiv edildiyi üçün)."""
++    try:
++        response = requests.get(
++            f"https://en.wikipedia.org/api/rest_v1/page/summary/{requests.utils.quote(image_city)}",
++            headers={"User-Agent": "EVA-assistant/1.0"},
++            timeout=6,
++        )
++        if response.status_code != 200:
++            return None
++        data = response.json()
++        thumb = data.get("originalimage") or data.get("thumbnail")
++        return str(thumb["source"]) if thumb and thumb.get("source") else None
++    except Exception:
++        return None
++
++
+ def get_weather_summary(location: str | None = None) -> dict:
+     try:
+         latitude, longitude, city_name = _resolve_location(location)
+     except Exception:
+         return {"success": False, "city": str(location or "Cari məkan")}
++    image_city = _resolve_display_city(latitude, longitude, city_name)
++    image_url = _resolve_city_image(image_city)
+     try:
+         response = requests.get("https://api.open-meteo.com/v1/forecast", params={"latitude": latitude, "longitude": longitude, "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m", "wind_speed_unit": "kmh", "timezone": "auto"}, timeout=10)
+         response.raise_for_status()
+@@ -40,9 +76,9 @@ def get_weather_summary(location: str | None = None) -> dict:
+         directions = ["Şimal","Şimal-Şərq","Şərq","Cənub-Şərq","Cənub","Cənub-Qərb","Qərb","Şimal-Qərb"]
+         degrees = current.get("wind_direction_10m")
+         wind_direction = "--" if degrees is None else directions[int((float(degrees) + 22.5) / 45) % 8]
+-        return {"success": True, "city": city_name, "temperature": current.get("temperature_2m"), "feels_like": current.get("apparent_temperature"), "humidity": current.get("relative_humidity_2m"), "pressure": current.get("surface_pressure"), "wind_speed": current.get("wind_speed_10m"), "wind_direction": wind_direction, "weather_code": code, "condition": descriptions.get(code, "Hava şəraiti müəyyən edilmədi")}
++        return {"success": True, "city": city_name, "image_city": image_city, "image_url": image_url, "temperature": current.get("temperature_2m"), "feels_like": current.get("apparent_temperature"), "humidity": current.get("relative_humidity_2m"), "pressure": current.get("surface_pressure"), "wind_speed": current.get("wind_speed_10m"), "wind_direction": wind_direction, "weather_code": code, "condition": descriptions.get(code, "Hava şəraiti müəyyən edilmədi")}
+     except Exception:
+-        return {"success": False, "city": city_name}
++        return {"success": False, "city": city_name, "image_city": image_city, "image_url": image_url}
+ 
+ try:
+     import tool_defs
+diff --git a/core/ui_bridge.py b/core/ui_bridge.py
+index 2392d78..2d5fc81 100644
+--- a/core/ui_bridge.py
++++ b/core/ui_bridge.py
+@@ -115,6 +115,8 @@ class UiBridge:
+                 text = str(value or "")
+                 failed = any(marker in text.lower() for marker in ("xəta", "error", "mümkün olmadı", "alınmadı"))
+                 self.emit("tool.completed", tool=name, success=not failed, result=text[:500])
++                if name == "get_weather" and isinstance(value, dict) and value.get("image_url"):
++                    self.emit("background.city", city=str(value.get("image_city") or ""), image_url=str(value["image_url"]))
+                 return result
+             except Exception as exc:
+                 self.emit("tool.completed", tool=name, success=False, result=str(exc)[:500])
+diff --git a/frontend/src/components/EvaOrb.tsx b/frontend/src/components/EvaOrb.tsx
+index 924cccb..7cca1ee 100644
+--- a/frontend/src/components/EvaOrb.tsx
++++ b/frontend/src/components/EvaOrb.tsx
+@@ -186,6 +186,7 @@ export function EvaOrb({ state }: OrbProps) {
+   const [control, setControl] = useState<EvaControlState>({});
+   const [visualSettings, setVisualSettings] = useState<OrbSettings>({});
+   const [waveformLevel, setWaveformLevel] = useState(0);
++  const [cityBackground, setCityBackground] = useState<string | null>(null);
+   const [waveTime, setWaveTime] = useState(0);
+   const socketRef = useRef<WebSocket | null>(null);
+   const reconnectTimerRef = useRef<number | null>(null);
+@@ -283,6 +284,10 @@ export function EvaOrb({ state }: OrbProps) {
+             setVisualSettings(message.settings || {});
+             return;
+           }
++          if (message.type === 'background.city' && message.image_url) {
++            setCityBackground(String(message.image_url));
++            return;
++          }
+           if (message.type === 'audio.level') {
+             const level = Math.max(0, Math.min(1, Number(message.level) || 0));
+             setWaveformLevel(level);
+@@ -369,6 +374,15 @@ export function EvaOrb({ state }: OrbProps) {
+       style={orbStyle}
+       aria-label={`EVA ${stateLabel[visualState]}`}
+     >
++      {cityBackground && (
++        <div
++          className="orb-city-backdrop"
++          style={{
++            backgroundImage: `linear-gradient(rgba(0,0,0,0.62), rgba(0,0,0,0.62)), url(${cityBackground})`,
++          }}
++          aria-hidden="true"
++        />
++      )}
+       <div className="orb-orbit orbit-a" />
+       <div className="orb-orbit orbit-b" />
+       <div className="orb-orbit orbit-c" />
+diff --git a/frontend/src/styles/eva-orb-state.css b/frontend/src/styles/eva-orb-state.css
+index 9cd9379..1d80382 100644
+--- a/frontend/src/styles/eva-orb-state.css
++++ b/frontend/src/styles/eva-orb-state.css
+@@ -179,3 +179,16 @@
+ .eva-core.state-paused .orb-waveform i {
+   animation: none !important;
+ }
++
++.eva-core .orb-city-backdrop {
++  position: absolute;
++  inset: -40px;
++  z-index: -1;
++  background-size: cover;
++  background-position: center;
++  border-radius: inherit;
++  filter: saturate(0.85) contrast(1.05);
++  opacity: 0.9;
++  transition: opacity 0.6s ease, background-image 0.6s ease;
++  pointer-events: none;
++}
+-- 
+2.43.0
+

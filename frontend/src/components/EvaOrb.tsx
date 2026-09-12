@@ -186,6 +186,7 @@ export function EvaOrb({ state }: OrbProps) {
   const [control, setControl] = useState<EvaControlState>({});
   const [visualSettings, setVisualSettings] = useState<OrbSettings>({});
   const [waveformLevel, setWaveformLevel] = useState(0);
+  const [cityBackground, setCityBackground] = useState<string | null>(null);
   const [waveTime, setWaveTime] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -283,6 +284,10 @@ export function EvaOrb({ state }: OrbProps) {
             setVisualSettings(message.settings || {});
             return;
           }
+          if (message.type === 'background.city' && message.image_url) {
+            setCityBackground(String(message.image_url));
+            return;
+          }
           if (message.type === 'audio.level') {
             const level = Math.max(0, Math.min(1, Number(message.level) || 0));
             setWaveformLevel(level);
@@ -369,6 +374,15 @@ export function EvaOrb({ state }: OrbProps) {
       style={orbStyle}
       aria-label={`EVA ${stateLabel[visualState]}`}
     >
+      {cityBackground && (
+        <div
+          className="orb-city-backdrop"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.62), rgba(0,0,0,0.62)), url(${cityBackground})`,
+          }}
+          aria-hidden="true"
+        />
+      )}
       <div className="orb-orbit orbit-a" />
       <div className="orb-orbit orbit-b" />
       <div className="orb-orbit orbit-c" />

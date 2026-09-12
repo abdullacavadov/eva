@@ -26,11 +26,47 @@ def _resolve_location(target: str | None) -> tuple[float, float, str]:
         return 40.4093, 49.8671, "Bakı"
 
 
+def _resolve_display_city(latitude: float, longitude: float, fallback: str) -> str:
+    """Rayon/məhəllə adını (Xətai, Manhetton və s.) əsl şəhərə çevirir — şəkil axtarışı üçün (EN, Wikipedia uyğunluğu üçün)."""
+    try:
+        response = requests.get(
+            "https://nominatim.openstreetmap.org/reverse",
+            params={"lat": latitude, "lon": longitude, "format": "jsonv2", "zoom": 10, "accept-language": "en"},
+            headers={"User-Agent": "EVA-assistant/1.0"},
+            timeout=6,
+        )
+        response.raise_for_status()
+        address = response.json().get("address", {})
+        city = address.get("city") or address.get("town") or address.get("municipality") or address.get("state")
+        return str(city) if city else fallback
+    except Exception:
+        return fallback
+
+
+def _resolve_city_image(image_city: str) -> str | None:
+    """Wikipedia REST API ilə şəhərin şəkil URL-ini tapır (Unsplash Source deaktiv edildiyi üçün)."""
+    try:
+        response = requests.get(
+            f"https://en.wikipedia.org/api/rest_v1/page/summary/{requests.utils.quote(image_city)}",
+            headers={"User-Agent": "EVA-assistant/1.0"},
+            timeout=6,
+        )
+        if response.status_code != 200:
+            return None
+        data = response.json()
+        thumb = data.get("originalimage") or data.get("thumbnail")
+        return str(thumb["source"]) if thumb and thumb.get("source") else None
+    except Exception:
+        return None
+
+
 def get_weather_summary(location: str | None = None) -> dict:
     try:
         latitude, longitude, city_name = _resolve_location(location)
     except Exception:
         return {"success": False, "city": str(location or "Cari məkan")}
+    image_city = _resolve_display_city(latitude, longitude, city_name)
+    image_url = _resolve_city_image(image_city)
     try:
         response = requests.get("https://api.open-meteo.com/v1/forecast", params={"latitude": latitude, "longitude": longitude, "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m", "wind_speed_unit": "kmh", "timezone": "auto"}, timeout=10)
         response.raise_for_status()
@@ -40,9 +76,9 @@ def get_weather_summary(location: str | None = None) -> dict:
         directions = ["Şimal","Şimal-Şərq","Şərq","Cənub-Şərq","Cənub","Cənub-Qərb","Qərb","Şimal-Qərb"]
         degrees = current.get("wind_direction_10m")
         wind_direction = "--" if degrees is None else directions[int((float(degrees) + 22.5) / 45) % 8]
-        return {"success": True, "city": city_name, "temperature": current.get("temperature_2m"), "feels_like": current.get("apparent_temperature"), "humidity": current.get("relative_humidity_2m"), "pressure": current.get("surface_pressure"), "wind_speed": current.get("wind_speed_10m"), "wind_direction": wind_direction, "weather_code": code, "condition": descriptions.get(code, "Hava şəraiti müəyyən edilmədi")}
+        return {"success": True, "city": city_name, "image_city": image_city, "image_url": image_url, "temperature": current.get("temperature_2m"), "feels_like": current.get("apparent_temperature"), "humidity": current.get("relative_humidity_2m"), "pressure": current.get("surface_pressure"), "wind_speed": current.get("wind_speed_10m"), "wind_direction": wind_direction, "weather_code": code, "condition": descriptions.get(code, "Hava şəraiti müəyyən edilmədi")}
     except Exception:
-        return {"success": False, "city": city_name}
+        return {"success": False, "city": city_name, "image_city": image_city, "image_url": image_url}
 
 try:
     import tool_defs
