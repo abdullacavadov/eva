@@ -60,7 +60,7 @@ FOOTER_H = 26
 INPUT_H = 34
 CONTROL_H = 126
 
-VOICES = ["Charon", "Puck", "Aoede", "Kore",
+VOICES = ["Charon", "Charon", "Aoede", "Kore",
           "Fenrir", "Leda", "Orus", "Zephyr"]
 
 # ── Font sistemi ─────────────────────────────────────────────────────────────

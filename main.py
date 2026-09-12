@@ -296,7 +296,7 @@ class JarvisLive:
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name=str(get_app_config_value("voice", "Puck") or "Puck")
+                        voice_name=str(get_app_config_value("voice", "Charon") or "Charon")
                     )
                 )
             ),
