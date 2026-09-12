@@ -34,7 +34,7 @@ DEFAULT_CONFIG = {
     "wake_listener_enabled": True,
     "auto_start": False,
     "user_name": "Abdulla",
-    "address_style": "Abdulla",
+    "address_style": "Dostum",
     "response_length": "normal",
     "humor_level": 30,
     "proactivity_level": 50,
