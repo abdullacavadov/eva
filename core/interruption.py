@@ -21,12 +21,13 @@ class BargeInDetector:
         self,
         *,
         threshold: float = 0.045,
-        confirm_ms: float = 260.0,
+        confirm_ms: float = 500.0,
         sample_rate: int = 16000,
-        speech_threshold: float = 0.35,
+        speech_threshold: float = 0.45,
         confirm_speech_threshold: float = 0.55,
         candidate_hold_ms: float = 1000.0,
-        min_confirm_rms: float = 0.01,   # YENİ: enerji həddi
+        min_confirm_rms: float = 0.015,   # enerji həddi
+        duck_ms: float = 90.0,            # duck üçün minimum davamlılıq
     ):
         self.threshold = max(0.0, float(threshold))
         self.confirm_ms = max(1.0, float(confirm_ms))
@@ -51,6 +52,11 @@ class BargeInDetector:
             num_channels=1,
         ) if VoiceDetector is not None else None
         self.min_confirm_rms = max(0.0, float(min_confirm_rms))
+        self.duck_ms = max(0.0, float(duck_ms))
+
+    def should_duck(self) -> bool:
+        """Ducking üçün: candidate + minimum davamlılıq tələb olunur (tək pik yox)."""
+        return self._speech_candidate and self._active_ms >= self.duck_ms
 
     @staticmethod
     def _raw_rms(data: bytes) -> float:

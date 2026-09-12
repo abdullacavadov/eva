@@ -65,7 +65,7 @@ class JarvisLive:
         self._output_gain_lock = threading.Lock()
         self._barge_in = BargeInDetector(
             threshold=float(os.getenv("EVA_BARGE_IN_THRESHOLD", "0.045")),
-            confirm_ms=float(os.getenv("EVA_BARGE_IN_CONFIRM_MS", "260")),
+            confirm_ms=float(os.getenv("EVA_BARGE_IN_CONFIRM_MS", "700")),
             sample_rate=SEND_SAMPLE_RATE,
         )
         self._barge_in_buffer = deque(maxlen=6)
@@ -358,8 +358,8 @@ class JarvisLive:
                         await self.out_queue.put(
                             {"data": data, "mime_type": "audio/pcm"}
                         )
-                    elif self._barge_in.is_speech_candidate():
-                        self._set_output_gain(0.25)
+                    elif self._barge_in.should_duck():
+                        self._set_output_gain(0.13)
                     else:
                         self._set_output_gain(1.0)
                     continue
