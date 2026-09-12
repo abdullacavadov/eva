@@ -7,12 +7,14 @@ from core.location_runtime import get_current_location
 def _resolve_location(target: str | None) -> tuple[float, float, str]:
     if target and str(target).strip():
         name = str(target).strip()
-        response = requests.get("https://geocoding-api.open-meteo.com/v1/search", params={"name": name, "count": 1, "language": "az", "format": "json"}, timeout=10)
+        response = requests.get("https://geocoding-api.open-meteo.com/v1/search", params={"name": name, "count": 5, "language": "az", "format": "json"}, timeout=10)
         response.raise_for_status()
         results = response.json().get("results") or []
         if not results:
             raise LookupError(f"Məkan tapılmadı: {name}")
-        item = results[0]
+        exact = [r for r in results if str(r.get("name") or "").strip().lower() == name.lower()]
+        pool = exact or results
+        item = max(pool, key=lambda r: r.get("population") or 0)
         return float(item["latitude"]), float(item["longitude"]), str(item.get("name") or name)
     current = get_current_location()
     if current:

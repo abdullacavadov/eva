@@ -1,6 +1,7 @@
 .eva-core {
   --orb-rgb: 0, 255, 136;
   color: rgb(var(--orb-rgb));
+  isolation: isolate;
 }
 
 .eva-core .orb-sphere {
