@@ -21,7 +21,7 @@ class BargeInDetector:
         self,
         *,
         threshold: float = 0.045,
-        confirm_ms: float = 500.0,
+        confirm_ms: float = 400.0,
         sample_rate: int = 16000,
         speech_threshold: float = 0.45,
         confirm_speech_threshold: float = 0.55,

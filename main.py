@@ -65,7 +65,7 @@ class JarvisLive:
         self._output_gain_lock = threading.Lock()
         self._barge_in = BargeInDetector(
             threshold=float(os.getenv("EVA_BARGE_IN_THRESHOLD", "0.045")),
-            confirm_ms=float(os.getenv("EVA_BARGE_IN_CONFIRM_MS", "700")),
+            confirm_ms=float(os.getenv("EVA_BARGE_IN_CONFIRM_MS", "400")),
             sample_rate=SEND_SAMPLE_RATE,
         )
         self._barge_in_buffer = deque(maxlen=6)
