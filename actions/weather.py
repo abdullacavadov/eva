@@ -37,8 +37,12 @@ def _resolve_display_city(latitude: float, longitude: float, fallback: str) -> s
         )
         response.raise_for_status()
         address = response.json().get("address", {})
-        city = address.get("city") or address.get("town") or address.get("municipality") or address.get("state")
-        return str(city) if city else fallback
+        blocked = ("raion", "rayon", "district", "borough")
+        candidates = [address.get("city"), address.get("town"), address.get("municipality"), address.get("state")]
+        for candidate in candidates:
+            if candidate and not any(word in str(candidate).lower() for word in blocked):
+                return str(candidate)
+        return fallback
     except Exception:
         return fallback
 

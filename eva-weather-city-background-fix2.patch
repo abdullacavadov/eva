@@ -1,0 +1,32 @@
+From 0e12243f207fdc167c6fd024c772c5818aa6fcdb Mon Sep 17 00:00:00 2001
+From: EVA Assistant <eva@local>
+Date: Sat, 12 Sep 2026 13:25:36 +0000
+Subject: [PATCH] fix: reverse-geocoding rayon/raion adlarini filtrleyir (Xetai
+ Raion -> Baku)
+
+---
+ actions/weather.py | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/actions/weather.py b/actions/weather.py
+index c0f10fa..9f17e95 100644
+--- a/actions/weather.py
++++ b/actions/weather.py
+@@ -37,8 +37,12 @@ def _resolve_display_city(latitude: float, longitude: float, fallback: str) -> s
+         )
+         response.raise_for_status()
+         address = response.json().get("address", {})
+-        city = address.get("city") or address.get("town") or address.get("municipality") or address.get("state")
+-        return str(city) if city else fallback
++        blocked = ("raion", "rayon", "district", "borough")
++        candidates = [address.get("city"), address.get("town"), address.get("municipality"), address.get("state")]
++        for candidate in candidates:
++            if candidate and not any(word in str(candidate).lower() for word in blocked):
++                return str(candidate)
++        return fallback
+     except Exception:
+         return fallback
+ 
+-- 
+2.43.0
+
