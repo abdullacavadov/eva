@@ -76,7 +76,7 @@ export default function RotatingEarth({ width = 800, height = 600, className = "
       return false
     }
 
-    const generateDotsInPolygon = (feature: any, dotSpacing = 16) => {
+    const generateDotsInPolygon = (feature: any, dotSpacing = 24) => {
       const dots: [number, number][] = []
       const bounds = d3.geoBounds(feature)
       const [[minLng, minLat], [maxLng, maxLat]] = bounds
@@ -97,7 +97,7 @@ export default function RotatingEarth({ width = 800, height = 600, className = "
       z: number
     }
 
-    const allDots: DotData[] = []
+    let allDots = new Float32Array(0)
     let landFeatures: any
 
     const render = () => {
@@ -132,7 +132,6 @@ export default function RotatingEarth({ width = 800, height = 600, className = "
       context.lineWidth = 1 * scaleFactor
       context.stroke()
 
-      // Nöqtələrin sferik koordinatlarını əvvəlcədən hesablayırıq və hər frame-də d3 projection çağırışlarını aradan qaldırırıq.
       context.beginPath()
       context.fillStyle = "#999999"
       const dotRadius = 1.2 * scaleFactor
@@ -144,14 +143,16 @@ export default function RotatingEarth({ width = 800, height = 600, className = "
       const sinPhi = Math.sin(phi)
       const cosPhi = Math.cos(phi)
 
-      for (const dot of allDots) {
-        // Kamera istiqamətinə baxış və ekran koordinatlarını birbaşa 3D sferik vektordan hesablayırıq.
-        const visible = dot.x * cosPhi * cosLambda + dot.y * cosPhi * sinLambda + dot.z * sinPhi
+      for (let i = 0; i < allDots.length; i += 3) {
+        const x = allDots[i]
+        const y = allDots[i + 1]
+        const z = allDots[i + 2]
+        const visible = x * cosPhi * cosLambda + y * cosPhi * sinLambda + z * sinPhi
         if (visible <= 0) continue
 
-        const screenX = (-dot.x * sinLambda + dot.y * cosLambda) * currentScale + centerX
+        const screenX = (-x * sinLambda + y * cosLambda) * currentScale + centerX
         const screenY =
-          (dot.x * sinPhi * cosLambda + dot.y * sinPhi * sinLambda - dot.z * cosPhi) * currentScale + centerY
+          (x * sinPhi * cosLambda + y * sinPhi * sinLambda - z * cosPhi) * currentScale + centerY
 
         if (screenX < 0 || screenX > containerWidth || screenY < 0 || screenY > containerHeight) continue
 
@@ -171,19 +172,18 @@ export default function RotatingEarth({ width = 800, height = 600, className = "
         if (!response.ok) throw new Error("Failed to load land data")
         landFeatures = await response.json()
 
+        const dotCoordinates: number[] = []
         for (const feature of landFeatures.features) {
-          for (const [lng, lat] of generateDotsInPolygon(feature, 16)) {
+          for (const [lng, lat] of generateDotsInPolygon(feature, 24)) {
             const lngRad = (lng * Math.PI) / 180
             const latRad = (lat * Math.PI) / 180
             const cosLat = Math.cos(latRad)
-            allDots.push({
-              x: cosLat * Math.cos(lngRad),
-              y: cosLat * Math.sin(lngRad),
-              z: Math.sin(latRad),
-            })
+            dotCoordinates.push(cosLat * Math.cos(lngRad), cosLat * Math.sin(lngRad), Math.sin(latRad))
           }
         }
 
+        allDots = new Float32Array(dotCoordinates)
+        dotCoordinates.length = 0
         render()
         setIsLoading(false)
       } catch (err) {
@@ -198,7 +198,6 @@ export default function RotatingEarth({ width = 800, height = 600, className = "
     let lastFrameTime = 0
 
     const rotate = (elapsed: number) => {
-      // Renderi təxminən 60 FPS-də saxlayırıq və eyni frame daxilində artıq render çağırışlarının qarşısını alırıq.
       if (elapsed - lastFrameTime < 16) return
       lastFrameTime = elapsed
 
