@@ -24,6 +24,7 @@ interface EarthDot {
 const EARTH_ROTATION_SPEED = 0.5;
 const EARTH_DOT_STEP = 1.7;
 const EARTH_DOT_RADIUS = 0.85;
+const WAVE_COLOR = '0,255,192';
 
 const STATE_COLORS: Record<EvaState, [number, number, number]> = {
   IDLE: [0, 255, 136],
@@ -49,6 +50,7 @@ export function EvaOrb({ state }: OrbProps) {
   const draggingRef = useRef(false);
   const lastPointerRef = useRef<[number, number] | null>(null);
   const animationRef = useRef<number | null>(null);
+  const audioLevelRef = useRef(0);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   useEffect(() => {
@@ -73,6 +75,16 @@ export function EvaOrb({ state }: OrbProps) {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const handleAudioLevel = (event: Event) => {
+      const level = (event as CustomEvent<number>).detail;
+      audioLevelRef.current = Math.max(0, Math.min(1, Number(level) || 0));
+    };
+
+    window.addEventListener('eva:audio-level', handleAudioLevel);
+    return () => window.removeEventListener('eva:audio-level', handleAudioLevel);
   }, []);
 
   useEffect(() => {
@@ -105,6 +117,47 @@ export function EvaOrb({ state }: OrbProps) {
     observer.observe(wrapper);
     resize();
 
+    const drawWave = (centerX: number, centerY: number) => {
+      if (state !== 'SPEAKING') return;
+
+      const level = audioLevelRef.current;
+      const waveWidth = Math.min(width * 0.78, radius * 2.1);
+      const startX = centerX - waveWidth / 2;
+      const segmentCount = 80;
+      const lineCount = 7;
+      const baseAmplitude = 2 + Math.pow(level, 0.65) * 34;
+      const waveY = Math.min(height - 24, centerY + radius + 24);
+
+      context.save();
+      context.lineWidth = 1.2;
+      context.lineCap = 'round';
+      context.lineJoin = 'round';
+
+      for (let i = 0; i < lineCount; i++) {
+        context.beginPath();
+        const progress = i / (lineCount - 1);
+        const intensity = Math.sin(progress * Math.PI);
+        context.strokeStyle = `rgba(${WAVE_COLOR},${0.12 + intensity * 0.28})`;
+
+        for (let j = 0; j <= segmentCount; j++) {
+          const x = startX + (j / segmentCount) * waveWidth;
+          const phase = i * 0.22;
+          const noise = Math.sin(j * 0.1 + performance.now() * 0.004 + phase) * baseAmplitude * 0.45;
+          const spike =
+            Math.cos(j * 0.2 + performance.now() * 0.005 + phase) *
+            Math.sin(j * 0.05 + performance.now() * 0.003) *
+            baseAmplitude;
+          const y = waveY + noise + spike * intensity;
+
+          if (j === 0) context.moveTo(x, y);
+          else context.lineTo(x, y);
+        }
+        context.stroke();
+      }
+
+      context.restore();
+    };
+
     const draw = () => {
       const [red, green, blue] = STATE_COLORS[state];
       const stateRgb = `${red},${green},${blue}`;
@@ -115,9 +168,11 @@ export function EvaOrb({ state }: OrbProps) {
         return;
       }
 
+      const centerX = width / 2;
+      const centerY = height / 2 - 12;
       const projection = d3
         .geoOrthographic()
-        .translate([width / 2, height / 2])
+        .translate([centerX, centerY])
         .scale(radius)
         .rotate(rotationRef.current)
         .clipAngle(90);
@@ -161,6 +216,7 @@ export function EvaOrb({ state }: OrbProps) {
       }
 
       context.restore();
+      drawWave(centerX, centerY);
 
       if (!draggingRef.current && landRef.current && state !== 'PAUSED') {
         rotationRef.current[0] += EARTH_ROTATION_SPEED;
