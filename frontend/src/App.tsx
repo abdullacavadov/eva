@@ -406,7 +406,7 @@ export default function App() {
           <section className="core-column">
             <div className="core-meta">
               <span>HOLOQRAFİK İNTERFEYS</span>
-              <span>v2.1</span>
+              <span>v2.5</span>
             </div>
             <EvaOrb state={state} />
 

@@ -27,45 +27,28 @@ interface SatelliteOrbit {
   phase: number;
 }
 
+interface StarParticle {
+  x: number; // normalized -1..1 relative to wrapper
+  y: number;
+  r: number;
+  baseAlpha: number;
+  twinkleSpeed: number;
+  twinklePhase: number;
+  parallax: number; // depth factor for drift
+}
+
 const EARTH_ROTATION_SPEED = 0.5;
 const EARTH_DOT_STEP = 1.7;
 const EARTH_DOT_RADIUS = 0.85;
 const WAVE_COLOR = '#45d9ff';
 const SATELLITE_COLOR = '0,255,192';
+const STAR_COUNT = 90;
 
 const SATELLITE_ORBITS: SatelliteOrbit[] = [
-  {
-    tilt: -0.22,
-    rotation: -0.1,
-    radiusX: 1.18,
-    radiusY: 0.34,
-    speed: 0.0022,
-    phase: 0,
-  },
-  {
-    tilt: 0.48,
-    rotation: 0.82,
-    radiusX: 1.24,
-    radiusY: 0.28,
-    speed: -0.0017,
-    phase: 2.1,
-  },
-  {
-    tilt: -0.62,
-    rotation: 1.72,
-    radiusX: 1.16,
-    radiusY: 0.31,
-    speed: 0.0015,
-    phase: 4.2,
-  },
-  {
-    tilt: 0.8,
-    rotation: 2.55,
-    radiusX: 1.27,
-    radiusY: 0.24,
-    speed: -0.0012,
-    phase: 5.4,
-  },
+  { tilt: -0.22, rotation: -0.1, radiusX: 1.18, radiusY: 0.34, speed: 0.0022, phase: 0 },
+  { tilt: 0.48, rotation: 0.82, radiusX: 1.24, radiusY: 0.28, speed: -0.0017, phase: 2.1 },
+  { tilt: -0.62, rotation: 1.72, radiusX: 1.16, radiusY: 0.31, speed: 0.0015, phase: 4.2 },
+  { tilt: 0.8, rotation: 2.55, radiusX: 1.27, radiusY: 0.24, speed: -0.0012, phase: 5.4 },
 ];
 
 const STATE_COLORS: Record<EvaState, [number, number, number]> = {
@@ -82,11 +65,28 @@ const STATE_COLORS: Record<EvaState, [number, number, number]> = {
   INITIALISING: [255, 51, 68],
 };
 
+function createStarField(count: number): StarParticle[] {
+  const stars: StarParticle[] = [];
+  for (let i = 0; i < count; i++) {
+    stars.push({
+      x: (Math.random() - 0.5) * 2,
+      y: (Math.random() - 0.5) * 2,
+      r: 0.4 + Math.random() * 1.3,
+      baseAlpha: 0.15 + Math.random() * 0.5,
+      twinkleSpeed: 0.0006 + Math.random() * 0.0018,
+      twinklePhase: Math.random() * Math.PI * 2,
+      parallax: 0.15 + Math.random() * 0.5,
+    });
+  }
+  return stars;
+}
+
 export function EvaOrb({ state }: OrbProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const landRef = useRef<LandData | null>(null);
   const dotsRef = useRef<EarthDot[]>([]);
+  const starsRef = useRef<StarParticle[]>(createStarField(STAR_COUNT));
   const rotationRef = useRef<[number, number, number]>([0, -8, 0]);
   const zoomRef = useRef(1);
   const draggingRef = useRef(false);
@@ -94,9 +94,9 @@ export function EvaOrb({ state }: OrbProps) {
   const animationRef = useRef<number | null>(null);
   const audioLevelRef = useRef(0);
   const satelliteTimeRef = useRef(0);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(
-    'loading'
-  );
+  const pulseStartRef = useRef<number | null>(null);
+  const prevStateRef = useRef<EvaState>(state);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   useEffect(() => {
     let cancelled = false;
@@ -129,9 +129,16 @@ export function EvaOrb({ state }: OrbProps) {
     };
 
     window.addEventListener('eva:audio-level', handleAudioLevel);
-    return () =>
-      window.removeEventListener('eva:audio-level', handleAudioLevel);
+    return () => window.removeEventListener('eva:audio-level', handleAudioLevel);
   }, []);
+
+  // Trigger a pulse whenever state changes
+  useEffect(() => {
+    if (prevStateRef.current !== state) {
+      pulseStartRef.current = performance.now();
+      prevStateRef.current = state;
+    }
+  }, [state]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -163,12 +170,81 @@ export function EvaOrb({ state }: OrbProps) {
     observer.observe(wrapper);
     resize();
 
-    const drawSatellites = (
-      centerX: number,
-      centerY: number,
-      now: number,
-      stateRgb: string
-    ) => {
+    // ---- Atmosphere particle field (background) ----
+    const drawStars = (centerX: number, centerY: number, now: number, stateRgb: string) => {
+      const drift = now * 0.00002;
+      context.save();
+      starsRef.current.forEach((star) => {
+        const driftX = star.x + Math.sin(drift * star.parallax * 6 + star.twinklePhase) * 0.03;
+        const driftY = star.y + Math.cos(drift * star.parallax * 6 + star.twinklePhase) * 0.03;
+        const px = centerX + driftX * width * 0.55;
+        const py = centerY + driftY * height * 0.55;
+
+        // skip stars that fall inside the globe so they don't overpower it
+        const distFromCenter = Math.hypot(px - centerX, py - centerY);
+        if (distFromCenter < radius * 1.05) return;
+
+        const twinkle = 0.5 + 0.5 * Math.sin(now * star.twinkleSpeed + star.twinklePhase);
+        const alpha = star.baseAlpha * (0.4 + twinkle * 0.6);
+
+        context.beginPath();
+        context.arc(px, py, star.r, 0, Math.PI * 2);
+        context.fillStyle = `rgba(${stateRgb},${alpha * 0.6})`;
+        context.fill();
+      });
+      context.restore();
+    };
+
+    // ---- Atmosphere halo (rim glow around globe) ----
+    const drawHalo = (centerX: number, centerY: number, now: number, stateRgb: string) => {
+      const pulseStart = pulseStartRef.current;
+      let pulseBoost = 0;
+      if (pulseStart !== null) {
+        const elapsed = now - pulseStart;
+        const duration = 500;
+        if (elapsed < duration) {
+          const t = elapsed / duration;
+          pulseBoost = Math.sin(t * Math.PI) * 0.25;
+        } else {
+          pulseStartRef.current = null;
+        }
+      }
+
+      const outer = radius * (1.32 + pulseBoost);
+      const grad = context.createRadialGradient(
+        centerX, centerY, radius * 0.97,
+        centerX, centerY, outer
+      );
+      grad.addColorStop(0, `rgba(${stateRgb},${0.32 + pulseBoost * 0.4})`);
+      grad.addColorStop(1, `rgba(${stateRgb},0)`);
+
+      context.save();
+      context.beginPath();
+      context.arc(centerX, centerY, outer, 0, Math.PI * 2);
+      context.fillStyle = grad;
+      context.fill();
+      context.restore();
+    };
+
+    // ---- Radar sweep across the globe surface ----
+    const drawScanSweep = (centerX: number, centerY: number, now: number, spherePath: () => void) => {
+      const scanY = centerY + Math.sin(now * 0.0006) * radius * 0.92;
+
+      context.save();
+      context.beginPath();
+      spherePath();
+      context.clip();
+
+      const grad = context.createLinearGradient(centerX - radius, scanY, centerX + radius, scanY);
+      grad.addColorStop(0, 'rgba(69,217,255,0)');
+      grad.addColorStop(0.5, 'rgba(69,217,255,0.16)');
+      grad.addColorStop(1, 'rgba(69,217,255,0)');
+      context.fillStyle = grad;
+      context.fillRect(centerX - radius, scanY - 2, radius * 2, 4);
+      context.restore();
+    };
+
+    const drawSatellites = (centerX: number, centerY: number, now: number, stateRgb: string) => {
       satelliteTimeRef.current = now;
       const activeColor = SATELLITE_COLOR;
       const paused = state === 'PAUSED';
@@ -194,13 +270,13 @@ export function EvaOrb({ state }: OrbProps) {
           const y2 = x0 * sinR + y1 * cosR;
           const sx = centerX + x2;
           const sy = centerY + y2 * squash;
-          const depth = z1 / R; // -1 arxa .. +1 ön
+          const depth = z1 / R;
           const dist = Math.hypot(x2, y2 * squash);
           const hidden = depth < -0.015 && dist < radius * 0.985;
           return { sx, sy, depth, hidden };
         };
 
-        // Orbit xətti — yalnız görünən (öndəki) qövslər
+        // Orbit ring + HUD ticks
         for (let i = 0; i < 200; i++) {
           const t0 = (i / 200) * Math.PI * 2;
           const t1 = ((i + 1) / 200) * Math.PI * 2;
@@ -215,6 +291,18 @@ export function EvaOrb({ state }: OrbProps) {
           context.strokeStyle = `rgba(${stateRgb},${0.1 + depthT * 0.22})`;
           context.lineWidth = 0.5 + depthT * 0.7;
           context.stroke();
+
+          if (i % 14 === 0) {
+            const nx = (p0.sx - centerX) / R;
+            const ny = (p0.sy - centerY) / R;
+            const tickLen = 3 + depthT * 3;
+            context.beginPath();
+            context.moveTo(p0.sx, p0.sy);
+            context.lineTo(p0.sx + nx * tickLen, p0.sy + ny * tickLen);
+            context.strokeStyle = `rgba(${activeColor},${0.35 * depthT})`;
+            context.lineWidth = 1;
+            context.stroke();
+          }
         }
 
         // Peyk
@@ -225,23 +313,35 @@ export function EvaOrb({ state }: OrbProps) {
         const depthT = Math.max(0, (sat.depth + 1) / 2);
         const scale = 0.7 + depthT * 0.5;
 
-        // İz
-        context.beginPath();
+        // Gradient iz (parlaq baş -> şəffaf quyruq)
         let started = false;
+        let prevPoint: { sx: number; sy: number } | null = null;
         for (let trail = 10; trail >= 0; trail--) {
           const tp = project(satelliteAngle - orbit.speed * 90 * (trail / 10));
           if (tp.hidden) {
             started = false;
+            prevPoint = null;
             continue;
           }
           if (!started) {
-            context.moveTo(tp.sx, tp.sy);
             started = true;
-          } else context.lineTo(tp.sx, tp.sy);
+            prevPoint = tp;
+            continue;
+          }
+          const grad = context.createLinearGradient(prevPoint!.sx, prevPoint!.sy, tp.sx, tp.sy);
+          const alphaNear = (0.5 * scale) * (1 - trail / 11);
+          const alphaFar = (0.5 * scale) * (1 - (trail + 1) / 11);
+          grad.addColorStop(0, `rgba(${activeColor},${Math.max(0, alphaNear)})`);
+          grad.addColorStop(1, `rgba(${activeColor},${Math.max(0, alphaFar)})`);
+
+          context.beginPath();
+          context.moveTo(prevPoint!.sx, prevPoint!.sy);
+          context.lineTo(tp.sx, tp.sy);
+          context.strokeStyle = grad;
+          context.lineWidth = scale;
+          context.stroke();
+          prevPoint = tp;
         }
-        context.strokeStyle = `rgba(${activeColor},${0.14 * scale})`;
-        context.lineWidth = scale;
-        context.stroke();
 
         // Peyk cismi
         context.beginPath();
@@ -287,10 +387,7 @@ export function EvaOrb({ state }: OrbProps) {
         for (let j = 0; j <= segmentCount; j++) {
           const x = startX + (j / segmentCount) * waveWidth;
           const phase = i * 0.22;
-          const noise =
-            Math.sin(j * 0.1 + performance.now() * 0.004 + phase) *
-            baseAmplitude *
-            0.45;
+          const noise = Math.sin(j * 0.1 + performance.now() * 0.004 + phase) * baseAmplitude * 0.45;
           const spike =
             Math.cos(j * 0.2 + performance.now() * 0.005 + phase) *
             Math.sin(j * 0.05 + performance.now() * 0.003) *
@@ -319,6 +416,9 @@ export function EvaOrb({ state }: OrbProps) {
       const centerX = width / 2;
       const centerY = height / 2 - 12;
 
+      drawStars(centerX, centerY, timestamp, stateRgb);
+      drawHalo(centerX, centerY, timestamp, stateRgb);
+
       const projection = d3
         .geoOrthographic()
         .translate([centerX, centerY])
@@ -326,10 +426,11 @@ export function EvaOrb({ state }: OrbProps) {
         .rotate(rotationRef.current)
         .clipAngle(90);
       const path = d3.geoPath(projection, context);
+      const spherePathFn = () => path({ type: 'Sphere' });
 
       context.save();
       context.beginPath();
-      path({ type: 'Sphere' });
+      spherePathFn();
       context.fillStyle = '#000';
       context.fill();
       context.strokeStyle = `rgba(${stateRgb},0.95)`;
@@ -365,6 +466,8 @@ export function EvaOrb({ state }: OrbProps) {
       }
 
       context.restore();
+
+      drawScanSweep(centerX, centerY, timestamp, spherePathFn);
       drawSatellites(centerX, centerY, timestamp, stateRgb);
       drawWave(centerX, centerY);
 
@@ -379,8 +482,7 @@ export function EvaOrb({ state }: OrbProps) {
 
     return () => {
       observer.disconnect();
-      if (animationRef.current !== null)
-        cancelAnimationFrame(animationRef.current);
+      if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
     };
   }, [state]);
 
