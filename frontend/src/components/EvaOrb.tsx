@@ -25,7 +25,21 @@ const EARTH_ROTATION_SPEED = 0.5;
 const EARTH_DOT_STEP = 1.7;
 const EARTH_DOT_RADIUS = 0.85;
 
-export function EvaOrb(_props: OrbProps) {
+const STATE_COLORS: Record<EvaState, [number, number, number]> = {
+  IDLE: [0, 255, 136],
+  LISTENING: [0, 255, 136],
+  SPEAKING: [68, 136, 255],
+  THINKING: [255, 204, 0],
+  EXECUTING: [68, 136, 255],
+  WAITING_CONFIRMATION: [255, 204, 0],
+  SUCCESS: [0, 255, 136],
+  MUTED: [200, 30, 80],
+  PAUSED: [30, 60, 55],
+  ERROR: [255, 51, 68],
+  INITIALISING: [255, 51, 68],
+};
+
+export function EvaOrb({ state }: OrbProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const landRef = useRef<LandData | null>(null);
@@ -92,6 +106,9 @@ export function EvaOrb(_props: OrbProps) {
     resize();
 
     const draw = () => {
+      const [red, green, blue] = STATE_COLORS[state];
+      const stateRgb = `${red},${green},${blue}`;
+
       context.clearRect(0, 0, width, height);
       if (radius <= 0) {
         animationRef.current = requestAnimationFrame(draw);
@@ -111,14 +128,17 @@ export function EvaOrb(_props: OrbProps) {
       path({ type: 'Sphere' });
       context.fillStyle = '#000';
       context.fill();
-      context.strokeStyle = 'rgba(255,255,255,0.95)';
+      context.strokeStyle = `rgba(${stateRgb},0.95)`;
       context.lineWidth = 1.4;
+      context.shadowColor = `rgba(${stateRgb},0.55)`;
+      context.shadowBlur = state === 'PAUSED' ? 8 : 20;
       context.stroke();
+      context.shadowBlur = 0;
 
       const graticule = d3.geoGraticule().step([15, 15]);
       context.beginPath();
       path(graticule());
-      context.strokeStyle = 'rgba(255,255,255,0.25)';
+      context.strokeStyle = `rgba(${stateRgb},0.25)`;
       context.lineWidth = 0.55;
       context.stroke();
 
@@ -126,11 +146,11 @@ export function EvaOrb(_props: OrbProps) {
       if (land) {
         context.beginPath();
         land.features.forEach((feature) => path(feature));
-        context.strokeStyle = 'rgba(255,255,255,0.7)';
+        context.strokeStyle = `rgba(${stateRgb},0.7)`;
         context.lineWidth = 0.7;
         context.stroke();
 
-        context.fillStyle = 'rgba(180,180,180,0.88)';
+        context.fillStyle = `rgba(${stateRgb},0.88)`;
         dotsRef.current.forEach((dot) => {
           const point = projection([dot.longitude, dot.latitude]);
           if (!point) return;
@@ -142,7 +162,7 @@ export function EvaOrb(_props: OrbProps) {
 
       context.restore();
 
-      if (!draggingRef.current && landRef.current) {
+      if (!draggingRef.current && landRef.current && state !== 'PAUSED') {
         rotationRef.current[0] += EARTH_ROTATION_SPEED;
       }
 
@@ -155,7 +175,7 @@ export function EvaOrb(_props: OrbProps) {
       observer.disconnect();
       if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
     };
-  }, []);
+  }, [state]);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     draggingRef.current = true;
