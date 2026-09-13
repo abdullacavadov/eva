@@ -14,12 +14,12 @@
     "@fortawesome/free-brands-svg-icons": "^7.3.1",
     "@fortawesome/free-solid-svg-icons": "^7.3.1",
     "@fortawesome/react-fontawesome": "^3.5.0",
-    "@types/d3": "^7.4.3",
     "d3": "^7.9.0",
     "react": "latest",
     "react-dom": "latest"
   },
   "devDependencies": {
+    "@types/d3": "^7.4.3",
     "@types/node": "^26.5.1",
     "@types/react": "latest",
     "@types/react-dom": "latest",
