@@ -3,8 +3,6 @@ import * as d3 from 'd3';
 import type { FeatureCollection, Geometry } from 'geojson';
 import type { EvaState } from '../types/eva';
 
-const EARTH_DATA_URL =
-  'https://raw.githubusercontent.com/martynafford/natural-earth-geojson/refs/heads/master/110m/physical/ne_110m_land.json';
 
 interface OrbProps {
   state: EvaState;
@@ -33,7 +31,7 @@ interface SatelliteOrbit {
 const EARTH_ROTATION_SPEED = 0.5;
 const EARTH_DOT_STEP = 1.7;
 const EARTH_DOT_RADIUS = 0.85;
-const WAVE_COLOR = '0,255,192';
+const WAVE_COLOR = '#45d9ff';
 const SATELLITE_COLOR = '0,255,192';
 
 const SATELLITE_ORBITS: SatelliteOrbit[] = [
@@ -76,7 +74,7 @@ export function EvaOrb({ state }: OrbProps) {
 
     const loadEarth = async () => {
       try {
-        const response = await fetch(EARTH_DATA_URL);
+        const response = await fetch('./earth_globe.json');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = (await response.json()) as LandData;
         if (cancelled) return;
@@ -229,7 +227,8 @@ export function EvaOrb({ state }: OrbProps) {
         context.beginPath();
         const progress = i / (lineCount - 1);
         const intensity = Math.sin(progress * Math.PI);
-        context.strokeStyle = `rgba(${WAVE_COLOR},${0.12 + intensity * 0.28})`;
+        context.strokeStyle = WAVE_COLOR;
+        
 
         for (let j = 0; j <= segmentCount; j++) {
           const x = startX + (j / segmentCount) * waveWidth;
