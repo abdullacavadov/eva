@@ -92,8 +92,9 @@ export default function RotatingEarth({ width = 800, height = 600, className = "
     }
 
     interface DotData {
-      lng: number
-      lat: number
+      x: number
+      y: number
+      z: number
     }
 
     const allDots: DotData[] = []
@@ -131,20 +132,31 @@ export default function RotatingEarth({ width = 800, height = 600, className = "
       context.lineWidth = 1 * scaleFactor
       context.stroke()
 
-      // Bütün nöqtələri bir path daxilində çəkirik: hər nöqtə üçün ayrıca beginPath/fill çağırışı etməmək render yükünü ciddi azaldır.
+      // Nöqtələrin sferik koordinatlarını əvvəlcədən hesablayırıq və hər frame-də d3 projection çağırışlarını aradan qaldırırıq.
       context.beginPath()
       context.fillStyle = "#999999"
       const dotRadius = 1.2 * scaleFactor
+      const [rotationLng, rotationLat] = projection.rotate()
+      const lambda = (rotationLng * Math.PI) / 180
+      const phi = (rotationLat * Math.PI) / 180
+      const sinLambda = Math.sin(lambda)
+      const cosLambda = Math.cos(lambda)
+      const sinPhi = Math.sin(phi)
+      const cosPhi = Math.cos(phi)
 
       for (const dot of allDots) {
-        const projected = projection([dot.lng, dot.lat])
-        if (!projected) continue
+        // Kamera istiqamətinə baxış və ekran koordinatlarını birbaşa 3D sferik vektordan hesablayırıq.
+        const visible = dot.x * cosPhi * cosLambda + dot.y * cosPhi * sinLambda + dot.z * sinPhi
+        if (visible <= 0) continue
 
-        const [x, y] = projected
-        if (x < 0 || x > containerWidth || y < 0 || y > containerHeight) continue
+        const screenX = (-dot.x * sinLambda + dot.y * cosLambda) * currentScale + centerX
+        const screenY =
+          (dot.x * sinPhi * cosLambda + dot.y * sinPhi * sinLambda - dot.z * cosPhi) * currentScale + centerY
 
-        context.moveTo(x + dotRadius, y)
-        context.arc(x, y, dotRadius, 0, 2 * Math.PI)
+        if (screenX < 0 || screenX > containerWidth || screenY < 0 || screenY > containerHeight) continue
+
+        context.moveTo(screenX + dotRadius, screenY)
+        context.arc(screenX, screenY, dotRadius, 0, 2 * Math.PI)
       }
 
       context.fill()
@@ -161,7 +173,14 @@ export default function RotatingEarth({ width = 800, height = 600, className = "
 
         for (const feature of landFeatures.features) {
           for (const [lng, lat] of generateDotsInPolygon(feature, 16)) {
-            allDots.push({ lng, lat })
+            const lngRad = (lng * Math.PI) / 180
+            const latRad = (lat * Math.PI) / 180
+            const cosLat = Math.cos(latRad)
+            allDots.push({
+              x: cosLat * Math.cos(lngRad),
+              y: cosLat * Math.sin(lngRad),
+              z: Math.sin(latRad),
+            })
           }
         }
 
