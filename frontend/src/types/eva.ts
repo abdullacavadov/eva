@@ -75,6 +75,7 @@ export type EvaEvent =
     }
   | { type: 'bridge.error'; message?: string }
   | { type: 'state.changed'; state: EvaState }
+  | { type: 'audio.level'; level: number }
   | { type: 'conversation.user'; text: string }
   | { type: 'conversation.assistant'; text: string }
   | { type: 'activity.created'; activity: ActivityItem }
