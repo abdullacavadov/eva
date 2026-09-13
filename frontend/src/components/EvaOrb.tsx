@@ -3,7 +3,6 @@ import * as d3 from 'd3';
 import type { FeatureCollection, Geometry } from 'geojson';
 import type { EvaState } from '../types/eva';
 
-
 interface OrbProps {
   state: EvaState;
 }
@@ -35,10 +34,38 @@ const WAVE_COLOR = '#45d9ff';
 const SATELLITE_COLOR = '0,255,192';
 
 const SATELLITE_ORBITS: SatelliteOrbit[] = [
-  { tilt: -0.22, rotation: -0.1, radiusX: 1.18, radiusY: 0.34, speed: 0.0022, phase: 0 },
-  { tilt: 0.48, rotation: 0.82, radiusX: 1.24, radiusY: 0.28, speed: -0.0017, phase: 2.1 },
-  { tilt: -0.62, rotation: 1.72, radiusX: 1.16, radiusY: 0.31, speed: 0.0015, phase: 4.2 },
-  { tilt: 0.8, rotation: 2.55, radiusX: 1.27, radiusY: 0.24, speed: -0.0012, phase: 5.4 },
+  {
+    tilt: -0.22,
+    rotation: -0.1,
+    radiusX: 1.18,
+    radiusY: 0.34,
+    speed: 0.0022,
+    phase: 0,
+  },
+  {
+    tilt: 0.48,
+    rotation: 0.82,
+    radiusX: 1.24,
+    radiusY: 0.28,
+    speed: -0.0017,
+    phase: 2.1,
+  },
+  {
+    tilt: -0.62,
+    rotation: 1.72,
+    radiusX: 1.16,
+    radiusY: 0.31,
+    speed: 0.0015,
+    phase: 4.2,
+  },
+  {
+    tilt: 0.8,
+    rotation: 2.55,
+    radiusX: 1.27,
+    radiusY: 0.24,
+    speed: -0.0012,
+    phase: 5.4,
+  },
 ];
 
 const STATE_COLORS: Record<EvaState, [number, number, number]> = {
@@ -67,7 +94,9 @@ export function EvaOrb({ state }: OrbProps) {
   const animationRef = useRef<number | null>(null);
   const audioLevelRef = useRef(0);
   const satelliteTimeRef = useRef(0);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(
+    'loading'
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -100,7 +129,8 @@ export function EvaOrb({ state }: OrbProps) {
     };
 
     window.addEventListener('eva:audio-level', handleAudioLevel);
-    return () => window.removeEventListener('eva:audio-level', handleAudioLevel);
+    return () =>
+      window.removeEventListener('eva:audio-level', handleAudioLevel);
   }, []);
 
   useEffect(() => {
@@ -133,74 +163,99 @@ export function EvaOrb({ state }: OrbProps) {
     observer.observe(wrapper);
     resize();
 
-    const drawSatellites = (centerX: number, centerY: number, now: number, stateRgb: string) => {
+    const drawSatellites = (
+      centerX: number,
+      centerY: number,
+      now: number,
+      stateRgb: string
+    ) => {
       satelliteTimeRef.current = now;
       const activeColor = SATELLITE_COLOR;
       const paused = state === 'PAUSED';
       const time = paused ? satelliteTimeRef.current : now;
+      const squash = 0.9;
 
       context.save();
-      context.lineWidth = 0.8;
       context.lineCap = 'round';
 
-      SATELLITE_ORBITS.forEach((orbit, orbitIndex) => {
-        const rx = radius * orbit.radiusX;
-        const ry = radius * orbit.radiusY;
-        const angle = orbit.rotation;
-        const cosAngle = Math.cos(angle);
-        const sinAngle = Math.sin(angle);
+      SATELLITE_ORBITS.forEach((orbit) => {
+        const R = radius * orbit.radiusX;
+        const cosR = Math.cos(orbit.rotation);
+        const sinR = Math.sin(orbit.rotation);
+        const cosT = Math.cos(orbit.tilt);
+        const sinT = Math.sin(orbit.tilt);
 
-        context.beginPath();
-        for (let i = 0; i <= 160; i++) {
-          const t = (i / 160) * Math.PI * 2;
-          const x0 = Math.cos(t) * rx;
-          const y0 = Math.sin(t) * ry;
-          const x = centerX + x0 * cosAngle - y0 * sinAngle;
-          const y = centerY + x0 * sinAngle + y0 * cosAngle * (0.72 + Math.abs(orbit.tilt) * 0.18);
+        const project = (theta: number) => {
+          const x0 = Math.cos(theta) * R;
+          const y0 = Math.sin(theta) * R;
+          const y1 = y0 * cosT;
+          const z1 = y0 * sinT;
+          const x2 = x0 * cosR - y1 * sinR;
+          const y2 = x0 * sinR + y1 * cosR;
+          const sx = centerX + x2;
+          const sy = centerY + y2 * squash;
+          const depth = z1 / R; // -1 arxa .. +1 ön
+          const dist = Math.hypot(x2, y2 * squash);
+          const hidden = depth < -0.015 && dist < radius * 0.985;
+          return { sx, sy, depth, hidden };
+        };
 
-          if (i === 0) context.moveTo(x, y);
-          else context.lineTo(x, y);
+        // Orbit xətti — yalnız görünən (öndəki) qövslər
+        for (let i = 0; i < 200; i++) {
+          const t0 = (i / 200) * Math.PI * 2;
+          const t1 = ((i + 1) / 200) * Math.PI * 2;
+          const p0 = project(t0);
+          const p1 = project(t1);
+          if (p0.hidden || p1.hidden) continue;
+
+          const depthT = Math.max(0, (p0.depth + 1) / 2);
+          context.beginPath();
+          context.moveTo(p0.sx, p0.sy);
+          context.lineTo(p1.sx, p1.sy);
+          context.strokeStyle = `rgba(${stateRgb},${0.1 + depthT * 0.22})`;
+          context.lineWidth = 0.5 + depthT * 0.7;
+          context.stroke();
         }
 
-        context.strokeStyle = `rgba(${stateRgb},${0.13 + orbitIndex * 0.02})`;
-        context.shadowColor = `rgba(${stateRgb},0.18)`;
-        context.shadowBlur = 4;
-        context.stroke();
-        context.shadowBlur = 0;
-
+        // Peyk
         const satelliteAngle = orbit.phase + time * orbit.speed;
-        const x0 = Math.cos(satelliteAngle) * rx;
-        const y0 = Math.sin(satelliteAngle) * ry;
-        const satelliteX = centerX + x0 * cosAngle - y0 * sinAngle;
-        const satelliteY = centerY + x0 * sinAngle + y0 * cosAngle * (0.72 + Math.abs(orbit.tilt) * 0.18);
+        const sat = project(satelliteAngle);
+        if (sat.hidden) return;
 
-        const trailLength = 0.16;
+        const depthT = Math.max(0, (sat.depth + 1) / 2);
+        const scale = 0.7 + depthT * 0.5;
+
+        // İz
         context.beginPath();
-        for (let trail = 0; trail <= 10; trail++) {
-          const trailAngle = satelliteAngle - orbit.speed * 700 * trailLength * (trail / 10);
-          const tx0 = Math.cos(trailAngle) * rx;
-          const ty0 = Math.sin(trailAngle) * ry;
-          const tx = centerX + tx0 * cosAngle - ty0 * sinAngle;
-          const ty = centerY + tx0 * sinAngle + ty0 * cosAngle * (0.72 + Math.abs(orbit.tilt) * 0.18);
-          if (trail === 0) context.moveTo(tx, ty);
-          else context.lineTo(tx, ty);
+        let started = false;
+        for (let trail = 10; trail >= 0; trail--) {
+          const tp = project(satelliteAngle - orbit.speed * 90 * (trail / 10));
+          if (tp.hidden) {
+            started = false;
+            continue;
+          }
+          if (!started) {
+            context.moveTo(tp.sx, tp.sy);
+            started = true;
+          } else context.lineTo(tp.sx, tp.sy);
         }
-        context.strokeStyle = `rgba(${activeColor},0.22)`;
-        context.lineWidth = 1;
+        context.strokeStyle = `rgba(${activeColor},${0.14 * scale})`;
+        context.lineWidth = scale;
         context.stroke();
 
+        // Peyk cismi
         context.beginPath();
-        context.arc(satelliteX, satelliteY, 2.2, 0, Math.PI * 2);
-        context.fillStyle = `rgba(${activeColor},0.98)`;
-        context.shadowColor = `rgba(${activeColor},0.95)`;
-        context.shadowBlur = paused ? 4 : 9;
+        context.arc(sat.sx, sat.sy, 2 * scale, 0, Math.PI * 2);
+        context.fillStyle = `rgba(${activeColor},${0.9 * scale})`;
+        context.shadowColor = `rgba(${activeColor},0.9)`;
+        context.shadowBlur = paused ? 3 : 6 + depthT * 6;
         context.fill();
         context.shadowBlur = 0;
 
         context.beginPath();
-        context.arc(satelliteX, satelliteY, 4.2, 0, Math.PI * 2);
-        context.strokeStyle = `rgba(${activeColor},0.24)`;
-        context.lineWidth = 0.7;
+        context.arc(sat.sx, sat.sy, 4 * scale, 0, Math.PI * 2);
+        context.strokeStyle = `rgba(${activeColor},${0.2 * scale})`;
+        context.lineWidth = 0.6;
         context.stroke();
       });
 
@@ -228,12 +283,14 @@ export function EvaOrb({ state }: OrbProps) {
         const progress = i / (lineCount - 1);
         const intensity = Math.sin(progress * Math.PI);
         context.strokeStyle = WAVE_COLOR;
-        
 
         for (let j = 0; j <= segmentCount; j++) {
           const x = startX + (j / segmentCount) * waveWidth;
           const phase = i * 0.22;
-          const noise = Math.sin(j * 0.1 + performance.now() * 0.004 + phase) * baseAmplitude * 0.45;
+          const noise =
+            Math.sin(j * 0.1 + performance.now() * 0.004 + phase) *
+            baseAmplitude *
+            0.45;
           const spike =
             Math.cos(j * 0.2 + performance.now() * 0.005 + phase) *
             Math.sin(j * 0.05 + performance.now() * 0.003) *
@@ -261,7 +318,6 @@ export function EvaOrb({ state }: OrbProps) {
 
       const centerX = width / 2;
       const centerY = height / 2 - 12;
-      drawSatellites(centerX, centerY, timestamp, stateRgb);
 
       const projection = d3
         .geoOrthographic()
@@ -309,6 +365,7 @@ export function EvaOrb({ state }: OrbProps) {
       }
 
       context.restore();
+      drawSatellites(centerX, centerY, timestamp, stateRgb);
       drawWave(centerX, centerY);
 
       if (!draggingRef.current && landRef.current && state !== 'PAUSED') {
@@ -322,7 +379,8 @@ export function EvaOrb({ state }: OrbProps) {
 
     return () => {
       observer.disconnect();
-      if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
+      if (animationRef.current !== null)
+        cancelAnimationFrame(animationRef.current);
     };
   }, [state]);
 
