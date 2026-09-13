@@ -41,62 +41,6 @@ export default function RotatingEarth({ width = 800, height = 600, className = "
     const path = d3.geoPath().projection(projection).context(context)
     const graticule = d3.geoGraticule()
 
-    const pointInPolygon = (point: [number, number], polygon: number[][]): boolean => {
-      const [x, y] = point
-      let inside = false
-      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const [xi, yi] = polygon[i]
-        const [xj, yj] = polygon[j]
-        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside
-      }
-      return inside
-    }
-
-    const pointInFeature = (point: [number, number], feature: any): boolean => {
-      const geometry = feature.geometry
-      if (geometry.type === "Polygon") {
-        const coordinates = geometry.coordinates
-        if (!pointInPolygon(point, coordinates[0])) return false
-        for (let i = 1; i < coordinates.length; i++) if (pointInPolygon(point, coordinates[i])) return false
-        return true
-      }
-      if (geometry.type === "MultiPolygon") {
-        for (const polygon of geometry.coordinates) {
-          if (!pointInPolygon(point, polygon[0])) continue
-          let inHole = false
-          for (let i = 1; i < polygon.length; i++) {
-            if (pointInPolygon(point, polygon[i])) {
-              inHole = true
-              break
-            }
-          }
-          if (!inHole) return true
-        }
-      }
-      return false
-    }
-
-    const generateDotsInPolygon = (feature: any, dotSpacing = 24) => {
-      const dots: [number, number][] = []
-      const bounds = d3.geoBounds(feature)
-      const [[minLng, minLat], [maxLng, maxLat]] = bounds
-      const stepSize = dotSpacing * 0.08
-
-      for (let lng = minLng; lng <= maxLng; lng += stepSize) {
-        for (let lat = minLat; lat <= maxLat; lat += stepSize) {
-          const point: [number, number] = [lng, lat]
-          if (pointInFeature(point, feature)) dots.push(point)
-        }
-      }
-      return dots
-    }
-
-    interface DotData {
-      x: number
-      y: number
-      z: number
-    }
-
     let allDots = new Float32Array(0)
     let landFeatures: any
 
@@ -172,13 +116,49 @@ export default function RotatingEarth({ width = 800, height = 600, className = "
         if (!response.ok) throw new Error("Failed to load land data")
         landFeatures = await response.json()
 
+        // Torpağı aşağı ölçülü rasterə çəkib piksel nümunəsindən nöqtələri çıxarırıq.
+        // Bu, minlərlə ağır point-in-polygon hesablamasını aradan qaldırır.
+        const mapWidth = 360
+        const mapHeight = 180
+        const sampleStep = 2
+        const raster = document.createElement("canvas")
+        raster.width = mapWidth
+        raster.height = mapHeight
+        const rasterContext = raster.getContext("2d")
+        if (!rasterContext) throw new Error("Failed to create globe raster")
+
+        const rasterProjection = d3
+          .geoEquirectangular()
+          .scale(mapWidth / (2 * Math.PI))
+          .translate([mapWidth / 2, mapHeight / 2])
+
+        const rasterPath = d3.geoPath().projection(rasterProjection).context(rasterContext)
+        rasterContext.clearRect(0, 0, mapWidth, mapHeight)
+        rasterContext.fillStyle = "#ffffff"
+        rasterContext.beginPath()
+        for (const feature of landFeatures.features) rasterPath(feature)
+        rasterContext.fill()
+
+        const pixels = rasterContext.getImageData(0, 0, mapWidth, mapHeight).data
         const dotCoordinates: number[] = []
-        for (const feature of landFeatures.features) {
-          for (const [lng, lat] of generateDotsInPolygon(feature, 24)) {
+
+        for (let py = 0; py < mapHeight; py += sampleStep) {
+          const lat = 90 - (py / mapHeight) * 180
+          const latRad = (lat * Math.PI) / 180
+          const cosLat = Math.cos(latRad)
+          const sinLat = Math.sin(latRad)
+
+          for (let px = 0; px < mapWidth; px += sampleStep) {
+            const pixelIndex = (py * mapWidth + px) * 4
+            if (pixels[pixelIndex + 3] === 0) continue
+
+            const lng = (px / mapWidth) * 360 - 180
             const lngRad = (lng * Math.PI) / 180
-            const latRad = (lat * Math.PI) / 180
-            const cosLat = Math.cos(latRad)
-            dotCoordinates.push(cosLat * Math.cos(lngRad), cosLat * Math.sin(lngRad), Math.sin(latRad))
+            dotCoordinates.push(
+              cosLat * Math.cos(lngRad),
+              cosLat * Math.sin(lngRad),
+              sinLat,
+            )
           }
         }
 
