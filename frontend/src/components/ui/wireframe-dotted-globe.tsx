@@ -110,64 +110,35 @@ export default function RotatingEarth({ width = 800, height = 600, className = "
     const loadWorldData = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(
-          "https://raw.githubusercontent.com/martynafford/natural-earth-geojson/refs/heads/master/110m/physical/ne_110m_land.json",
-        )
-        if (!response.ok) throw new Error("Failed to load land data")
-        landFeatures = await response.json()
 
-        // Torpağı aşağı ölçülü rasterə çəkib piksel nümunəsindən nöqtələri çıxarırıq.
-        // Bu, minlərlə ağır point-in-polygon hesablamasını aradan qaldırır.
-        const mapWidth = 360
-        const mapHeight = 180
-        const sampleStep = 2
-        const raster = document.createElement("canvas")
-        raster.width = mapWidth
-        raster.height = mapHeight
-        const rasterContext = raster.getContext("2d")
-        if (!rasterContext) throw new Error("Failed to create globe raster")
+        const [landResponse, dotsResponse] = await Promise.all([
+          fetch("./earth_globe.json"),
+          fetch("./earth_dots.json"),
+        ])
 
-        const rasterProjection = d3
-          .geoEquirectangular()
-          .scale(mapWidth / (2 * Math.PI))
-          .translate([mapWidth / 2, mapHeight / 2])
+        if (!landResponse.ok) throw new Error(`Land data HTTP ${landResponse.status}`)
+        if (!dotsResponse.ok) throw new Error(`Dot data HTTP ${dotsResponse.status}`)
 
-        const rasterPath = d3.geoPath().projection(rasterProjection).context(rasterContext)
-        rasterContext.clearRect(0, 0, mapWidth, mapHeight)
-        rasterContext.fillStyle = "#ffffff"
-        rasterContext.beginPath()
-        for (const feature of landFeatures.features) rasterPath(feature)
-        rasterContext.fill()
+        landFeatures = await landResponse.json()
+        const dotsRaw = (await dotsResponse.json()) as [number, number][]
 
-        const pixels = rasterContext.getImageData(0, 0, mapWidth, mapHeight).data
-        const dotCoordinates: number[] = []
+        allDots = new Float32Array(dotsRaw.length * 3)
+        for (let i = 0; i < dotsRaw.length; i += 1) {
+          const [longitude, latitude] = dotsRaw[i]
+          const longitudeRad = (longitude * Math.PI) / 180
+          const latitudeRad = (latitude * Math.PI) / 180
+          const cosLatitude = Math.cos(latitudeRad)
+          const offset = i * 3
 
-        for (let py = 0; py < mapHeight; py += sampleStep) {
-          const lat = 90 - (py / mapHeight) * 180
-          const latRad = (lat * Math.PI) / 180
-          const cosLat = Math.cos(latRad)
-          const sinLat = Math.sin(latRad)
-
-          for (let px = 0; px < mapWidth; px += sampleStep) {
-            const pixelIndex = (py * mapWidth + px) * 4
-            if (pixels[pixelIndex + 3] === 0) continue
-
-            const lng = (px / mapWidth) * 360 - 180
-            const lngRad = (lng * Math.PI) / 180
-            dotCoordinates.push(
-              cosLat * Math.cos(lngRad),
-              cosLat * Math.sin(lngRad),
-              sinLat,
-            )
-          }
+          allDots[offset] = cosLatitude * Math.cos(longitudeRad)
+          allDots[offset + 1] = cosLatitude * Math.sin(longitudeRad)
+          allDots[offset + 2] = Math.sin(latitudeRad)
         }
 
-        allDots = new Float32Array(dotCoordinates)
-        dotCoordinates.length = 0
         render()
         setIsLoading(false)
       } catch (err) {
-        setError("Failed to load land map data")
+        setError(err instanceof Error ? err.message : "Failed to load globe data")
         setIsLoading(false)
       }
     }
