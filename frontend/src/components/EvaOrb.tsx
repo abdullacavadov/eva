@@ -21,10 +21,27 @@ interface EarthDot {
   latitude: number;
 }
 
+interface SatelliteOrbit {
+  tilt: number;
+  rotation: number;
+  radiusX: number;
+  radiusY: number;
+  speed: number;
+  phase: number;
+}
+
 const EARTH_ROTATION_SPEED = 0.5;
 const EARTH_DOT_STEP = 1.7;
 const EARTH_DOT_RADIUS = 0.85;
 const WAVE_COLOR = '0,255,192';
+const SATELLITE_COLOR = '0,255,192';
+
+const SATELLITE_ORBITS: SatelliteOrbit[] = [
+  { tilt: -0.22, rotation: -0.1, radiusX: 1.18, radiusY: 0.34, speed: 0.0022, phase: 0 },
+  { tilt: 0.48, rotation: 0.82, radiusX: 1.24, radiusY: 0.28, speed: -0.0017, phase: 2.1 },
+  { tilt: -0.62, rotation: 1.72, radiusX: 1.16, radiusY: 0.31, speed: 0.0015, phase: 4.2 },
+  { tilt: 0.8, rotation: 2.55, radiusX: 1.27, radiusY: 0.24, speed: -0.0012, phase: 5.4 },
+];
 
 const STATE_COLORS: Record<EvaState, [number, number, number]> = {
   IDLE: [0, 255, 136],
@@ -51,6 +68,7 @@ export function EvaOrb({ state }: OrbProps) {
   const lastPointerRef = useRef<[number, number] | null>(null);
   const animationRef = useRef<number | null>(null);
   const audioLevelRef = useRef(0);
+  const satelliteTimeRef = useRef(0);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   useEffect(() => {
@@ -117,6 +135,80 @@ export function EvaOrb({ state }: OrbProps) {
     observer.observe(wrapper);
     resize();
 
+    const drawSatellites = (centerX: number, centerY: number, now: number, stateRgb: string) => {
+      satelliteTimeRef.current = now;
+      const activeColor = SATELLITE_COLOR;
+      const paused = state === 'PAUSED';
+      const time = paused ? satelliteTimeRef.current : now;
+
+      context.save();
+      context.lineWidth = 0.8;
+      context.lineCap = 'round';
+
+      SATELLITE_ORBITS.forEach((orbit, orbitIndex) => {
+        const rx = radius * orbit.radiusX;
+        const ry = radius * orbit.radiusY;
+        const angle = orbit.rotation;
+        const cosAngle = Math.cos(angle);
+        const sinAngle = Math.sin(angle);
+
+        context.beginPath();
+        for (let i = 0; i <= 160; i++) {
+          const t = (i / 160) * Math.PI * 2;
+          const x0 = Math.cos(t) * rx;
+          const y0 = Math.sin(t) * ry;
+          const x = centerX + x0 * cosAngle - y0 * sinAngle;
+          const y = centerY + x0 * sinAngle + y0 * cosAngle * (0.72 + Math.abs(orbit.tilt) * 0.18);
+
+          if (i === 0) context.moveTo(x, y);
+          else context.lineTo(x, y);
+        }
+
+        context.strokeStyle = `rgba(${stateRgb},${0.13 + orbitIndex * 0.02})`;
+        context.shadowColor = `rgba(${stateRgb},0.18)`;
+        context.shadowBlur = 4;
+        context.stroke();
+        context.shadowBlur = 0;
+
+        const satelliteAngle = orbit.phase + time * orbit.speed;
+        const x0 = Math.cos(satelliteAngle) * rx;
+        const y0 = Math.sin(satelliteAngle) * ry;
+        const satelliteX = centerX + x0 * cosAngle - y0 * sinAngle;
+        const satelliteY = centerY + x0 * sinAngle + y0 * cosAngle * (0.72 + Math.abs(orbit.tilt) * 0.18);
+
+        const trailLength = 0.16;
+        context.beginPath();
+        for (let trail = 0; trail <= 10; trail++) {
+          const trailAngle = satelliteAngle - orbit.speed * 700 * trailLength * (trail / 10);
+          const tx0 = Math.cos(trailAngle) * rx;
+          const ty0 = Math.sin(trailAngle) * ry;
+          const tx = centerX + tx0 * cosAngle - ty0 * sinAngle;
+          const ty = centerY + tx0 * sinAngle + ty0 * cosAngle * (0.72 + Math.abs(orbit.tilt) * 0.18);
+          if (trail === 0) context.moveTo(tx, ty);
+          else context.lineTo(tx, ty);
+        }
+        context.strokeStyle = `rgba(${activeColor},0.22)`;
+        context.lineWidth = 1;
+        context.stroke();
+
+        context.beginPath();
+        context.arc(satelliteX, satelliteY, 2.2, 0, Math.PI * 2);
+        context.fillStyle = `rgba(${activeColor},0.98)`;
+        context.shadowColor = `rgba(${activeColor},0.95)`;
+        context.shadowBlur = paused ? 4 : 9;
+        context.fill();
+        context.shadowBlur = 0;
+
+        context.beginPath();
+        context.arc(satelliteX, satelliteY, 4.2, 0, Math.PI * 2);
+        context.strokeStyle = `rgba(${activeColor},0.24)`;
+        context.lineWidth = 0.7;
+        context.stroke();
+      });
+
+      context.restore();
+    };
+
     const drawWave = (centerX: number, centerY: number) => {
       if (state !== 'SPEAKING') return;
 
@@ -158,7 +250,7 @@ export function EvaOrb({ state }: OrbProps) {
       context.restore();
     };
 
-    const draw = () => {
+    const draw = (timestamp: number) => {
       const [red, green, blue] = STATE_COLORS[state];
       const stateRgb = `${red},${green},${blue}`;
 
@@ -170,6 +262,8 @@ export function EvaOrb({ state }: OrbProps) {
 
       const centerX = width / 2;
       const centerY = height / 2 - 12;
+      drawSatellites(centerX, centerY, timestamp, stateRgb);
+
       const projection = d3
         .geoOrthographic()
         .translate([centerX, centerY])
