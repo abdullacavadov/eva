@@ -1,4 +1,4 @@
-"""EVA proaktiv hadisələri üçün deterministik cross-source korrelyasiya."""
+"""V.I.C.T.O.R proaktiv hadisələri üçün deterministik cross-source korrelyasiya."""
 
 from __future__ import annotations
 

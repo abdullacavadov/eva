@@ -1,4 +1,4 @@
-"""EVA proaktiv hadisələri üçün səs-küy filtri və fəaliyyət dərəcəsi."""
+"""V.I.C.T.O.R proaktiv hadisələri üçün səs-küy filtri və fəaliyyət dərəcəsi."""
 
 from __future__ import annotations
 

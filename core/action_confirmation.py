@@ -1,4 +1,4 @@
-"""One-shot, argument-bound confirmations for risky EVA actions."""
+"""One-shot, argument-bound confirmations for risky V.I.C.T.O.R actions."""
 
 from __future__ import annotations
 

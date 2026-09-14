@@ -1,4 +1,4 @@
-# EVA — Runtime dependencies
+# V.I.C.T.O.R — Runtime dependencies
 # Install: python -m pip install -r requirements.txt
 
 google-genai>=2.20.0,<3                   # Gemini Live API (ses + araç çağırışları)

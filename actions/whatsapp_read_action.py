@@ -1,4 +1,4 @@
-"""EVA WhatsApp read actions backed by the existing Web read contract."""
+"""V.I.C.T.O.R WhatsApp read actions backed by the existing Web read contract."""
 
 from __future__ import annotations
 

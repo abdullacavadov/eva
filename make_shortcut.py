@@ -3,11 +3,11 @@ JARVIS kısayol yardımcıları — Windows sürümü.
 
 macOS sürümü .app/.command ve LaunchAgent plist üretiyordu; Windows'ta
 bunların karşılığı .lnk kısayollarıdır:
-  - Masaüstü kısayolu  → Desktop\\EVA.lnk
-  - Açılışta başlat     → Başlangıç klasörü\\EVA.lnk
+  - Masaüstü kısayolu  → Desktop\\Victor.lnk
+  - Açılışta başlat     → Başlangıç klasörü\\Victor.lnk
 
 PowerShell WScript.Shell kullanılır, ek bağımlılık gerekmez.
-Kısayollar launcher.py ile E.V.A-nı vahid giriş nöqtəsindən başladır.
+Kısayollar launcher.py ile V.I.C.T.O.R-nı vahid giriş nöqtəsindən başladır.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ def _pythonw() -> str:
 
 
 def _write_shortcut(link_path: Path) -> Path:
-    """Verilen yola EVA .lnk kısayolu yazar."""
+    """Verilen yola V.I.C.T.O.R .lnk kısayolu yazar."""
     link_path.parent.mkdir(parents=True, exist_ok=True)
     target = _pythonw()
     launcher_py = BASE_DIR / "launcher.py"
@@ -66,7 +66,7 @@ def _write_shortcut(link_path: Path) -> Path:
         f"$s.TargetPath = '{target}'; "
         f"$s.Arguments = '\"{launcher_py}\"'; "
         f"$s.WorkingDirectory = '{BASE_DIR}'; "
-        f"$s.Description = 'E.V.A'; "
+        f"$s.Description = 'V.I.C.T.O.R'; "
         f"{icon_line}"
         "$s.Save()"
     )
@@ -86,7 +86,7 @@ def _write_shortcut(link_path: Path) -> Path:
 
 # ── Masaüstü kısayolu ────────────────────────────────────────────────────────
 def desktop_shortcut_path() -> Path:
-    return _desktop_dir() / "EVA.lnk"
+    return _desktop_dir() / "Victor.lnk"
 
 
 def create_desktop_shortcut() -> Path:
@@ -95,7 +95,7 @@ def create_desktop_shortcut() -> Path:
 
 # ── Açılışta başlat (Başlangıç klasörü) ──────────────────────────────────────
 def startup_shortcut_path() -> Path:
-    return _startup_dir() / "EVA.lnk"
+    return _startup_dir() / "Victor.lnk"
 
 
 def create_startup_shortcut() -> Path:

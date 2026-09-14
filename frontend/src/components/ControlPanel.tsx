@@ -163,7 +163,7 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
         >
           <div className={`confirm-modal confirm-modal-${confirmAction}`}>
             <div className="confirm-modal-header">
-              <span className="confirm-modal-eyebrow">E.V.A / SİSTEM NƏZARƏTİ</span>
+              <span className="confirm-modal-eyebrow">V.I.C.T.O.R / SİSTEM NƏZARƏTİ</span>
               <button className="confirm-modal-close" type="button" aria-label="Bağla" onClick={cancelConfirm}>
                 <FontAwesomeIcon icon={faXmark} />
               </button>
@@ -173,12 +173,12 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
                 <FontAwesomeIcon icon={confirmAction === 'restart' ? faRotate : faPowerOff} />
               </div>
               <h2 id="confirm-modal-title">
-                {confirmAction === 'restart' ? 'EVA yenidən başlatılsın?' : 'EVA söndürülsün?'}
+                {confirmAction === 'restart' ? 'V.I.C.T.O.R yenidən başlatılsın?' : 'V.I.C.T.O.R söndürülsün?'}
               </h2>
               <p>
                 {confirmAction === 'restart'
                   ? 'Sistem yenidən başladılacaq və dəyişdirilmiş settings tətbiq olunacaq.'
-                  : 'EVA prosesi tamamilə dayandırılacaq.'}
+                  : 'V.I.C.T.O.R prosesi tamamilə dayandırılacaq.'}
               </p>
             </div>
             <div className="confirm-modal-actions">
@@ -196,19 +196,19 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
           className={`camera-modal-backdrop ${cameraClosing ? 'camera-modal-closing' : ''}`}
           role="dialog"
           aria-modal="true"
-          aria-label="EVA kamera görüntüsü"
+          aria-label="V.I.C.T.O.R kamera görüntüsü"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeCameraModal()
           }}
         >
           <div className="camera-modal">
             <div className="camera-modal-header">
-              <div><span className="camera-modal-eyebrow">E.V.A / VISUAL SENSOR</span><strong>KAMERA</strong></div>
+              <div><span className="camera-modal-eyebrow">V.I.C.T.O.R / VISUAL SENSOR</span><strong>KAMERA</strong></div>
               <button className="camera-modal-close" type="button" aria-label="Kameranı bağla" onClick={closeCameraModal}><FontAwesomeIcon icon={faXmark} /></button>
             </div>
             <div className="camera-viewport">
               {preview ? (
-                <img src={preview} className="camera-video" alt="EVA canlı kamera görüntüsü" />
+                <img src={preview} className="camera-video" alt="V.I.C.T.O.R canlı kamera görüntüsü" />
               ) : (
                 <div className="camera-error">CANLI GÖRÜNTÜ GÖZLƏNİLİR...</div>
               )}

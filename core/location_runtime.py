@@ -1,4 +1,4 @@
-"""React UI-dan alınan cari geolokasiyanı EVA runtime üçün saxlayır."""
+"""React UI-dan alınan cari geolokasiyanı V.I.C.T.O.R runtime üçün saxlayır."""
 
 from __future__ import annotations
 

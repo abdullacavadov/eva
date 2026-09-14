@@ -1,4 +1,4 @@
-"""EVA proaktiv bildirişləri üçün deterministik prioritet hesablaması."""
+"""V.I.C.T.O.R proaktiv bildirişləri üçün deterministik prioritet hesablaması."""
 
 from __future__ import annotations
 

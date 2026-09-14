@@ -1,4 +1,4 @@
-"""Core runtime configuration used by EVA."""
+"""Core runtime configuration used by V.I.C.T.O.R."""
 
 import json
 import os
@@ -25,7 +25,7 @@ CHUNK_SIZE = 480
 # realtime audio cadence to reduce output jitter.
 PLAYBACK_CHUNK_SIZE = 480
 
-# EVA-nın əsas danışıq dili Azərbaycan dilidir. İstifadəçi Azərbaycan və türk
+# V.I.C.T.O.R-nın əsas danışıq dili Azərbaycan dilidir. İstifadəçi Azərbaycan və türk
 # dilini qarışdıra bildiyi üçün ASR-ə hər iki dili açıq şəkildə hint edirik.
 # İngilis dili texniki terminlər və command adları üçün üçüncü fallback-dir.
 LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES = ["az-AZ", "tr-TR", "en-US"]
@@ -65,7 +65,7 @@ def _log_live_context_metrics(kwargs: dict):
     memory_marker = "[İSTİFADƏÇİ HAQQINDA MƏLUMATLAR]"
     memory_start = system_instruction.find(memory_marker)
     if memory_start >= 0:
-        memory_end = system_instruction.find("\n\nSən EVA", memory_start)
+        memory_end = system_instruction.find("\n\nSən Victor", memory_start)
         if memory_end < 0:
             memory_end = len(system_instruction)
         memory_chars = len(system_instruction[memory_start:memory_end])
@@ -124,7 +124,7 @@ def _log_live_context_metrics(kwargs: dict):
 
 
 class _EVALiveConnectConfig(_LiveConnectConfig):
-    """EVA üçün realtime input transcription parametrlərini mərkəzləşdirir."""
+    """V.I.C.T.O.R üçün realtime input transcription parametrlərini mərkəzləşdirir."""
 
     def __init__(self, *args, **kwargs):
         transcription = kwargs.get("input_audio_transcription")
@@ -156,7 +156,7 @@ def load_system_prompt() -> str:
         prompt = PROMPT_PATH.read_text(encoding="utf-8")
     except Exception:
         prompt = (
-            "Sən EVA-san — Windows-da çalışan şəxsi AI assistentsən. "
+            "Sən Victor-san — Windows-da çalışan şəxsi AI assistentsən. "
             "Azərbaycan dilində danış. Qısa və aydın cavablar ver. "
             "Tapşırıqları tamamlamaq üçün alətlərdən istifadə et, heç vaxt təqlid etmə."
         )

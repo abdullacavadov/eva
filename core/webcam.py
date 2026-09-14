@@ -1,4 +1,4 @@
-"""Webcam capture and latest-frame streaming for EVA."""
+"""Webcam capture and latest-frame streaming for V.I.C.T.O.R."""
 
 import threading
 import time
@@ -33,7 +33,7 @@ class WebcamStreamer:
 
     @classmethod
     def get_active_latest_frame(cls) -> bytes | None:
-        """Return the latest frame from the currently active EVA webcam."""
+        """Return the latest frame from the currently active V.I.C.T.O.R webcam."""
         with cls._instance_lock:
             instance = cls._active_instance
         if instance is None or not instance.is_active:

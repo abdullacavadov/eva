@@ -1,9 +1,9 @@
 ╔══════════════════════════════════════════════════════════╗
-║                    E.V.A — Windows                       ║
+║                    V.I.C.T.O.R — Windows                       ║
 ║          Real vaxtlı səsli şəxsi AI köməkçisi            ║
 ╚══════════════════════════════════════════════════════════╝
 
-E.V.A Windows mühitində işləyən, Gemini Live API əsaslı səsli AI köməkçisidir.
+V.I.C.T.O.R Windows mühitində işləyən, Gemini Live API əsaslı səsli AI köməkçisidir.
 
 
 ─────────────────────────  QURAŞDIRMA  ─────────────────────
@@ -35,7 +35,7 @@ E.V.A Windows mühitində işləyən, Gemini Live API əsaslı səsli AI kömək
 
 ─────────────────────────  API AÇARI  ──────────────────────
 
-E.V.A Gemini API açarından istifadə edir.
+V.I.C.T.O.R Gemini API açarından istifadə edir.
 
 API açarını tətbiqin konfiqurasiya mexanizmi vasitəsilə əlavə et.
 

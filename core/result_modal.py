@@ -1,4 +1,4 @@
-"""EVA nəticələrini ayrıca modal pəncərədə göstərmək üçün UI köməkçisi."""
+"""V.I.C.T.O.R nəticələrini ayrıca modal pəncərədə göstərmək üçün UI köməkçisi."""
 
 from __future__ import annotations
 
@@ -50,9 +50,9 @@ def format_result_for_modal(context: ResultContext, selected_item: dict[str, Any
 
 
 def show_result_modal(root: tk.Misc, context: ResultContext, selected_item: dict[str, Any] | None = None) -> tk.Toplevel:
-    """Nəticəni əsas EVA layout-una toxunmadan modal pəncərədə göstərir."""
+    """Nəticəni əsas V.I.C.T.O.R layout-una toxunmadan modal pəncərədə göstərir."""
     window = tk.Toplevel(root)
-    window.title("E.V.A — Nəticə")
+    window.title("V.I.C.T.O.R — Nəticə")
     window.transient(root)
     window.resizable(True, True)
     window.geometry("760x600")
@@ -78,7 +78,7 @@ def show_result_modal(root: tk.Misc, context: ResultContext, selected_item: dict
 
     header = tk.Frame(outer, bg=bg)
     header.pack(fill="x", pady=(0, 10))
-    tk.Label(header, text="E.V.A", bg=bg, fg=accent, font=("Segoe UI", 14, "bold")).pack(side="left")
+    tk.Label(header, text="V.I.C.T.O.R", bg=bg, fg=accent, font=("Segoe UI", 14, "bold")).pack(side="left")
     tk.Label(header, text="  Nəticə", bg=bg, fg=text, font=("Segoe UI", 13)).pack(side="left")
 
     frame = tk.Frame(outer, bg=panel, bd=0, highlightthickness=1, highlightbackground="#1c2b40")

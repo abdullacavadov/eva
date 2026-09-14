@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class ProactiveAudioPolicy:
-    """Proaktiv TTS-in EVA-nın aktiv səsini kəsməsinin qarşısını alır."""
+    """Proaktiv TTS-in V.I.C.T.O.R-nın aktiv səsini kəsməsinin qarşısını alır."""
 
     enabled: bool = True
     interrupt_speaking: bool = False

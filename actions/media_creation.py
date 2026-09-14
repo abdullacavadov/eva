@@ -1,4 +1,4 @@
-"""EVA media yaratma əməliyyatlarının təhlükəsiz action qatıdır."""
+"""V.I.C.T.O.R media yaratma əməliyyatlarının təhlükəsiz action qatıdır."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def _inside_media_root(path: str | Path) -> Path:
     try:
         candidate.relative_to(MEDIA_ROOT)
     except ValueError as exc:
-        raise ValueError("Media faylı yalnız EVA media qovluğunda ola bilər.") from exc
+        raise ValueError("Media faylı yalnız V.I.C.T.O.R media qovluğunda ola bilər.") from exc
     return candidate
 
 

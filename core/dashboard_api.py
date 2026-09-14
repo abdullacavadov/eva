@@ -1,4 +1,4 @@
-"""React dashboard üçün canlı EVA məlumatlarını toplayan HTTP adapteri."""
+"""React dashboard üçün canlı V.I.C.T.O.R məlumatlarını toplayan HTTP adapteri."""
 
 from __future__ import annotations
 

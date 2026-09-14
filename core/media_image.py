@@ -1,4 +1,4 @@
-"""EVA üçün Gemini əsaslı şəkil yaratma mühərriki."""
+"""V.I.C.T.O.R üçün Gemini əsaslı şəkil yaratma mühərriki."""
 
 from __future__ import annotations
 

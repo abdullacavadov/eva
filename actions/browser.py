@@ -20,7 +20,7 @@ def _find_first_youtube_video(query: str) -> str | None:
     encoded = urllib.parse.quote_plus(query)
     response = requests.get(
         f"https://www.youtube.com/results?search_query={encoded}",
-        headers={"User-Agent": "EVA/1.0"},
+        headers={"User-Agent": "V.I.C.T.O.R/1.0"},
         timeout=10,
     )
     response.raise_for_status()

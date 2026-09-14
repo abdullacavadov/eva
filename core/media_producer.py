@@ -1,4 +1,4 @@
-"""EVA-nın avtonom YouTube video prodakşn pipeline-ı."""
+"""V.I.C.T.O.R-nın avtonom YouTube video prodakşn pipeline-ı."""
 
 from __future__ import annotations
 
@@ -72,7 +72,7 @@ def _inside_media(path: str | Path) -> Path:
     try:
         candidate.relative_to(MEDIA_ROOT)
     except ValueError as exc:
-        raise ValueError("Media faylı yalnız EVA media qovluğunda ola bilər.") from exc
+        raise ValueError("Media faylı yalnız V.I.C.T.O.R media qovluğunda ola bilər.") from exc
     return candidate
 
 
@@ -156,7 +156,7 @@ def _plan(brief: str, contact_sheet: Path | None, asset_labels: list[str], audio
     client = genai.Client(api_key=api_key)
     asset_text = "\n".join(asset_labels) if asset_labels else "Heç bir lokal şəkil yoxdur."
     audio_text = "\n".join(f"MUSİQİ: {p}" for p in audio_labels) if audio_labels else "Lokal musiqi yoxdur; lazım olsa Gemini ilə yarat."
-    prompt = f"""Sən EVA üçün peşəkar YouTube video prodüserisən. İstifadəçinin tələbi:
+    prompt = f"""Sən V.I.C.T.O.R üçün peşəkar YouTube video prodüserisən. İstifadəçinin tələbi:
 {brief}
 
 Videonu özün planla. Mövzunu faktiki və məntiqli ardıcıllıqla qur. Short üçün portret, böyük video üçün landşaft seç. Səhnələri 2-6 saniyəlik dinamik bloklara böl; uzun videoda daha çox səhnə istifadə et.

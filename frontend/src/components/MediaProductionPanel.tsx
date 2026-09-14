@@ -87,7 +87,7 @@ export function MediaProductionPanel() {
           <section className="media-production-panel" onClick={(e) => e.stopPropagation()}>
             <header>
               <div>
-                <span className="media-production-kicker">E.V.A / MEDIA PIPELINE</span>
+                <span className="media-production-kicker">V.I.C.T.O.R / MEDIA PIPELINE</span>
                 <h2><FontAwesomeIcon icon={faFilm} /> Video prodakşnı</h2>
               </div>
               <button className="media-production-close" onClick={() => setOpen(false)} aria-label="Bağla">

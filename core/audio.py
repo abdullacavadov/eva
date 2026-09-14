@@ -48,7 +48,7 @@ class _RealtimeEchoCanceller:
                     stream_delay_ms=self._delay_ms,
                 )
             except Exception as exc:
-                print(f"[E.V.A] ⚠️ AEC aktivləşdirilə bilmədi: {exc}", flush=True)
+                print(f"[V.I.C.T.O.R] ⚠️ AEC aktivləşdirilə bilmədi: {exc}", flush=True)
 
     @property
     def enabled(self) -> bool:
@@ -171,7 +171,7 @@ class _RealtimeEchoCanceller:
                 )
             except Exception as exc:
                 _last_microphone_speech_probability = None
-                print(f"[E.V.A] ⚠️ AEC emalı uğursuz oldu: {exc}", flush=True)
+                print(f"[V.I.C.T.O.R] ⚠️ AEC emalı uğursuz oldu: {exc}", flush=True)
                 return data
 
         now = time.monotonic()

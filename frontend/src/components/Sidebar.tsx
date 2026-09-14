@@ -18,7 +18,7 @@ export function Sidebar() {
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-orb"><FontAwesomeIcon icon={faStar} /></div>
-        <div><strong>EVA</strong><small>ŞƏXSİ ASSİSTENT</small></div>
+        <div><strong>V.I.C.T.O.R</strong><small>ŞƏXSİ ASSİSTENT</small></div>
       </div>
       <nav>
         {items.map(([item, icon], index) => (

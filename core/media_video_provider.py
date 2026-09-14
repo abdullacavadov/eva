@@ -1,4 +1,4 @@
-"""EVA üçün ayrıca AI video provider inteqrasiyası."""
+"""V.I.C.T.O.R üçün ayrıca AI video provider inteqrasiyası."""
 
 from __future__ import annotations
 

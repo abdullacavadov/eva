@@ -197,7 +197,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
       }
     };
     socket.onerror = () => {
-      setStatus('E.V.A RUNTIME BAĞLANTISI YOXDUR');
+      setStatus('V.I.C.T.O.R RUNTIME BAĞLANTISI YOXDUR');
       setGoogleBusy(false);
     };
   };
@@ -228,7 +228,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
       }
     };
     socket.onerror = () => {
-      setStatus('E.V.A RUNTIME BAĞLANTISI YOXDUR');
+      setStatus('V.I.C.T.O.R RUNTIME BAĞLANTISI YOXDUR');
       setSaving(false);
     };
   };
@@ -240,9 +240,9 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
           <FontAwesomeIcon icon={faArrowLeft} />
         </button>
         <div>
-          <span className="settings-eyebrow">E.V.A / CONFIGURATION</span>
+          <span className="settings-eyebrow">V.I.C.T.O.R / CONFIGURATION</span>
           <h1>PARAMETRLƏR</h1>
-          <p>EVA-nın davranışını, səsini və görünüşünü idarə et.</p>
+          <p>V.I.C.T.O.R-nın davranışını, səsini və görünüşünü idarə et.</p>
         </div>
         <div className="settings-header-icon">
           <FontAwesomeIcon icon={faGear} />
@@ -252,7 +252,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
         <section className="settings-section">
           <div className="settings-section-title">
             <FontAwesomeIcon icon={faUser} />
-            <span>EVA PERSONA</span>
+            <span>V.I.C.T.O.R PERSONA</span>
             <small>IDENTITY</small>
           </div>
           <div className="settings-form-grid">
@@ -325,7 +325,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
             <small>GEMINI LIVE</small>
           </div>
           <label className="settings-field" style={{padding: '16px'}}>
-            <span>EVA səsi</span>
+            <span>V.I.C.T.O.R səsi</span>
             <select
               value={settings.voice}
               onChange={(e) => update('voice', e.target.value)}
@@ -372,7 +372,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
         <section className="settings-section">
           <div className="settings-section-title">
             <FontAwesomeIcon icon={faAtom} />
-            <span>EVA ORB</span>
+            <span>V.I.C.T.O.R ORB</span>
             <small>VISUAL ENGINE</small>
           </div>
           <div className="settings-form-grid">
@@ -538,7 +538,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
                 <small>
                   {settings.google_account.connected
                     ? 'Gmail · Calendar · Contacts · Tasks aktivdir'
-                    : 'EVA inteqrasiyalarını aktivləşdirmək üçün hesabını bir dəfə qoş.'}
+                    : 'V.I.C.T.O.R inteqrasiyalarını aktivləşdirmək üçün hesabını bir dəfə qoş.'}
                 </small>
               </div>
             </div>

@@ -98,7 +98,7 @@ def add_agenda_item(title: str, item_type: str = "task", storage: str = "", due_
             "count": 0,
             "selected": None,
             "meta": {
-                "message": "Bunu harada yadda saxlayım: Google Tasks, yoxsa EVA yaddaşında?",
+                "message": "Bunu harada yadda saxlayım: Google Tasks, yoxsa V.I.C.T.O.R yaddaşında?",
                 "choices": ["google_tasks", "memory"],
             },
         }
@@ -109,7 +109,7 @@ def add_agenda_item(title: str, item_type: str = "task", storage: str = "", due_
             "meta": {
                 "storage_requested": "google_tasks",
                 "fallback": "memory",
-                "message": "Google Tasks qeyd üçün uyğun deyil; EVA yaddaşında saxlanıldı.",
+                "message": "Google Tasks qeyd üçün uyğun deyil; V.I.C.T.O.R yaddaşında saxlanıldı.",
             }
         }
     result = add_reminder(title, due_iso, notes, storage="google_tasks")
@@ -118,7 +118,7 @@ def add_agenda_item(title: str, item_type: str = "task", storage: str = "", due_
         fallback["meta"] = {
             "storage_requested": "google_tasks",
             "fallback": "memory",
-            "message": "Google Tasks əlçatan deyil; EVA yaddaşında saxlanıldı.",
+            "message": "Google Tasks əlçatan deyil; V.I.C.T.O.R yaddaşında saxlanıldı.",
             "provider_error": result.get("meta", {}).get("message", ""),
         }
         return fallback

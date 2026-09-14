@@ -1,5 +1,5 @@
 """
-EVA Windows — UI v3
+V.I.C.T.O.R Windows — UI v3
 Concentric teal rings · Segmented arcs
 """
 
@@ -20,7 +20,7 @@ from actions.weather import get_weather_summary
 
 BASE_DIR = Path(__file__).resolve().parent
 
-SYSTEM_NAME = "E.V.A"
+SYSTEM_NAME = "V.I.C.T.O.R"
 MODEL_BADGE = "Core for Windows"
 
 # ── Renk paleti ──────────────────────────────────────────────────────────────
@@ -399,7 +399,7 @@ class JarvisUI:
     def __init__(self):
         self.root = tk.Tk()
         self.root.withdraw()  # Tam render olana kadar gizle — siyah flash önlenir
-        self.root.title("E.V.A")
+        self.root.title("V.I.C.T.O.R")
         # Tam ekran dışında boyutlandırma kapalı
         self.root.resizable(False, False)
 
@@ -1130,7 +1130,7 @@ class JarvisUI:
             else:
                 create_startup_shortcut()
                 self.write_log(
-                    "SYS: Avtomatik başlatma aktiv edildi. Windows açıldıqda E.V.A aktivləşir.")
+                    "SYS: Avtomatik başlatma aktiv edildi. Windows açıldıqda V.I.C.T.O.R aktivləşir.")
         except Exception as exc:
             self.write_log(f"SYS: Autostart xətası — {exc}")
         finally:
@@ -1195,7 +1195,7 @@ class JarvisUI:
                 from make_shortcut import create_desktop_shortcut
                 create_desktop_shortcut()
                 self.write_log(
-                    "SYS: Masaüstü qısayol yaradıldı → EVA.lnk")
+                    "SYS: Masaüstü qısayol yaradıldı → V.I.C.T.O.R.lnk")
                 self.root.after(0, lambda: self._draw_shortcut_button("ok"))
                 self.root.after(
                     3000, lambda: self._draw_shortcut_button("idle"))
@@ -1389,10 +1389,10 @@ class JarvisUI:
         self._draw_pause_button()
         if self.paused:
             self.set_state("PAUSED")
-            self.write_log("SYS: E.V.A dayandırıldı.")
+            self.write_log("SYS: V.I.C.T.O.R dayandırıldı.")
         else:
             self.set_state("THINKING")
-            self.write_log("SYS: E.V.A davam edir...")
+            self.write_log("SYS: V.I.C.T.O.R davam edir...")
         self._sync_sound_state()
         if self.on_pause_toggle:
             threading.Thread(target=self.on_pause_toggle,
@@ -1400,7 +1400,7 @@ class JarvisUI:
 
     def _shutdown(self):
         self.sound.stop_all()
-        self.write_log("SYS: E.V.A bağlanır...")
+        self.write_log("SYS: V.I.C.T.O.R bağlanır...")
         self.root.after(380, os._exit, 0)
 
     # ── Input bar ────────────────────────────────────────────────────────────
@@ -1500,7 +1500,7 @@ class JarvisUI:
             return
         if self.paused:
             self.write_log(
-                "SYS: E.V.A fasilədədir. Davam etmək üçün 'Fasilə' rejimini deaktiv et.")
+                "SYS: V.I.C.T.O.R fasilədədir. Davam etmək üçün 'Fasilə' rejimini deaktiv et.")
             return
         self._input_var.set("")
         if text.lower() in ("sus", "dur", "stop", "sessiz", "kes"):
@@ -1692,7 +1692,7 @@ class JarvisUI:
         tl = text.lower()
         if tl.startswith("Siz:") or tl.startswith("you:"):
             tag = "you"
-        elif tl.startswith("E.V.A:") or tl.startswith("ai:"):
+        elif tl.startswith("V.I.C.T.O.R:") or tl.startswith("ai:"):
             tag = "ai"
         elif tl.startswith("Err:") or "error" in tl:
             tag = "err"
@@ -2571,7 +2571,7 @@ class JarvisUI:
         c.create_rectangle(0, H-FOOTER_H, W, H, fill="#010a0a", outline="")
         c.create_line(0, H-FOOTER_H, W, H-FOOTER_H, fill=C_DIM, width=1)
         c.create_text(W//2, H-13, fill=C_DIM, font=font_body(9),
-                      text="EVA · Windows Edition · Realtime Voice Core")
+                      text="V.I.C.T.O.R · Windows Edition · Realtime Voice Core")
         c.create_text(W-18, H-13, fill=C_DIM, font=font_body(9),
                       text="[F4] SƏSSİZ [F5] PAUZA [F6] KAMERA [F11] TAM EKRAN [ESC] ÇIXIŞ/PƏNCƏRƏ", anchor="e")
 
@@ -2649,4 +2649,4 @@ class JarvisUI:
             self.write_log("SYS: API ayarları yeniləndi.")
         else:
             self.set_state("LISTENING")
-            self.write_log("SYS: EVA hazırdır. Dinləyirəm...")
+            self.write_log("SYS: V.I.C.T.O.R hazırdır. Dinləyirəm...")

@@ -59,16 +59,16 @@ const emptyDashboard: DashboardData = {
 };
 const stateStatusLabel: Record<EvaState, string> = {
   IDLE: 'SİSTEM HAZIRDIR',
-  LISTENING: 'EVA DİNLƏYİR',
-  SPEAKING: 'EVA DANIŞIR',
-  THINKING: 'EVA DÜŞÜNÜR',
-  EXECUTING: 'EVA İCRA EDİR',
+  LISTENING: 'V.I.C.T.O.R DİNLƏYİR',
+  SPEAKING: 'V.I.C.T.O.R DANIŞIR',
+  THINKING: 'V.I.C.T.O.R DÜŞÜNÜR',
+  EXECUTING: 'V.I.C.T.O.R İCRA EDİR',
   WAITING_CONFIRMATION: 'TƏSDİQ GÖZLƏNİLİR',
   SUCCESS: 'ƏMƏLİYYAT TAMAMLANDI',
   ERROR: 'SİSTEM XƏTASI',
   MUTED: 'MİKROFON SƏSSİZDİR',
-  PAUSED: 'EVA DAYANDIRILIB',
-  INITIALISING: 'EVA BAŞLADILIR',
+  PAUSED: 'V.I.C.T.O.R DAYANDIRILIB',
+  INITIALISING: 'V.I.C.T.O.R BAŞLADILIR',
 };
 
 const formatClock = (date: Date) =>
@@ -269,7 +269,7 @@ export default function App() {
         {
           id: crypto.randomUUID(),
           time: new Date().toLocaleTimeString('az-AZ'),
-          text: 'EVA bağlantısı hazır deyil',
+          text: 'V.I.C.T.O.R bağlantısı hazır deyil',
           kind: 'error',
           detail: 'WebSocket bağlantısı gözlənilir.',
         },
@@ -284,7 +284,7 @@ export default function App() {
         {
           id: crypto.randomUUID(),
           time: new Date().toLocaleTimeString('az-AZ'),
-          text: 'EVA idarəetmə bağlantısı hazır deyil',
+          text: 'V.I.C.T.O.R idarəetmə bağlantısı hazır deyil',
           kind: 'error',
           detail: 'WebSocket bağlantısı gözlənilir.',
         },
@@ -333,7 +333,7 @@ export default function App() {
       <main className="workspace">
         <header className="topbar">
           <div>
-            <span className="eyebrow">E.V.A</span>
+            <span className="eyebrow">V.I.C.T.O.R</span>
             <h3>Enhanced Virtual Assistant</h3>
           </div>
 

@@ -1,4 +1,4 @@
-"""EVA üçün şəkil -> video kompozisiya mühərriki.
+"""V.I.C.T.O.R üçün şəkil -> video kompozisiya mühərriki.
 
 FFmpeg yalnız deterministik render mərhələsində istifadə olunur. Modelin
 verdiyi mətn birbaşa shell sətrinə qoşulmur; bütün arqumentlər subprocess-a
