@@ -23,7 +23,7 @@ def test_default_candidate_hold_is_long_enough_for_natural_pauses(monkeypatch):
     monkeypatch.setattr(interruption, "VoiceDetector", FakeVoiceDetector)
     monkeypatch.setattr(interruption, "get_microphone_speech_probability", lambda: None)
     detector = BargeInDetector(sample_rate=16000)
-    detector._voice_detector.probabilities = [0.40] + [0.10] * 22
+    detector._voice_detector.probabilities = [0.50] + [0.10] * 22
 
     assert detector.update(pcm_chunk()) is False
     assert detector.is_speech_candidate() is True
@@ -42,7 +42,7 @@ def test_short_speech_candidate_ducks_and_restores(monkeypatch):
     monkeypatch.setattr(interruption, "VoiceDetector", FakeVoiceDetector)
     monkeypatch.setattr(interruption, "get_microphone_speech_probability", lambda: None)
     detector = BargeInDetector(sample_rate=16000, candidate_hold_ms=120.0)
-    detector._voice_detector.probabilities = [0.40] + [0.10] * 8
+    detector._voice_detector.probabilities = [0.50] + [0.10] * 8
 
     assert detector.update(pcm_chunk()) is False
     assert detector.is_speech_candidate() is True
