@@ -1,4 +1,4 @@
-export type EvaState =
+export type VictorState =
   | 'IDLE'
   | 'LISTENING'
   | 'SPEAKING'
@@ -29,13 +29,13 @@ export interface ContextItem {
   selected?: boolean
 }
 
-export interface EvaContext {
+export interface VictorContext {
   source?: string
   title?: string
   items: ContextItem[]
 }
 
-export type EvaControlState = {
+export type VictorControlState = {
   paused?: boolean
   camera_active?: boolean
   microphone_muted?: boolean
@@ -63,25 +63,31 @@ export interface MediaProductionEvent {
   model?: string
 }
 
-export type EvaEvent =
+export type VictorEvent =
   | { type: 'connection.ready' }
   | {
       type: 'runtime.snapshot'
-      state?: EvaState | null
+      state?: VictorState | null
       messages?: Array<{ type: 'conversation.user' | 'conversation.assistant'; text: string }>
       activities?: ActivityItem[]
-      context?: EvaContext | null
-      control?: EvaControlState | null
+      context?: VictorContext | null
+      control?: VictorControlState | null
     }
   | { type: 'bridge.error'; message?: string }
-  | { type: 'state.changed'; state: EvaState }
+  | { type: 'state.changed'; state: VictorState }
   | { type: 'audio.level'; level: number }
   | { type: 'conversation.user'; text: string }
   | { type: 'conversation.assistant'; text: string }
   | { type: 'activity.created'; activity: ActivityItem }
-  | { type: 'context.updated'; context: EvaContext }
-  | { type: 'control.state'; control: EvaControlState }
+  | { type: 'context.updated'; context: VictorContext }
+  | { type: 'control.state'; control: VictorControlState }
   | { type: 'webcam.frame'; data: string }
   | { type: 'tool.started'; tool: string; args?: Record<string, unknown> }
   | { type: 'tool.completed'; tool: string; success: boolean; result?: string }
   | { type: 'media.production'; data: MediaProductionEvent }
+
+// Geriyə uyğunluq: wire/protokol və mövcud komponentlər mərhələli şəkildə Victor adlarına keçirilə bilər.
+export type EvaState = VictorState
+export type EvaContext = VictorContext
+export type EvaControlState = VictorControlState
+export type EvaEvent = VictorEvent
