@@ -1,4 +1,4 @@
-import type { ActivityItem, EvaContext, EvaEvent, EvaState } from '../types/eva'
+import type { ActivityItem, VictorContext, VictorEvent, VictorState } from '../types/victor'
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -10,8 +10,8 @@ const activity = (text: string, kind: ActivityItem['kind'], detail?: string): Ac
   detail,
 })
 
-export async function* demoConversation(): AsyncGenerator<EvaEvent> {
-  const context: EvaContext = {
+export async function* demoConversation(): AsyncGenerator<VictorEvent> {
+  const context: VictorContext = {
     source: 'Google Calendar',
     title: 'Aktiv kontekst',
     items: [
@@ -21,7 +21,7 @@ export async function* demoConversation(): AsyncGenerator<EvaEvent> {
     ],
   }
 
-  const emitState = (state: EvaState): EvaEvent => ({ type: 'state.changed', state })
+  const emitState = (state: VictorState): VictorEvent => ({ type: 'state.changed', state })
 
   yield emitState('LISTENING')
   await wait(700)
