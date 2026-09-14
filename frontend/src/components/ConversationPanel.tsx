@@ -20,13 +20,13 @@ export function ConversationPanel({ messages, onSubmit }: { messages: Message[];
         {messages.length === 0 && <div className="empty-message">V.I.C.T.O.R hazırdır. Söhbətə başla.</div>}
         {messages.map((message) => (
           <article className={`message ${message.role}`} key={message.id}>
-            <span className="message-role">{message.role === 'user' ? 'SƏN' : 'V.I.C.T.O.R'}</span>
+            <span className="message-role">{message.role === 'user' ? 'SƏN' : 'VICTOR'}</span>
             <p>{message.text}</p>
           </article>
         ))}
       </div>
       <form className="command-input" onSubmit={(event) => { event.preventDefault(); const input = event.currentTarget.elements.namedItem('command') as HTMLInputElement; const text = input.value.trim(); if (text) { onSubmit(text); input.value = '' } }}>
-        <input name="command" autoComplete="off" placeholder="V.I.C.T.O.R-ya istənilən sualı ver..." aria-label="V.I.C.T.O.R-ya sual ver" />
+        <input name="command" autoComplete="off" placeholder="VICTOR-a istənilən sualı ver..." aria-label="VICTOR-a sual ver" />
         <button type="submit" aria-label="Komandanı göndər"><FontAwesomeIcon icon={faCircleArrowUp} /></button>
       </form>
     </section>

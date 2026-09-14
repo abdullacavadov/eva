@@ -59,16 +59,16 @@ const emptyDashboard: DashboardData = {
 };
 const stateStatusLabel: Record<EvaState, string> = {
   IDLE: 'SİSTEM HAZIRDIR',
-  LISTENING: 'V.I.C.T.O.R DİNLƏYİR',
-  SPEAKING: 'V.I.C.T.O.R DANIŞIR',
-  THINKING: 'V.I.C.T.O.R DÜŞÜNÜR',
-  EXECUTING: 'V.I.C.T.O.R İCRA EDİR',
+  LISTENING: 'VICTOR DİNLƏYİR',
+  SPEAKING: 'VICTOR DANIŞIR',
+  THINKING: 'VICTOR DÜŞÜNÜR',
+  EXECUTING: 'VICTOR İCRA EDİR',
   WAITING_CONFIRMATION: 'TƏSDİQ GÖZLƏNİLİR',
   SUCCESS: 'ƏMƏLİYYAT TAMAMLANDI',
   ERROR: 'SİSTEM XƏTASI',
   MUTED: 'MİKROFON SƏSSİZDİR',
-  PAUSED: 'V.I.C.T.O.R DAYANDIRILIB',
-  INITIALISING: 'V.I.C.T.O.R BAŞLADILIR',
+  PAUSED: 'VICTOR DAYANDIRILIB',
+  INITIALISING: 'VICTOR BAŞLADILIR',
 };
 
 const formatClock = (date: Date) =>
@@ -269,7 +269,7 @@ export default function App() {
         {
           id: crypto.randomUUID(),
           time: new Date().toLocaleTimeString('az-AZ'),
-          text: 'V.I.C.T.O.R bağlantısı hazır deyil',
+          text: 'VICTOR bağlantısı hazır deyil',
           kind: 'error',
           detail: 'WebSocket bağlantısı gözlənilir.',
         },
@@ -284,7 +284,7 @@ export default function App() {
         {
           id: crypto.randomUUID(),
           time: new Date().toLocaleTimeString('az-AZ'),
-          text: 'V.I.C.T.O.R idarəetmə bağlantısı hazır deyil',
+          text: 'VICTOR idarəetmə bağlantısı hazır deyil',
           kind: 'error',
           detail: 'WebSocket bağlantısı gözlənilir.',
         },

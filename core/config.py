@@ -1,4 +1,4 @@
-"""Core runtime configuration used by V.I.C.T.O.R."""
+"""Core runtime configuration used by VICTOR."""
 
 import json
 import os
@@ -25,7 +25,7 @@ CHUNK_SIZE = 480
 # realtime audio cadence to reduce output jitter.
 PLAYBACK_CHUNK_SIZE = 480
 
-# V.I.C.T.O.R-nın əsas danışıq dili Azərbaycan dilidir. İstifadəçi Azərbaycan və türk
+# VICTOR-nın əsas danışıq dili Azərbaycan dilidir. İstifadəçi Azərbaycan və türk
 # dilini qarışdıra bildiyi üçün ASR-ə hər iki dili açıq şəkildə hint edirik.
 # İngilis dili texniki terminlər və command adları üçün üçüncü fallback-dir.
 LIVE_INPUT_TRANSCRIPTION_LANGUAGE_CODES = ["az-AZ", "tr-TR", "en-US"]
@@ -124,7 +124,7 @@ def _log_live_context_metrics(kwargs: dict):
 
 
 class _EVALiveConnectConfig(_LiveConnectConfig):
-    """V.I.C.T.O.R üçün realtime input transcription parametrlərini mərkəzləşdirir."""
+    """VICTOR üçün realtime input transcription parametrlərini mərkəzləşdirir."""
 
     def __init__(self, *args, **kwargs):
         transcription = kwargs.get("input_audio_transcription")

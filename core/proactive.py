@@ -1,4 +1,4 @@
-"""V.I.C.T.O.R-nın proaktiv monitorinq, dəyişiklik aşkarlama və bildiriş siyasəti."""
+"""VICTOR-nın proaktiv monitorinq, dəyişiklik aşkarlama və bildiriş siyasəti."""
 
 from __future__ import annotations
 
@@ -441,5 +441,5 @@ class ProactiveScheduler:
             try:
                 self.poll_once()
             except Exception as exc:
-                print(f"[V.I.C.T.O.R Proactive] ❌ {exc}")
+                print(f"[VICTOR Proactive] ❌ {exc}")
             self._stop.wait(self.interval)

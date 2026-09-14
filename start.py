@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""V.I.C.T.O.R runtime-u React UI ilə birlikdə başladan vahid giriş nöqtəsi."""
+"""VICTOR runtime-u React UI ilə birlikdə başladan vahid giriş nöqtəsi."""
 
 import json
 import os
@@ -105,7 +105,7 @@ def _start_dashboard_api() -> ThreadingHTTPServer:
     port = int(os.getenv("EVA_UI_HTTP_PORT", "8766"))
     server = ThreadingHTTPServer((host, port), DashboardRequestHandler)
     threading.Thread(target=server.serve_forever, name="eva-dashboard-http", daemon=True).start()
-    print(f"[V.I.C.T.O.R] 📊 Dashboard API: http://{host}:{port}/api/dashboard", flush=True)
+    print(f"[VICTOR] 📊 Dashboard API: http://{host}:{port}/api/dashboard", flush=True)
     return server
 
 
@@ -113,11 +113,11 @@ def _start_react_frontend() -> subprocess.Popen | None:
     """React development serverini eyni terminal prosesinə qoşur."""
     frontend_dir = Path(__file__).resolve().parent / "frontend"
     if not (frontend_dir / "package.json").exists():
-        print("[V.I.C.T.O.R] ⚠️ frontend/package.json tapılmadı; React serveri başladılmadı.", flush=True)
+        print("[VICTOR] ⚠️ frontend/package.json tapılmadı; React serveri başladılmadı.", flush=True)
         return None
 
     npm = "npm.cmd" if os.name == "nt" else "npm"
-    print("[V.I.C.T.O.R] ⚛️ React UI başladılır...", flush=True)
+    print("[VICTOR] ⚛️ React UI başladılır...", flush=True)
     try:
         process = subprocess.Popen(
             [npm, "run", "dev", "--", "--host", "127.0.0.1"],
@@ -125,17 +125,17 @@ def _start_react_frontend() -> subprocess.Popen | None:
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
         )
     except OSError as exc:
-        print(f"[V.I.C.T.O.R] ❌ React UI başlatılmadı: {exc}", flush=True)
+        print(f"[VICTOR] ❌ React UI başlatılmadı: {exc}", flush=True)
         return None
 
     def open_browser():
         time.sleep(2.0)
         url = "http://127.0.0.1:5173"
-        print(f"[V.I.C.T.O.R] 🌐 React UI: {url}", flush=True)
+        print(f"[VICTOR] 🌐 React UI: {url}", flush=True)
         try:
             webbrowser.open(url)
         except Exception as exc:
-            print(f"[V.I.C.T.O.R] ⚠️ Browser avtomatik açıla bilmədi: {exc}", flush=True)
+            print(f"[VICTOR] ⚠️ Browser avtomatik açıla bilmədi: {exc}", flush=True)
 
     threading.Thread(target=open_browser, name="eva-open-browser", daemon=True).start()
     return process
@@ -178,7 +178,7 @@ def main():
             if command == "pause":
                 paused = not bool(jarvis._paused)
                 jarvis._on_pause_toggle(paused)
-                ui.write_log(f"SYS: V.I.C.T.O.R {'pauza edildi' if paused else 'davam etdirildi'}.")
+                ui.write_log(f"SYS: VICTOR {'pauza edildi' if paused else 'davam etdirildi'}.")
                 return {"paused": paused}
             if command == "camera":
                 activate = not jarvis._webcam_streamer.is_active
@@ -197,14 +197,14 @@ def main():
                 ui.write_log(f"SYS: Mikrofon {'səssizdir' if muted else 'aktivdir'}.")
                 return {"microphone_muted": muted}
             if command == "restart":
-                ui.write_log("SYS: V.I.C.T.O.R yenidən başladılır...")
+                ui.write_log("SYS: VICTOR yenidən başladılır...")
                 jarvis._webcam_streamer.stop()
                 jarvis._stop_music()
                 cleanup_frontend_and_api()
                 os.execv(sys.executable, [sys.executable, *sys.argv])
                 return {}
             if command == "shutdown":
-                ui.write_log("SYS: V.I.C.T.O.R bağlanır...")
+                ui.write_log("SYS: VICTOR bağlanır...")
                 jarvis._webcam_streamer.stop()
                 jarvis._stop_music()
                 cleanup_frontend_and_api()
@@ -231,7 +231,7 @@ def main():
         except KeyboardInterrupt:
             print("\n🔴 Ayrılır...", flush=True)
         except Exception as exc:
-            print(f"[V.I.C.T.O.R] ❌ Runtime thread dayandı: {exc}", flush=True)
+            print(f"[VICTOR] ❌ Runtime thread dayandı: {exc}", flush=True)
         finally:
             if proactive_scheduler:
                 proactive_scheduler.stop()

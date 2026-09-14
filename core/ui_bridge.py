@@ -1,4 +1,4 @@
-"""React UI üçün V.I.C.T.O.R runtime WebSocket körpüsü."""
+"""React UI üçün VICTOR runtime WebSocket körpüsü."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from websockets.sync.server import Server, ServerConnection, serve
 
 
 class UiBridge:
-    """Mövcud desktop V.I.C.T.O.R runtime-ını lokal React UI-a bağlayır."""
+    """Mövcud desktop VICTOR runtime-ını lokal React UI-a bağlayır."""
 
     _CLIENT_QUEUE_SIZE = 256
     _MAX_HISTORY = 200
@@ -136,10 +136,10 @@ class UiBridge:
             detail = clean.split(":", 1)[1].strip()
             self.emit("conversation.user", text=detail)
             self.emit_activity("Komanda qəbul edildi", "user", detail)
-        elif lower.startswith("V.I.C.T.O.R:") or lower.startswith("ai:"):
+        elif lower.startswith("VICTOR:") or lower.startswith("ai:"):
             detail = clean.split(":", 1)[1].strip()
             self.emit("conversation.assistant", text=detail)
-            self.emit_activity("V.I.C.T.O.R cavab verdi", "assistant", detail)
+            self.emit_activity("VICTOR cavab verdi", "assistant", detail)
         elif lower.startswith("err:"):
             self.emit_activity("Runtime xətası", "error", clean.split(":", 1)[1].strip())
         elif lower.startswith("sys:"):
@@ -226,10 +226,10 @@ class UiBridge:
             try:
                 with serve(self._handle_client, self.host, self.port) as server:
                     self._server = server
-                    print(f"[V.I.C.T.O.R] 🌐 UI WebSocket: ws://{self.host}:{self.port}")
+                    print(f"[VICTOR] 🌐 UI WebSocket: ws://{self.host}:{self.port}")
                     server.serve_forever()
             except OSError as exc:
-                print(f"[V.I.C.T.O.R] ⚠️ UI WebSocket başlatılmadı: {exc}")
+                print(f"[VICTOR] ⚠️ UI WebSocket başlatılmadı: {exc}")
             finally:
                 self._server = None
 
@@ -263,9 +263,9 @@ class UiBridge:
         if play_startup_sfx:
             try:
                 self.ui.sound.play_startup()
-                print("[V.I.C.T.O.R] 🔊 Startup SFX: UI hazırdır.", flush=True)
+                print("[VICTOR] 🔊 Startup SFX: UI hazırdır.", flush=True)
             except Exception as exc:
-                print(f"[V.I.C.T.O.R] ⚠️ Startup SFX səsləndirilə bilmədi: {exc}", flush=True)
+                print(f"[VICTOR] ⚠️ Startup SFX səsləndirilə bilmədi: {exc}", flush=True)
         try:
             for raw_message in websocket:
                 self._handle_message(websocket, raw_message)
@@ -282,7 +282,7 @@ class UiBridge:
         os.execv(sys.executable, [sys.executable, *sys.argv])
 
     def _shutdown_process(self) -> None:
-        """V.I.C.T.O.R prosesini təhlükəsiz şəkildə dayandırır."""
+        """VICTOR prosesini təhlükəsiz şəkildə dayandırır."""
         callback = getattr(self.ui, "_shutdown", None)
         if callable(callback):
             try:
@@ -308,7 +308,7 @@ class UiBridge:
                 websocket.send(json.dumps({"type": "control.state", "control": {"shutdown_pending": True}}, ensure_ascii=False))
                 threading.Thread(target=self._shutdown_process, name="eva-shutdown", daemon=True).start()
                 return
-            websocket.send(json.dumps({"type": "bridge.error", "message": "V.I.C.T.O.R control callback-i hazır deyil."}, ensure_ascii=False))
+            websocket.send(json.dumps({"type": "bridge.error", "message": "VICTOR control callback-i hazır deyil."}, ensure_ascii=False))
             return
 
         try:
@@ -345,7 +345,7 @@ class UiBridge:
             return
         callback: Callable[[str], None] | None = getattr(self.ui, "on_text_command", None)
         if callback is None:
-            websocket.send(json.dumps({"type": "bridge.error", "message": "V.I.C.T.O.R text command callback-i hazır deyil."}, ensure_ascii=False))
+            websocket.send(json.dumps({"type": "bridge.error", "message": "VICTOR text command callback-i hazır deyil."}, ensure_ascii=False))
             return
         try:
             callback(text)

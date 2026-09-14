@@ -1,4 +1,4 @@
-"""Task/agenda adapter with Google Tasks -> V.I.C.T.O.R memory fallback."""
+"""Task/agenda adapter with Google Tasks -> VICTOR memory fallback."""
 
 from __future__ import annotations
 
@@ -69,7 +69,7 @@ def add_reminder(title: str, due_iso: str = "", notes: str = "", list_name: str 
     if not title:
         return error("task", "Task başlığı boş ola bilməz.")
     if not storage:
-        return {"type": "task", "status": "needs_input", "query": {"title": title, "due_iso": due_iso}, "data": [], "count": 0, "meta": {"message": "Bunu harada yadda saxlayım: Google Tasks, Microsoft To Do, yoxsa V.I.C.T.O.R yaddaşında?", "choices": ["google_tasks", "microsoft_todo", "memory"]}}
+        return {"type": "task", "status": "needs_input", "query": {"title": title, "due_iso": due_iso}, "data": [], "count": 0, "meta": {"message": "Bunu harada yadda saxlayım: Google Tasks, Microsoft To Do, yoxsa VICTOR yaddaşında?", "choices": ["google_tasks", "microsoft_todo", "memory"]}}
     if priority:
         return error("task", "Google Tasks priority sahəsini dəstəkləmir; priority göstərmədən yenidən cəhd et.")
     if storage == "memory" or storage == "microsoft_todo":
@@ -87,7 +87,7 @@ def add_reminder(title: str, due_iso: str = "", notes: str = "", list_name: str 
         return success("task", [_structured_task(task, task_list_id)], {"storage": "google_tasks", "list_name": list_name, "task_list_id": task_list_id}, {"selected_id": f"task:{task.get('id', '')}"})
     except Exception as exc:
         item = _save_memory_task(title, due_iso, notes)
-        return success("task", [item], {"storage": "memory", "requested_storage": "google_tasks"}, {"fallback": True, "reason": "google_tasks_unavailable", "message": "Google Tasks əlçatan deyil; V.I.C.T.O.R yaddaşında saxlanıldı."})
+        return success("task", [item], {"storage": "memory", "requested_storage": "google_tasks"}, {"fallback": True, "reason": "google_tasks_unavailable", "message": "Google Tasks əlçatan deyil; VICTOR yaddaşında saxlanıldı."})
 
 
 def update_reminder(task_id: str, title: str = "", due_iso: str = "", notes: str = "", list_name: str = "", all_day: bool = False) -> dict:

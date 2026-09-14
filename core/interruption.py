@@ -1,4 +1,4 @@
-"""V.I.C.T.O.R üçün səsli müdaxilə (barge-in) aşkarlama köməkçisi."""
+"""VICTOR üçün səsli müdaxilə (barge-in) aşkarlama köməkçisi."""
 
 from __future__ import annotations
 

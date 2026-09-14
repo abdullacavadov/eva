@@ -1,4 +1,4 @@
-"""V.I.C.T.O.R üçün vahid Windows launcher.
+"""VICTOR üçün vahid Windows launcher.
 
 Bütün shortcut/autostart girişləri main.py-dən əvvəl bu launcher-i çağırır.
 Startup SFX UI yaradıldıqdan sonra bir dəfə səslənir.

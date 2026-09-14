@@ -1,4 +1,4 @@
-"""V.I.C.T.O.R-nın Google Tasks-dan ayrı, local memory əsaslı reminder sistemi."""
+"""VICTOR-nın Google Tasks-dan ayrı, local memory əsaslı reminder sistemi."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def add_eva_reminder(title: str, due_iso: str = "", notes: str = "") -> dict:
 
 def update_eva_reminder(reminder_id: str, title: str = "", due_iso: str = "", notes: str = "") -> dict:
     key = str(reminder_id or "").removeprefix("reminder:").strip(); memory = load_memory(); bucket = _bucket(memory)
-    if key not in bucket: raise ValueError("V.I.C.T.O.R reminder tapılmadı.")
+    if key not in bucket: raise ValueError("VICTOR reminder tapılmadı.")
     value = dict(bucket[key]);
     if str(title or "").strip(): value["title"] = str(title).strip()
     if due_iso: value["due"] = str(due_iso).strip()
@@ -48,14 +48,14 @@ def update_eva_reminder(reminder_id: str, title: str = "", due_iso: str = "", no
 
 def complete_eva_reminder(reminder_id: str) -> dict:
     key = str(reminder_id or "").removeprefix("reminder:").strip(); memory = load_memory(); bucket = _bucket(memory)
-    if key not in bucket: raise ValueError("V.I.C.T.O.R reminder tapılmadı.")
+    if key not in bucket: raise ValueError("VICTOR reminder tapılmadı.")
     value = dict(bucket[key]); value["completed"] = True; bucket[key] = value; memory["eva_reminders"] = bucket; _write_memory(memory)
     return {"type": "reminder", "status": "success", "query": {"reminder_id": reminder_id}, "data": [_item(key, value)], "count": 1, "selected": f"reminder:{key}", "meta": {"storage": "eva_memory"}}
 
 
 def delete_eva_reminder(reminder_id: str) -> dict:
     key = str(reminder_id or "").removeprefix("reminder:").strip(); memory = load_memory(); bucket = _bucket(memory)
-    if key not in bucket: raise ValueError("V.I.C.T.O.R reminder tapılmadı.")
+    if key not in bucket: raise ValueError("VICTOR reminder tapılmadı.")
     bucket.pop(key, None); memory["eva_reminders"] = bucket
     if not bucket: memory.pop("eva_reminders", None)
     _write_memory(memory)

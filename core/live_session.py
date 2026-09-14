@@ -1,4 +1,4 @@
-"""V.I.C.T.O.R üçün Gemini Live sessiyasının köməkçi idarəedicisi."""
+"""VICTOR üçün Gemini Live sessiyasının köməkçi idarəedicisi."""
 
 from __future__ import annotations
 
@@ -91,12 +91,12 @@ class _ResilientLiveSession:
                     await asyncio.sleep(self._reconnect_delay)
                     await self._connect(clear_handle_on_failure=True)
                     self._reconnect_delay = 1.0
-                    print("[V.I.C.T.O.R] 🔁 Gemini Live bağlantısı bərpa edildi.", flush=True)
+                    print("[VICTOR] 🔁 Gemini Live bağlantısı bərpa edildi.", flush=True)
                     return
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:
-                    print(f"[V.I.C.T.O.R] ⚠️ Live reconnect uğursuz oldu: {exc}", flush=True)
+                    print(f"[VICTOR] ⚠️ Live reconnect uğursuz oldu: {exc}", flush=True)
                     await self._close_current()
                     await asyncio.sleep(self._reconnect_delay)
                     self._reconnect_delay = min(self._reconnect_delay * 2.0, 8.0)
@@ -197,7 +197,7 @@ class _ResilientLiveSession:
             except Exception as exc:
                 if self._closed:
                     raise
-                print(f"[V.I.C.T.O.R] ⚠️ Live receive bağlantısı kəsildi: {exc}", flush=True)
+                print(f"[VICTOR] ⚠️ Live receive bağlantısı kəsildi: {exc}", flush=True)
                 await self._reconnect(force_fresh=self._is_clean_close(exc))
 
     async def _call_with_reconnect(self, method_name: str, **kwargs):
@@ -229,8 +229,8 @@ class _ResilientLiveSession:
             mime_type = str(media.get("mime_type") or "")
             data = media.get("data")
             if mime_type.startswith("audio/"):
-                # V.I.C.T.O.R danışarkən mikrofonu Gemini Live-a ötürmək server VAD-ın
-                # V.I.C.T.O.R-nın öz səsini müdaxilə kimi qəbul etməsinə səbəb ola bilər.
+                # VICTOR danışarkən mikrofonu Gemini Live-a ötürmək server VAD-ın
+                # VICTOR-nın öz səsini müdaxilə kimi qəbul etməsinə səbəb ola bilər.
                 # Yerli BargeInDetector istifadəçi danışığını təsdiqləyənə qədər
                 # audio serverə buraxılmır; interrupt zamanı playback gate açılır.
                 if is_playback_active():

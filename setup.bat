@@ -2,7 +2,7 @@
 chcp 65001 >nul
 echo.
 echo ============================================
-echo        V.I.C.T.O.R  Windows Kurulum
+echo        VICTOR  Windows Kurulum
 echo ============================================
 echo.
 

@@ -1,4 +1,4 @@
-"""V.I.C.T.O.R hava məlumatı — cari məkan və soruşulan şəhər üçün Open-Meteo."""
+"""VICTOR hava məlumatı — cari məkan və soruşulan şəhər üçün Open-Meteo."""
 from __future__ import annotations
 import requests
 from core.location_runtime import get_current_location
@@ -34,7 +34,7 @@ def _resolve_display_city(latitude: float, longitude: float, fallback: str) -> s
         response = requests.get(
             "https://nominatim.openstreetmap.org/reverse",
             params={"lat": latitude, "lon": longitude, "format": "jsonv2", "zoom": 10, "accept-language": "en"},
-            headers={"User-Agent": "V.I.C.T.O.R-assistant/1.0"},
+            headers={"User-Agent": "VICTOR-assistant/1.0"},
             timeout=6,
         )
         response.raise_for_status()
@@ -54,7 +54,7 @@ def _resolve_city_image(image_city: str) -> str | None:
     try:
         response = requests.get(
             f"https://en.wikipedia.org/api/rest_v1/page/summary/{requests.utils.quote(image_city)}",
-            headers={"User-Agent": "V.I.C.T.O.R-assistant/1.0"},
+            headers={"User-Agent": "VICTOR-assistant/1.0"},
             timeout=6,
         )
         if response.status_code != 200:

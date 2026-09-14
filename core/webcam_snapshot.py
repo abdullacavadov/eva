@@ -1,4 +1,4 @@
-"""V.I.C.T.O.R webcam axınının son kadrı üçün paylaşılmış snapshot yolu."""
+"""VICTOR webcam axınının son kadrı üçün paylaşılmış snapshot yolu."""
 
 import tempfile
 from pathlib import Path

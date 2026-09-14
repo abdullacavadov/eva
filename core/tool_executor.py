@@ -1,4 +1,4 @@
-"""V.I.C.T.O.R alətlərinin icrası və nəticələrinin idarə olunması."""
+"""VICTOR alətlərinin icrası və nəticələrinin idarə olunması."""
 
 import asyncio
 import traceback
@@ -88,7 +88,7 @@ def build_follow_up_dispatch(action: FollowUpAction) -> FollowUpDispatch:
 
 
 def _present_structured_result(ui, result: dict) -> None:
-    """Strukturlaşdırılmış nəticəni mövcud V.I.C.T.O.R log panelində oxunaqlı göstərir."""
+    """Strukturlaşdırılmış nəticəni mövcud VICTOR log panelində oxunaqlı göstərir."""
     if not isinstance(result, dict) or not {"type", "status", "data"}.issubset(result): return
     status = str(result.get("status", "")).strip().lower()
     if status not in {"success", "ok"}: return
@@ -184,7 +184,7 @@ class ToolExecutor:
         raise ValueError("Naməlum təsdiq əməliyyatı")
 
     async def execute(self, fc) -> types.FunctionResponse:
-        name = fc.name; args = dict(fc.args or {}); print(f"[V.I.C.T.O.R] 🔧 {name} {args}"); self.ui.set_state("THINKING"); loop = asyncio.get_event_loop(); result = "Tamam."; had_exception = False
+        name = fc.name; args = dict(fc.args or {}); print(f"[VICTOR] 🔧 {name} {args}"); self.ui.set_state("THINKING"); loop = asyncio.get_event_loop(); result = "Tamam."; had_exception = False
         try:
             if name == "confirm_action":
                 token = str(args.get("confirmation_id", "")).strip()
@@ -271,5 +271,5 @@ class ToolExecutor:
             self.result_store.save(result)
             _present_structured_result(self.ui, result)
         if not tool_failed and not self.ui.muted: self.ui.set_state("LISTENING")
-        print(f"[V.I.C.T.O.R] 📤 {name} → {str(result)[:80]}...")
+        print(f"[VICTOR] 📤 {name} → {str(result)[:80]}...")
         return types.FunctionResponse(id=fc.id, name=fc.name, response={"result": result})

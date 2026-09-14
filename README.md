@@ -1,6 +1,6 @@
-# V.I.C.T.O.R
+# VICTOR
 
-V.I.C.T.O.R Windows mühitində işləyən, Gemini Live API əsaslı real vaxtlı səsli şəxsi AI köməkçisidir.
+VICTOR Windows mühitində işləyən, Gemini Live API əsaslı real vaxtlı səsli şəxsi AI köməkçisidir.
 
 ## Əsas imkanlar
 
@@ -67,7 +67,7 @@ Bu fayl məxfi məlumat ehtiva edir və Git repository-yə commit edilməməlidi
 ```text
 core/          əsas runtime modulları və təhlükəsizlik
 integrations/  xarici xidmət inteqrasiyaları
-actions/       V.I.C.T.O.R əməliyyatları
+actions/       VICTOR əməliyyatları
 memory/        yaddaş sistemi
 tests/         testlər
 main.py        tətbiqin əsas orkestrasiya axını

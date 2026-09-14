@@ -82,7 +82,7 @@ class WhatsAppWebBridge:
         whatsapp_pages = [page for page in pages if "web.whatsapp.com" in page.url]
         if not whatsapp_pages:
             raise RuntimeError(
-                f"WhatsApp Web səhifəsi tapılmadı. CDP={cdp_url}. V.I.C.T.O.R üçün ayrılmış Chrome profili açılmalıdır."
+                f"WhatsApp Web səhifəsi tapılmadı. CDP={cdp_url}. VICTOR üçün ayrılmış Chrome profili açılmalıdır."
             )
         self._page = whatsapp_pages[0]
         if self._page.url in ("", "about:blank"):

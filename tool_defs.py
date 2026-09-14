@@ -1,5 +1,5 @@
 """
-V.I.C.T.O.R — Gemini Live alət tərifləri.
+VICTOR — Gemini Live alət tərifləri.
 Windows masaüstü nüvəsi (main.py) tərəfindən istifadə olunur.
 """
 

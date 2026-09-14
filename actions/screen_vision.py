@@ -248,7 +248,7 @@ def _analyze_webcam_snapshot(query: str) -> str | None:
         return None
     try:
         prompt = (
-            "Sən V.I.C.T.O.R-un webcam görmə modulusan. Bu şəkil V.I.C.T.O.R-nın aktiv webcam axınından "
+            "Sən VICTOR-un webcam görmə modulusan. Bu şəkil VICTOR-nın aktiv webcam axınından "
             "alınmış son kadrdır. İstifadəçinin sualını yalnız şəkildə gördüklərinə əsasən "
             "cavablandır. Azərbaycan dilində danış. Obyektləri, insanları, rəngləri və vacib "
             "detalları dəqiq təsvir et. Əmin olmadığın şeyi fakt kimi təqdim etmə və heç nə uydurma.\n\n"

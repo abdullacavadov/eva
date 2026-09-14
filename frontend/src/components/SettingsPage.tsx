@@ -197,7 +197,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
       }
     };
     socket.onerror = () => {
-      setStatus('V.I.C.T.O.R RUNTIME BAĞLANTISI YOXDUR');
+      setStatus('VICTOR RUNTIME BAĞLANTISI YOXDUR');
       setGoogleBusy(false);
     };
   };
@@ -228,7 +228,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
       }
     };
     socket.onerror = () => {
-      setStatus('V.I.C.T.O.R RUNTIME BAĞLANTISI YOXDUR');
+      setStatus('VICTOR RUNTIME BAĞLANTISI YOXDUR');
       setSaving(false);
     };
   };
@@ -242,7 +242,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
         <div>
           <span className="settings-eyebrow">V.I.C.T.O.R / CONFIGURATION</span>
           <h1>PARAMETRLƏR</h1>
-          <p>V.I.C.T.O.R-nın davranışını, səsini və görünüşünü idarə et.</p>
+          <p>V.I.C.T.O.R-un davranışını, səsini və görünüşünü idarə et.</p>
         </div>
         <div className="settings-header-icon">
           <FontAwesomeIcon icon={faGear} />
@@ -252,7 +252,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
         <section className="settings-section">
           <div className="settings-section-title">
             <FontAwesomeIcon icon={faUser} />
-            <span>V.I.C.T.O.R PERSONA</span>
+            <span>VICTOR PERSONA</span>
             <small>IDENTITY</small>
           </div>
           <div className="settings-form-grid">
@@ -325,7 +325,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
             <small>GEMINI LIVE</small>
           </div>
           <label className="settings-field" style={{padding: '16px'}}>
-            <span>V.I.C.T.O.R səsi</span>
+            <span>VICTOR səsi</span>
             <select
               value={settings.voice}
               onChange={(e) => update('voice', e.target.value)}
@@ -372,7 +372,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
         <section className="settings-section">
           <div className="settings-section-title">
             <FontAwesomeIcon icon={faAtom} />
-            <span>V.I.C.T.O.R ORB</span>
+            <span>VICTOR ORB</span>
             <small>VISUAL ENGINE</small>
           </div>
           <div className="settings-form-grid">
@@ -538,7 +538,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
                 <small>
                   {settings.google_account.connected
                     ? 'Gmail · Calendar · Contacts · Tasks aktivdir'
-                    : 'V.I.C.T.O.R inteqrasiyalarını aktivləşdirmək üçün hesabını bir dəfə qoş.'}
+                    : 'VICTOR inteqrasiyalarını aktivləşdirmək üçün hesabını bir dəfə qoş.'}
                 </small>
               </div>
             </div>

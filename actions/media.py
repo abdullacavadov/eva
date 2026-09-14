@@ -1,5 +1,5 @@
 """
-Medya oynatma və yaradılması — Windows üçün YouTube, Spotify və V.I.C.T.O.R media pipeline.
+Medya oynatma və yaradılması — Windows üçün YouTube, Spotify və VICTOR media pipeline.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ _MEDIA_NOTIFICATION_SFX: Callable[[], None] | None = None
 
 
 def set_media_notification_sfx(callback: Callable[[], None] | None) -> None:
-    """Media prodakşn bildiriş SFX-ini V.I.C.T.O.R-nın öz SoundManager-inə bağlayır."""
+    """Media prodakşn bildiriş SFX-ini VICTOR-nın öz SoundManager-inə bağlayır."""
     global _MEDIA_NOTIFICATION_SFX
     _MEDIA_NOTIFICATION_SFX = callback
 
@@ -108,7 +108,7 @@ def _create_slideshow(query: str) -> str:
 
 
 def _open_media_folder() -> str:
-    """Windows Explorer-də V.I.C.T.O.R media qovluğunu açır."""
+    """Windows Explorer-də VICTOR media qovluğunu açır."""
     MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
     if os.name == "nt":
         os.startfile(str(MEDIA_ROOT))
@@ -156,7 +156,7 @@ def _close_media_player() -> str:
 
 
 def _play_background_notification_sfx() -> None:
-    """Media prodakşn başlayanda SFX-i V.I.C.T.O.R-nın daxili səs sistemində səsləndirir."""
+    """Media prodakşn başlayanda SFX-i VICTOR-nın daxili səs sistemində səsləndirir."""
     callback = _MEDIA_NOTIFICATION_SFX
     if callback is None:
         return
@@ -294,12 +294,12 @@ def play_media(query: str, provider: str = "auto", autoplay: bool = True) -> str
     if normalized_provider in {"production", "media_production", "create_production_video", "video_production"}:
         job_id = start_media_production(query)
         _remember_media_job(job_id, query)
-        return f"Video prodakşn işi başladıldı: {job_id}. Arxa planda davam edir; V.I.C.T.O.R digər əmrləri qəbul edə bilər."
+        return f"Video prodakşn işi başladıldı: {job_id}. Arxa planda davam edir; VICTOR digər əmrləri qəbul edə bilər."
 
     if normalized_provider == "auto" and _looks_like_video_creation_request(query):
         job_id = start_media_production(query)
         _remember_media_job(job_id, query)
-        return f"Video prodakşn işi başladıldı: {job_id}. Arxa planda davam edir; V.I.C.T.O.R digər əmrləri qəbul edə bilər."
+        return f"Video prodakşn işi başladıldı: {job_id}. Arxa planda davam edir; VICTOR digər əmrləri qəbul edə bilər."
 
     if normalized_provider in {"image", "generate_image", "image_generation"}:
         return f"Şəkil hazırlandı: {_create_image(query)}"

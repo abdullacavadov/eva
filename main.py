@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-V.I.C.T.O.R — Real vaxtda işləyən səsli köməkçinin əsas iş axını.
+VICTOR — Real vaxtda işləyən səsli köməkçinin əsas iş axını.
 Windows mühitinə uyğunlaşdırılmış iş prosesi.
 """
 
@@ -118,7 +118,7 @@ class JarvisLive:
 
     def _apply_proactive_notification(self, text: str):
         try:
-            self.ui.write_log(f"V.I.C.T.O.R 🔔: {text}")
+            self.ui.write_log(f"VICTOR 🔔: {text}")
             self.ui.write_debug(f"Proactive: {text}", level="INFO")
         except Exception as exc:
             try:
@@ -146,7 +146,7 @@ class JarvisLive:
         with self._pending_text_lock:
             if not self._loop or not self.session:
                 self._pending_text_commands.append(clean)
-                self.ui.write_log("SYS: Əmr növbəyə əlavə edildi; V.I.C.T.O.R bağlantısı hazır olan kimi icra olunacaq.")
+                self.ui.write_log("SYS: Əmr növbəyə əlavə edildi; VICTOR bağlantısı hazır olan kimi icra olunacaq.")
                 return
         self._send_text_to_session(clean)
 
@@ -286,7 +286,7 @@ class JarvisLive:
             parts.append(mem_str + "\n\n")
         parts.append(sys_p)
         if not self._greeting_sent:
-            parts.append('\n\nİlk dəfə bu V.I.C.T.O.R runtime prosesində istifadəçini "Salam, ser!" ifadəsi ilə qarşıla; sonrakı Live reconnect sessiyalarında avtomatik salamlaşma etmə.')
+            parts.append('\n\nİlk dəfə bu VICTOR runtime prosesində istifadəçini "Salam, ser!" ifadəsi ilə qarşıla; sonrakı Live reconnect sessiyalarında avtomatik salamlaşma etmə.')
         return types.LiveConnectConfig(
             response_modalities=["AUDIO"],
             output_audio_transcription={},
@@ -334,7 +334,7 @@ class JarvisLive:
             await asyncio.sleep(frame_interval)
 
     async def _listen_audio(self):
-        print("[V.I.C.T.O.R] 🎤 Mikrofon başladı")
+        print("[VICTOR] 🎤 Mikrofon başladı")
         stream = await open_input_stream(self._audio)
         try:
             while True:
@@ -351,7 +351,7 @@ class JarvisLive:
                     confirmed = self._barge_in.update(data)
                     if confirmed:
                         print(
-                            "[V.I.C.T.O.R] 🎙️ İstifadəçi müdaxiləsi təsdiqləndi — səs dayandırılır.",
+                            "[VICTOR] 🎙️ İstifadəçi müdaxiləsi təsdiqləndi — səs dayandırılır.",
                             flush=True,
                         )
                         await self._interrupt_audio_async()
@@ -369,13 +369,13 @@ class JarvisLive:
                 self._barge_in_buffer.clear()
                 await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
         except Exception as e:
-            print(f"[V.I.C.T.O.R] ❌ Mikrofon: {e}")
+            print(f"[VICTOR] ❌ Mikrofon: {e}")
             raise
         finally:
             stream.close()
 
     async def _receive_audio(self):
-        print("[V.I.C.T.O.R] 👂 Səs qəbulu başladı")
+        print("[VICTOR] 👂 Səs qəbulu başladı")
         out_buf, in_buf = [], []
         output_noise = False
         output_noise_samples = []
@@ -383,7 +383,7 @@ class JarvisLive:
             while True:
                 async for response in self.session.receive():
                     if response.server_content and response.server_content.interrupted:
-                        print("[V.I.C.T.O.R] ⏹️ Server interruption — playback təmizlənir.", flush=True)
+                        print("[VICTOR] ⏹️ Server interruption — playback təmizlənir.", flush=True)
                         await self._interrupt_audio_async()
                         continue
                     if response.data:
@@ -415,7 +415,7 @@ class JarvisLive:
                             in_buf = []
                             full_out = " ".join(out_buf).strip()
                             if full_out:
-                                self.ui.write_log(f"V.I.C.T.O.R: {full_out}")
+                                self.ui.write_log(f"VICTOR: {full_out}")
                                 if output_noise_samples:
                                     self.ui.write_debug("Qismən süzülmüş səs transkripti: " + " | ".join(output_noise_samples), level="WARN")
                             elif output_noise:
@@ -428,17 +428,17 @@ class JarvisLive:
                     if response.tool_call:
                         fn_responses = []
                         for fc in response.tool_call.function_calls:
-                            print(f"[V.I.C.T.O.R] 📞 {fc.name}")
+                            print(f"[VICTOR] 📞 {fc.name}")
                             fr = await self._tool_executor.execute(fc)
                             fn_responses.append(fr)
                         await self.session.send_tool_response(function_responses=fn_responses)
         except Exception as e:
-            print(f"[V.I.C.T.O.R] ❌ Səs qəbulu: {e}")
+            print(f"[VICTOR] ❌ Səs qəbulu: {e}")
             traceback.print_exc()
             raise
 
     async def _play_audio(self):
-        print("[V.I.C.T.O.R] 🔊 Səs səsləndirməsi başladı")
+        print("[VICTOR] 🔊 Səs səsləndirməsi başladı")
         stream = await open_output_stream(self._audio)
         try:
             while True:
@@ -454,7 +454,7 @@ class JarvisLive:
                 self._emit_audio_level(chunk)
                 await write_chunk(stream, chunk, gain=self._get_output_gain())
         except Exception as e:
-            print(f"[V.I.C.T.O.R] ❌ Səs: {e}")
+            print(f"[VICTOR] ❌ Səs: {e}")
             raise
         finally:
             self.set_speaking(False)
@@ -472,7 +472,7 @@ class JarvisLive:
                 continue
             try:
                 session_manager = LiveSessionManager(LIVE_MODEL, get_api_key())
-                print("[V.I.C.T.O.R] 🔌 Qoşulur...")
+                print("[VICTOR] 🔌 Qoşulur...")
                 self.ui.set_state("THINKING")
                 config = self._build_config()
                 async with (
@@ -483,12 +483,12 @@ class JarvisLive:
                     self._loop = asyncio.get_event_loop()
                     self.audio_in_queue = asyncio.Queue()
                     self.out_queue = asyncio.Queue(maxsize=4)
-                    print("[V.I.C.T.O.R] ✅ Bağlandı.")
+                    print("[VICTOR] ✅ Bağlandı.")
                     connect_attempts = 0
                     if not self._greeting_sent:
                         self._greeting_sent = True
                     self.ui.set_state("LISTENING")
-                    self.ui.write_log("SYS: V.I.C.T.O.R hazırdır. Eşidirəm...")
+                    self.ui.write_log("SYS: VICTOR hazırdır. Eşidirəm...")
                     await self._flush_pending_text_commands()
                     tg.create_task(self._send_realtime())
                     tg.create_task(self._listen_audio())
@@ -497,7 +497,7 @@ class JarvisLive:
                     tg.create_task(self._stream_webcam_frames())
                     tg.create_task(self._update_ui_webcam_preview())
             except Exception as e:
-                print(f"[V.I.C.T.O.R] ⚠️ {e}")
+                print(f"[VICTOR] ⚠️ {e}")
                 traceback.print_exc()
                 self.set_speaking(False)
                 self.session = None
@@ -508,18 +508,18 @@ class JarvisLive:
                 connect_attempts += 1
                 if connect_attempts <= 3:
                     self.ui.set_state("INITIALISING")
-                    print(f"[V.I.C.T.O.R] 🔄 Yenidən qoşulmağa cəhd edir ({connect_attempts}/3)...")
+                    print(f"[VICTOR] 🔄 Yenidən qoşulmağa cəhd edir ({connect_attempts}/3)...")
                     await asyncio.sleep(2)
                 else:
-                    self.ui.write_log(f"ERR: V.I.C.T.O.R qoşula bilmir — API açarını və internet bağlantını yoxla. ({e})")
+                    self.ui.write_log(f"ERR: VICTOR qoşula bilmir — API açarını və internet bağlantını yoxla. ({e})")
                     self.ui.set_state("ERROR")
-                    print("[V.I.C.T.O.R] 🔄 5 saniyə ərzində yenidən qoşulacaq...")
+                    print("[VICTOR] 🔄 5 saniyə ərzində yenidən qoşulacaq...")
                     await asyncio.sleep(5)
 
 
 def main():
     if os.environ.get("TERM_PROGRAM") == "vscode":
-        print("[V.I.C.T.O.R] VS Code daxilində başladıldı.")
+        print("[VICTOR] VS Code daxilində başladıldı.")
     ui = JarvisUI()
     def runner():
         ui.wait_for_api_key()

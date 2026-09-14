@@ -7,7 +7,7 @@ bunların karşılığı .lnk kısayollarıdır:
   - Açılışta başlat     → Başlangıç klasörü\\Victor.lnk
 
 PowerShell WScript.Shell kullanılır, ek bağımlılık gerekmez.
-Kısayollar launcher.py ile V.I.C.T.O.R-nı vahid giriş nöqtəsindən başladır.
+Kısayollar launcher.py ile VICTOR-nı vahid giriş nöqtəsindən başladır.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ def _pythonw() -> str:
 
 
 def _write_shortcut(link_path: Path) -> Path:
-    """Verilen yola V.I.C.T.O.R .lnk kısayolu yazar."""
+    """Verilen yola VICTOR .lnk kısayolu yazar."""
     link_path.parent.mkdir(parents=True, exist_ok=True)
     target = _pythonw()
     launcher_py = BASE_DIR / "launcher.py"
@@ -66,7 +66,7 @@ def _write_shortcut(link_path: Path) -> Path:
         f"$s.TargetPath = '{target}'; "
         f"$s.Arguments = '\"{launcher_py}\"'; "
         f"$s.WorkingDirectory = '{BASE_DIR}'; "
-        f"$s.Description = 'V.I.C.T.O.R'; "
+        f"$s.Description = 'VICTOR'; "
         f"{icon_line}"
         "$s.Save()"
     )
