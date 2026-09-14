@@ -13,11 +13,6 @@ interface LandProperties {
 
 type LandData = FeatureCollection<Geometry, LandProperties>;
 
-interface EarthDot {
-  longitude: number;
-  latitude: number;
-}
-
 interface SatelliteOrbit {
   tilt: number;
   rotation: number;
@@ -38,17 +33,43 @@ interface StarParticle {
 }
 
 const EARTH_ROTATION_SPEED = 0.5;
-const EARTH_DOT_STEP = 1.7;
-const EARTH_DOT_RADIUS = 0.85;
 const WAVE_COLOR = '#45d9ff';
 const SATELLITE_COLOR = '0,255,192';
 const STAR_COUNT = 90;
 
 const SATELLITE_ORBITS: SatelliteOrbit[] = [
-  { tilt: -0.22, rotation: -0.1, radiusX: 1.18, radiusY: 0.34, speed: 0.0022, phase: 0 },
-  { tilt: 0.48, rotation: 0.82, radiusX: 1.24, radiusY: 0.28, speed: -0.0017, phase: 2.1 },
-  { tilt: -0.62, rotation: 1.72, radiusX: 1.16, radiusY: 0.31, speed: 0.0015, phase: 4.2 },
-  { tilt: 0.8, rotation: 2.55, radiusX: 1.27, radiusY: 0.24, speed: -0.0012, phase: 5.4 },
+  {
+    tilt: -0.22,
+    rotation: -0.1,
+    radiusX: 1.18,
+    radiusY: 0.34,
+    speed: 0.0022,
+    phase: 0,
+  },
+  {
+    tilt: 0.48,
+    rotation: 0.82,
+    radiusX: 1.24,
+    radiusY: 0.28,
+    speed: -0.0017,
+    phase: 2.1,
+  },
+  {
+    tilt: -0.62,
+    rotation: 1.72,
+    radiusX: 1.16,
+    radiusY: 0.31,
+    speed: 0.0015,
+    phase: 4.2,
+  },
+  {
+    tilt: 0.8,
+    rotation: 2.55,
+    radiusX: 1.27,
+    radiusY: 0.24,
+    speed: -0.0012,
+    phase: 5.4,
+  },
 ];
 
 const STATE_COLORS: Record<EvaState, [number, number, number]> = {
@@ -85,7 +106,6 @@ export function EvaOrb({ state }: OrbProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const landRef = useRef<LandData | null>(null);
-  const dotsRef = useRef<EarthDot[]>([]);
   const starsRef = useRef<StarParticle[]>(createStarField(STAR_COUNT));
   const rotationRef = useRef<[number, number, number]>([0, -8, 0]);
   const zoomRef = useRef(1);
@@ -96,7 +116,9 @@ export function EvaOrb({ state }: OrbProps) {
   const satelliteTimeRef = useRef(0);
   const pulseStartRef = useRef<number | null>(null);
   const prevStateRef = useRef<EvaState>(state);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(
+    'loading'
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -109,7 +131,6 @@ export function EvaOrb({ state }: OrbProps) {
         if (cancelled) return;
 
         landRef.current = data;
-        dotsRef.current = createLandDots(data);
         setStatus('ready');
       } catch {
         if (!cancelled) setStatus('error');
@@ -129,7 +150,8 @@ export function EvaOrb({ state }: OrbProps) {
     };
 
     window.addEventListener('eva:audio-level', handleAudioLevel);
-    return () => window.removeEventListener('eva:audio-level', handleAudioLevel);
+    return () =>
+      window.removeEventListener('eva:audio-level', handleAudioLevel);
   }, []);
 
   // Trigger a pulse whenever state changes
@@ -171,12 +193,21 @@ export function EvaOrb({ state }: OrbProps) {
     resize();
 
     // ---- Atmosphere particle field (background) ----
-    const drawStars = (centerX: number, centerY: number, now: number, stateRgb: string) => {
+    const drawStars = (
+      centerX: number,
+      centerY: number,
+      now: number,
+      stateRgb: string
+    ) => {
       const drift = now * 0.00002;
       context.save();
       starsRef.current.forEach((star) => {
-        const driftX = star.x + Math.sin(drift * star.parallax * 6 + star.twinklePhase) * 0.03;
-        const driftY = star.y + Math.cos(drift * star.parallax * 6 + star.twinklePhase) * 0.03;
+        const driftX =
+          star.x +
+          Math.sin(drift * star.parallax * 6 + star.twinklePhase) * 0.03;
+        const driftY =
+          star.y +
+          Math.cos(drift * star.parallax * 6 + star.twinklePhase) * 0.03;
         const px = centerX + driftX * width * 0.55;
         const py = centerY + driftY * height * 0.55;
 
@@ -184,7 +215,8 @@ export function EvaOrb({ state }: OrbProps) {
         const distFromCenter = Math.hypot(px - centerX, py - centerY);
         if (distFromCenter < radius * 1.05) return;
 
-        const twinkle = 0.5 + 0.5 * Math.sin(now * star.twinkleSpeed + star.twinklePhase);
+        const twinkle =
+          0.5 + 0.5 * Math.sin(now * star.twinkleSpeed + star.twinklePhase);
         const alpha = star.baseAlpha * (0.4 + twinkle * 0.6);
 
         context.beginPath();
@@ -196,7 +228,12 @@ export function EvaOrb({ state }: OrbProps) {
     };
 
     // ---- Atmosphere halo (rim glow around globe) ----
-    const drawHalo = (centerX: number, centerY: number, now: number, stateRgb: string) => {
+    const drawHalo = (
+      centerX: number,
+      centerY: number,
+      now: number,
+      stateRgb: string
+    ) => {
       const pulseStart = pulseStartRef.current;
       let pulseBoost = 0;
       if (pulseStart !== null) {
@@ -212,8 +249,12 @@ export function EvaOrb({ state }: OrbProps) {
 
       const outer = radius * (1.32 + pulseBoost);
       const grad = context.createRadialGradient(
-        centerX, centerY, radius * 0.97,
-        centerX, centerY, outer
+        centerX,
+        centerY,
+        radius * 0.97,
+        centerX,
+        centerY,
+        outer
       );
       grad.addColorStop(0, `rgba(${stateRgb},${0.32 + pulseBoost * 0.4})`);
       grad.addColorStop(1, `rgba(${stateRgb},0)`);
@@ -227,7 +268,12 @@ export function EvaOrb({ state }: OrbProps) {
     };
 
     // ---- Radar sweep across the globe surface ----
-    const drawScanSweep = (centerX: number, centerY: number, now: number, spherePath: () => void) => {
+    const drawScanSweep = (
+      centerX: number,
+      centerY: number,
+      now: number,
+      spherePath: () => void
+    ) => {
       const scanY = centerY + Math.sin(now * 0.0006) * radius * 0.92;
 
       context.save();
@@ -235,7 +281,12 @@ export function EvaOrb({ state }: OrbProps) {
       spherePath();
       context.clip();
 
-      const grad = context.createLinearGradient(centerX - radius, scanY, centerX + radius, scanY);
+      const grad = context.createLinearGradient(
+        centerX - radius,
+        scanY,
+        centerX + radius,
+        scanY
+      );
       grad.addColorStop(0, 'rgba(69,217,255,0)');
       grad.addColorStop(0.5, 'rgba(69,217,255,0.16)');
       grad.addColorStop(1, 'rgba(69,217,255,0)');
@@ -244,7 +295,12 @@ export function EvaOrb({ state }: OrbProps) {
       context.restore();
     };
 
-    const drawSatellites = (centerX: number, centerY: number, now: number, stateRgb: string) => {
+    const drawSatellites = (
+      centerX: number,
+      centerY: number,
+      now: number,
+      stateRgb: string
+    ) => {
       satelliteTimeRef.current = now;
       const activeColor = SATELLITE_COLOR;
       const paused = state === 'PAUSED';
@@ -328,10 +384,18 @@ export function EvaOrb({ state }: OrbProps) {
             prevPoint = tp;
             continue;
           }
-          const grad = context.createLinearGradient(prevPoint!.sx, prevPoint!.sy, tp.sx, tp.sy);
-          const alphaNear = (0.5 * scale) * (1 - trail / 11);
-          const alphaFar = (0.5 * scale) * (1 - (trail + 1) / 11);
-          grad.addColorStop(0, `rgba(${activeColor},${Math.max(0, alphaNear)})`);
+          const grad = context.createLinearGradient(
+            prevPoint!.sx,
+            prevPoint!.sy,
+            tp.sx,
+            tp.sy
+          );
+          const alphaNear = 0.5 * scale * (1 - trail / 11);
+          const alphaFar = 0.5 * scale * (1 - (trail + 1) / 11);
+          grad.addColorStop(
+            0,
+            `rgba(${activeColor},${Math.max(0, alphaNear)})`
+          );
           grad.addColorStop(1, `rgba(${activeColor},${Math.max(0, alphaFar)})`);
 
           context.beginPath();
@@ -387,7 +451,10 @@ export function EvaOrb({ state }: OrbProps) {
         for (let j = 0; j <= segmentCount; j++) {
           const x = startX + (j / segmentCount) * waveWidth;
           const phase = i * 0.22;
-          const noise = Math.sin(j * 0.1 + performance.now() * 0.004 + phase) * baseAmplitude * 0.45;
+          const noise =
+            Math.sin(j * 0.1 + performance.now() * 0.004 + phase) *
+            baseAmplitude *
+            0.45;
           const spike =
             Math.cos(j * 0.2 + performance.now() * 0.005 + phase) *
             Math.sin(j * 0.05 + performance.now() * 0.003) *
@@ -451,20 +518,14 @@ export function EvaOrb({ state }: OrbProps) {
       if (land) {
         context.beginPath();
         land.features.forEach((feature) => path(feature));
+
+        context.fillStyle = `rgba(${stateRgb},0.3)`;
+        context.fill();
+
         context.strokeStyle = `rgba(${stateRgb},0.7)`;
         context.lineWidth = 0.7;
         context.stroke();
-
-        context.fillStyle = `rgba(${stateRgb},0.88)`;
-        dotsRef.current.forEach((dot) => {
-          const point = projection([dot.longitude, dot.latitude]);
-          if (!point) return;
-          context.beginPath();
-          context.arc(point[0], point[1], EARTH_DOT_RADIUS, 0, Math.PI * 2);
-          context.fill();
-        });
       }
-
       context.restore();
 
       drawScanSweep(centerX, centerY, timestamp, spherePathFn);
@@ -482,7 +543,8 @@ export function EvaOrb({ state }: OrbProps) {
 
     return () => {
       observer.disconnect();
-      if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
+      if (animationRef.current !== null)
+        cancelAnimationFrame(animationRef.current);
     };
   }, [state]);
 
@@ -585,25 +647,4 @@ export function EvaOrb({ state }: OrbProps) {
       )}
     </div>
   );
-}
-
-function createLandDots(data: LandData): EarthDot[] {
-  const dots: EarthDot[] = [];
-  const step = EARTH_DOT_STEP;
-
-  for (let latitude = -90 + step / 2; latitude < 90; latitude += step) {
-    const longitudeOffset =
-      (Math.floor((latitude + 90) / step) % 2) * (step / 2);
-    for (
-      let longitude = -180 + longitudeOffset;
-      longitude < 180;
-      longitude += step
-    ) {
-      if (d3.geoContains(data, [longitude, latitude])) {
-        dots.push({ longitude, latitude });
-      }
-    }
-  }
-
-  return dots;
 }
