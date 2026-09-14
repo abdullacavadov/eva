@@ -136,7 +136,7 @@ class UiBridge:
             detail = clean.split(":", 1)[1].strip()
             self.emit("conversation.user", text=detail)
             self.emit_activity("Komanda qəbul edildi", "user", detail)
-        elif lower.startswith("VICTOR:") or lower.startswith("ai:"):
+        elif lower.startswith("victor:") or lower.startswith("ai:"):
             detail = clean.split(":", 1)[1].strip()
             self.emit("conversation.assistant", text=detail)
             self.emit_activity("VICTOR cavab verdi", "assistant", detail)
