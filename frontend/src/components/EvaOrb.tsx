@@ -68,34 +68,34 @@ const STAR_COUNT = 90;
 
 const SATELLITE_ORBITS: SatelliteOrbit[] = [
   {
-    tilt: -0.22,
-    rotation: -0.1,
-    radiusX: 1.18,
-    radiusY: 0.34,
+    tilt: 1.15,
+    rotation: 0.2,
+    radiusX: 1.05,
+    radiusY: 1.0,
     speed: 0.0022,
     phase: 0,
   },
   {
-    tilt: 0.48,
-    rotation: 0.82,
-    radiusX: 1.24,
-    radiusY: 0.28,
+    tilt: -1.3,
+    rotation: 1.1,
+    radiusX: 1.08,
+    radiusY: 1.0,
     speed: -0.0017,
     phase: 2.1,
   },
   {
-    tilt: -0.62,
-    rotation: 1.72,
-    radiusX: 1.16,
-    radiusY: 0.31,
+    tilt: 0.9,
+    rotation: 2.0,
+    radiusX: 1.04,
+    radiusY: 1.0,
     speed: 0.0015,
     phase: 4.2,
   },
   {
-    tilt: 0.8,
-    rotation: 2.55,
-    radiusX: 1.27,
-    radiusY: 0.24,
+    tilt: -0.75,
+    rotation: 2.9,
+    radiusX: 1.1,
+    radiusY: 1.0,
     speed: -0.0012,
     phase: 5.4,
   },
@@ -349,6 +349,7 @@ export function EvaOrb({ state }: OrbProps) {
         const cosT = Math.cos(orbit.tilt);
         const sinT = Math.sin(orbit.tilt);
 
+
         const project = (theta: number) => {
           const x0 = Math.cos(theta) * R;
           const y0 = Math.sin(theta) * R;
@@ -360,7 +361,7 @@ export function EvaOrb({ state }: OrbProps) {
           const sy = centerY + y2 * squash;
           const depth = z1 / R;
           const dist = Math.hypot(x2, y2 * squash);
-          const hidden = depth < -0.015 && dist < radius * 0.985;
+          const hidden = depth < 0 && dist < radius * 0.995; // artıq işə düşəcək
           return { sx, sy, depth, hidden };
         };
 
