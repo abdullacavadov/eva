@@ -64,5 +64,5 @@ def test_control_command_requires_runtime_callback():
     bridge._handle_message(websocket, json.dumps({"type": "control.command", "command": "camera"}))
 
     assert websocket.sent == [
-        {"type": "bridge.error", "message": "EVA control callback-i hazır deyil."}
+        {"type": "bridge.error", "message": "VICTOR control callback-i hazır deyil."}
     ]

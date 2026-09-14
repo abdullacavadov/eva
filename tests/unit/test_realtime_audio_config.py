@@ -9,8 +9,8 @@ from core.config import (
 
 def test_realtime_audio_chunk_is_low_latency():
     """16 kHz / 512-sample chunks keep microphone packets at 32 ms."""
-    assert CHUNK_SIZE == 512
-    assert CHUNK_SIZE / SEND_SAMPLE_RATE == 0.032
+    assert CHUNK_SIZE == 480
+    assert CHUNK_SIZE / SEND_SAMPLE_RATE == 0.03
 
 
 def test_azerbaijani_input_transcription_hint_is_enabled():
