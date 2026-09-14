@@ -3,7 +3,7 @@ import type { EvaContext } from '../types/eva'
 export function ContextPanel({ context }: { context: EvaContext }) {
   return (
     <section className="panel context-panel">
-      <div className="panel-heading"><span>AKTİV KONTEKST</span><small>{context.source ?? 'V.I.C.T.O.R'}</small></div>
+      <div className="panel-heading"><span>AKTİV KONTEKST</span><small>{context.source ?? 'VICTOR'}</small></div>
       <div className="context-title">{context.title ?? 'Aktiv kontekst yoxdur'}</div>
       <div className="context-list">
         {context.items.map((item, index) => (
