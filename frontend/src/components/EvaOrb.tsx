@@ -11,6 +11,35 @@ interface LandProperties {
   [key: string]: unknown;
 }
 
+interface WaveDustParticle {
+  xNorm0: number;
+  yNorm: number; // -1..1, envelope daxilində sabit nisbi mövqe
+  r: number;
+  baseAlpha: number;
+  driftSpeed: number;
+  twinkleSpeed: number;
+  twinklePhase: number;
+}
+
+const WAVE_DUST_COUNT = 36;
+const WAVE_DUST_RGB = '69,217,255'; // WAVE_COLOR (#45d9ff) → rgb
+
+function createWaveDust(count: number): WaveDustParticle[] {
+  const particles: WaveDustParticle[] = [];
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      xNorm0: Math.random(),
+      yNorm: (Math.random() - 0.5) * 2,
+      r: 0.5 + Math.random() * 1,
+      baseAlpha: 0.1 + Math.random() * 0.3,
+      driftSpeed: 0.00002 + Math.random() * 0.00006,
+      twinkleSpeed: 0.001 + Math.random() * 0.003,
+      twinklePhase: Math.random() * Math.PI * 2,
+    });
+  }
+  return particles;
+}
+
 type LandData = FeatureCollection<Geometry, LandProperties>;
 
 interface SatelliteOrbit {
@@ -107,6 +136,9 @@ export function EvaOrb({ state }: OrbProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const landRef = useRef<LandData | null>(null);
   const starsRef = useRef<StarParticle[]>(createStarField(STAR_COUNT));
+  const waveDustRef = useRef<WaveDustParticle[]>(
+    createWaveDust(WAVE_DUST_COUNT)
+  );
   const rotationRef = useRef<[number, number, number]>([0, -8, 0]);
   const zoomRef = useRef(1);
   const draggingRef = useRef(false);
@@ -426,41 +458,126 @@ export function EvaOrb({ state }: OrbProps) {
       context.restore();
     };
 
-    const drawWave = (centerX: number, centerY: number) => {
+    const drawWave = (
+      centerX: number,
+      centerY: number,
+      now: number,
+      stateRgb: string
+    ) => {
       if (state !== 'SPEAKING') return;
 
       const level = audioLevelRef.current;
-      const waveWidth = Math.min(width * 0.78, radius * 2.1);
+      const waveWidth = width;
       const startX = centerX - waveWidth / 2;
       const segmentCount = 80;
       const lineCount = 7;
       const baseAmplitude = 2 + Math.pow(level, 0.65) * 34;
       const waveY = Math.min(height - 24, centerY + radius + 24);
 
+      // Bütün xətlərin y dəyərlərini əvvəlcədən hesabla
+      const allYs: number[][] = [];
+      for (let i = 0; i < lineCount; i++) {
+        const progress = i / (lineCount - 1);
+        const intensity = Math.sin(progress * Math.PI);
+        const phase = i * 0.22;
+        const ys: number[] = [];
+        for (let j = 0; j <= segmentCount; j++) {
+          const t = j / segmentCount; // 0..1
+          const edgeFade = Math.sin(t * Math.PI); // 0 kənarlarda, 1 mərkəzdə
+
+          const noise =
+            Math.sin(j * 0.1 + now * 0.004 + phase) * baseAmplitude * 0.45;
+          const spike =
+            Math.cos(j * 0.2 + now * 0.005 + phase) *
+            Math.sin(j * 0.05 + now * 0.003) *
+            baseAmplitude;
+          ys.push(waveY + (noise + spike * intensity) * edgeFade);
+        }
+        allYs.push(ys);
+      }
+
+      // Hər x nöqtəsində min/max envelope
+      const upperEnv: number[] = [];
+      const lowerEnv: number[] = [];
+      for (let j = 0; j <= segmentCount; j++) {
+        let mn = Infinity;
+        let mx = -Infinity;
+        for (let i = 0; i < lineCount; i++) {
+          const y = allYs[i][j];
+          if (y < mn) mn = y;
+          if (y > mx) mx = y;
+        }
+        upperEnv.push(mn);
+        lowerEnv.push(mx);
+      }
+
+      const envelopePath = () => {
+        context.moveTo(startX, upperEnv[0]);
+        for (let j = 1; j <= segmentCount; j++) {
+          const x = startX + (j / segmentCount) * waveWidth;
+          context.lineTo(x, upperEnv[j]);
+        }
+        for (let j = segmentCount; j >= 0; j--) {
+          const x = startX + (j / segmentCount) * waveWidth;
+          context.lineTo(x, lowerEnv[j]);
+        }
+        context.closePath();
+      };
+
+      // ---- Sahəni rəngləmə (gradient fill) ----
+      context.save();
+      context.beginPath();
+      envelopePath();
+      const fillGrad = context.createLinearGradient(
+        0,
+        waveY - baseAmplitude * 1.45,
+        0,
+        waveY + baseAmplitude * 1.45
+      );
+      fillGrad.addColorStop(0, 'rgba(69,217,255,0.1)');
+      fillGrad.addColorStop(0.5, 'rgba(69,217,255,0.25)');
+      fillGrad.addColorStop(1, 'rgba(69,217,255,0.1)');
+      context.fillStyle = fillGrad;
+      context.fill();
+      context.restore();
+
+      // ---- İncə toz toxuması (yalnız sahə daxilində, clip ilə) ----
+      context.save();
+      context.beginPath();
+      envelopePath();
+      context.clip();
+
+      waveDustRef.current.forEach((p) => {
+        const xNorm = (p.xNorm0 + now * p.driftSpeed) % 1;
+        const x = startX + xNorm * waveWidth;
+        const j = Math.round(xNorm * segmentCount);
+        const yTop = upperEnv[j] ?? waveY;
+        const yBot = lowerEnv[j] ?? waveY;
+        const y = yTop + ((p.yNorm + 1) / 2) * (yBot - yTop);
+
+        const twinkle =
+          0.5 + 0.5 * Math.sin(now * p.twinkleSpeed + p.twinklePhase);
+        const alpha = p.baseAlpha * (0.3 + twinkle * 0.7);
+
+        context.beginPath();
+        context.arc(x, y, p.r, 0, Math.PI * 2);
+        context.fillStyle = `rgba(${WAVE_DUST_RGB},${alpha})`;
+        context.fill();
+      });
+      context.restore();
+
+      // ---- Dalğa xətləri (rənglənmiş sahənin üstündə) ----
       context.save();
       context.lineWidth = 1.2;
       context.lineCap = 'round';
       context.lineJoin = 'round';
+      context.strokeStyle = `rgba(${stateRgb},1)`;
 
       for (let i = 0; i < lineCount; i++) {
         context.beginPath();
-        const progress = i / (lineCount - 1);
-        const intensity = Math.sin(progress * Math.PI);
-        context.strokeStyle = WAVE_COLOR;
-
         for (let j = 0; j <= segmentCount; j++) {
           const x = startX + (j / segmentCount) * waveWidth;
-          const phase = i * 0.22;
-          const noise =
-            Math.sin(j * 0.1 + performance.now() * 0.004 + phase) *
-            baseAmplitude *
-            0.45;
-          const spike =
-            Math.cos(j * 0.2 + performance.now() * 0.005 + phase) *
-            Math.sin(j * 0.05 + performance.now() * 0.003) *
-            baseAmplitude;
-          const y = waveY + noise + spike * intensity;
-
+          const y = allYs[i][j];
           if (j === 0) context.moveTo(x, y);
           else context.lineTo(x, y);
         }
@@ -530,7 +647,7 @@ export function EvaOrb({ state }: OrbProps) {
 
       drawScanSweep(centerX, centerY, timestamp, spherePathFn);
       drawSatellites(centerX, centerY, timestamp, stateRgb);
-      drawWave(centerX, centerY);
+      drawWave(centerX, centerY, timestamp, stateRgb);
 
       if (!draggingRef.current && landRef.current && state !== 'PAUSED') {
         rotationRef.current[0] += EARTH_ROTATION_SPEED;
