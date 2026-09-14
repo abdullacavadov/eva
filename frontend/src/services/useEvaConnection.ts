@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { EvaEvent } from '../types/eva'
+import type { VictorEvent } from '../types/victor'
 
 const DEFAULT_WS_URL = `ws://${window.location.hostname || '127.0.0.1'}:8765`
 const WS_URL = import.meta.env.VITE_EVA_WS_URL || DEFAULT_WS_URL
@@ -7,7 +7,7 @@ const RECONNECT_DELAY_MS = 1500
 
 type ControlCommand = 'shutdown' | 'restart' | 'pause' | 'camera' | 'microphone'
 
-export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
+export function useVictorConnection(onEvent: (event: VictorEvent) => void) {
   const socketRef = useRef<WebSocket | null>(null)
   const onEventRef = useRef(onEvent)
   const reconnectRef = useRef<number | null>(null)
@@ -41,7 +41,7 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
       socket.onmessage = (message) => {
         if (disposed || socketRef.current !== socket) return
         try {
-          const event = JSON.parse(message.data) as EvaEvent
+          const event = JSON.parse(message.data) as VictorEvent
           if (event.type === 'webcam.frame') {
             window.dispatchEvent(new CustomEvent('eva:webcam-frame', { detail: event.data }))
           }
@@ -103,3 +103,6 @@ export function useEvaConnection(onEvent: (event: EvaEvent) => void) {
 
   return { connected, sendText, sendControl }
 }
+
+// Geriyə uyğunluq üçün köhnə export saxlanılır.
+export const useEvaConnection = useVictorConnection
