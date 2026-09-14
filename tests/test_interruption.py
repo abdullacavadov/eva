@@ -23,17 +23,17 @@ def test_default_candidate_hold_is_long_enough_for_natural_pauses(monkeypatch):
     monkeypatch.setattr(interruption, "VoiceDetector", FakeVoiceDetector)
     monkeypatch.setattr(interruption, "get_microphone_speech_probability", lambda: None)
     detector = BargeInDetector(sample_rate=16000)
-    detector._voice_detector.probabilities = [0.50] + [0.10] * 22
+    detector._voice_detector.probabilities = [0.50] + [0.10] * 32
 
     assert detector.update(pcm_chunk()) is False
     assert detector.is_speech_candidate() is True
 
-    # 21 x 32 ms = 672 ms səssizlikdə namizəd hələ aktiv qalır.
-    for _ in range(21):
+    # 31 x 32 ms = 992 ms səssizlikdə namizəd hələ aktiv qalır.
+    for _ in range(31):
         assert detector.update(pcm_chunk()) is False
         assert detector.is_speech_candidate() is True
 
-    # Növbəti 32 ms ilə 704 ms olur və 700 ms həddini keçir.
+    # Növbəti 32 ms ilə ümumi boşluq 1024 ms olur və 1000 ms həddini keçir.
     assert detector.update(pcm_chunk()) is False
     assert detector.is_speech_candidate() is False
 
