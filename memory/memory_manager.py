@@ -1,17 +1,23 @@
-"""
-Kalıcı bellek — JSON dosyasına kaydedilir.
-"""
+"""VICTOR yaddaş idarəetməsi və SQL uyğunluq qatı."""
+
+from __future__ import annotations
 
 import json
 import re
 import unicodedata
 from pathlib import Path
 
+import memory.database as database
+from memory.repository import delete_memory as delete_sql_memory
+from memory.repository import get_memory as get_sql_memory
+from memory.repository import upsert_memory
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 MEMORY_FILE = BASE_DIR / "memory" / "memory.json"
 
 
-def load_memory() -> dict:
+def _load_json_memory() -> dict:
+    """Miqrasiya dövründə köhnə JSON yaddaşını yalnız oxumaq üçün yükləyir."""
     try:
         if MEMORY_FILE.exists():
             with open(MEMORY_FILE, "r", encoding="utf-8") as f:
@@ -21,24 +27,47 @@ def load_memory() -> dict:
     return {}
 
 
-def update_memory(data: dict):
-    mem = load_memory()
-    _deep_merge(mem, data)
-    _write_memory(mem)
+def _memory_from_sql() -> dict:
+    """SQL qeydlərini köhnə nested-dict formatına çevirir."""
+    memory: dict = {}
+    for item in get_sql_memory():
+        category = item["category"]
+        key = item["key"]
+        value = item["value"]
+        bucket = memory.setdefault(category, {})
+        if isinstance(bucket, dict):
+            bucket[key] = value
+    return memory
 
 
-def _write_memory(mem: dict):
-    MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(MEMORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(mem, f, indent=2, ensure_ascii=False)
-
-
-def _deep_merge(base: dict, update: dict):
-    for k, v in update.items():
-        if isinstance(v, dict) and isinstance(base.get(k), dict):
-            _deep_merge(base[k], v)
+def _merge_memory_sources(sql_memory: dict, json_memory: dict) -> dict:
+    """SQL qeydlərini üstün tutaraq JSON fallback məlumatını birləşdirir."""
+    merged = json.loads(json.dumps(json_memory, ensure_ascii=False))
+    for category, items in sql_memory.items():
+        if isinstance(items, dict) and isinstance(merged.get(category), dict):
+            merged[category].update(items)
         else:
-            base[k] = v
+            merged[category] = items
+    return merged
+
+
+def load_memory() -> dict:
+    """Yaddaşı SQL-dən oxuyur, miqrasiya dövründə JSON-u fallback saxlayır."""
+    database.initialize_database()
+    sql_memory = _memory_from_sql()
+    json_memory = _load_json_memory()
+    return _merge_memory_sources(sql_memory, json_memory)
+
+
+def update_memory(data: dict):
+    """Yaddaş qeydlərini SQL-də yaradır və ya yeniləyir."""
+    database.initialize_database()
+    for category, items in data.items():
+        if isinstance(items, dict):
+            for key, value in items.items():
+                upsert_memory(category, key, value)
+        else:
+            upsert_memory(category, category, items)
 
 
 def _normalize_text(text: str) -> str:
@@ -78,30 +107,31 @@ def _entry_matches(needle: str, category: str, item_key: str, item_value) -> boo
 
 
 def delete_memory(category: str = "", key: str = "", match_text: str = "") -> str:
-    mem = load_memory()
-    if not mem:
-        return "Yaddaşda silinəcək qeyd yoxdur."
-
+    """Yaddaş qeydini SQL-də soft-delete edir; JSON yalnız fallback kimi istifadə olunur."""
+    database.initialize_database()
     category = (category or "").strip()
     key = (key or "").strip()
     match_text = (match_text or "").strip()
 
     if category and key:
-        bucket = mem.get(category)
-        if isinstance(bucket, dict) and key in bucket:
-            del bucket[key]
-            if not bucket:
-                mem.pop(category, None)
-            _write_memory(mem)
+        if delete_sql_memory(category, key):
             return f"{category}/{key} yaddaşdan silindi."
+        json_memory = _load_json_memory()
+        bucket = json_memory.get(category)
+        if isinstance(bucket, dict) and key in bucket:
+            return f"Bu yaddaş qeydini tapa bilmədim."
         return "Bu yaddaş qeydini tapa bilmədim."
 
     needle = _normalize_text(match_text or key)
     if not needle:
         return "Silmək üçün category/key və ya match_text lazımdır."
 
+    memory = load_memory()
+    if not memory:
+        return "Yaddaşda silinəcək qeyd yoxdur."
+
     matches = []
-    for cat, bucket in list(mem.items()):
+    for cat, bucket in list(memory.items()):
         if not isinstance(bucket, dict):
             if _entry_matches(needle, cat, cat, bucket):
                 matches.append((cat, None))
@@ -117,16 +147,10 @@ def delete_memory(category: str = "", key: str = "", match_text: str = "") -> st
 
     cat, item_key = matches[0]
     if item_key is None:
-        del mem[cat]
-        _write_memory(mem)
-        return f"{cat} yaddaşdan silindi."
-
-    bucket = mem[cat]
-    del bucket[item_key]
-    if not bucket:
-        mem.pop(cat, None)
-    _write_memory(mem)
-    return f"{cat}/{item_key} yaddaşdan silindi."
+        return "Uyğun yaddaş qeydi tapa bilmədim."
+    if delete_sql_memory(cat, item_key):
+        return f"{cat}/{item_key} yaddaşdan silindi."
+    return "Bu yaddaş qeydini tapa bilmədim."
 
 
 def format_memory_for_prompt(memory: dict) -> str:
