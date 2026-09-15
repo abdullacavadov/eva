@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+from datetime import datetime, timezone
 from typing import Any
 
 from .database import transaction, utc_now
@@ -43,12 +44,31 @@ def _value_text(value: Any) -> str:
     return str(value)
 
 
-def _search_score(query: str, category: str, key: str, value: Any, importance: int) -> int:
+def _recency_score(timestamp: str) -> int:
+    """Son yenilənmiş yaddaşlara kiçik, sabit bir üstünlük verir."""
+    try:
+        updated = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        age_days = max(0, (datetime.now(timezone.utc) - updated).total_seconds() / 86400)
+        return max(0, int(30 - min(age_days, 30)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _search_score(
+    query: str,
+    category: str,
+    key: str,
+    value: Any,
+    importance: int,
+    updated_at: str,
+) -> int:
     normalized_query = _normalize_text(query)
     normalized_category = _normalize_text(category)
     normalized_key = _normalize_text(key)
     normalized_value = _normalize_text(_value_text(value))
-    score = max(0, min(int(importance), 100))
+    score = max(0, min(int(importance), 100)) + _recency_score(updated_at)
 
     if normalized_query == normalized_key:
         score += 100
@@ -197,7 +217,14 @@ def search_memories(
         results = []
         for row in rows:
             value = _deserialize_value(row["value"])
-            score = _search_score(query, row["category"], row["key"], value, row["importance"])
+            score = _search_score(
+                query,
+                row["category"],
+                row["key"],
+                value,
+                row["importance"],
+                row["updated_at"],
+            )
             normalized_query = _normalize_text(query)
             searchable = _normalize_text(
                 f"{row['category']} {row['key']} {_value_text(value)}"
@@ -207,8 +234,7 @@ def search_memories(
             ):
                 continue
 
-            item = {**dict(row), "value": value, "score": score}
-            results.append(item)
+            results.append({**dict(row), "value": value, "score": score})
 
         results.sort(key=lambda item: (item["score"], item["importance"], item["updated_at"]), reverse=True)
         results = results[:limit]
