@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json
-import re
-import unicodedata
 from pathlib import Path
 
 import memory.database as database
 from memory.repository import delete_memory as delete_sql_memory
 from memory.repository import get_deleted_memory_keys
 from memory.repository import get_memory as get_sql_memory
+from memory.repository import search_memories
 from memory.repository import upsert_memory
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -83,40 +82,10 @@ def update_memory(data: dict):
             upsert_memory(category, category, items)
 
 
-def _normalize_text(text: str) -> str:
-    text = (text or "").strip().casefold()
-    text = unicodedata.normalize("NFKD", text)
-    text = "".join(ch for ch in text if not unicodedata.combining(ch))
-    text = text.replace("ı", "i")
-    return " ".join(text.split())
-
-
-def _entry_value_text(value) -> str:
-    if isinstance(value, dict):
-        base = value.get("value")
-        if base is not None:
-            return str(base)
-        return json.dumps(value, ensure_ascii=False)
-    return str(value)
-
-
-def _tokenize_text(text: str) -> list[str]:
-    normalized = _normalize_text(text)
-    return [token for token in re.split(r"[^a-z0-9]+", normalized) if token]
-
-
-def _entry_matches(needle: str, category: str, item_key: str, item_value) -> bool:
-    haystacks = [_normalize_text(category), _normalize_text(item_key), _normalize_text(_entry_value_text(item_value))]
-    if any(needle in hay for hay in haystacks):
-        return True
-    tokens = [tok for tok in _tokenize_text(needle) if len(tok) >= 3]
-    if not tokens:
-        return False
-    entry_tokens: list[str] = []
-    for hay in haystacks:
-        entry_tokens.extend(_tokenize_text(hay))
-    matched = sum(1 for token in tokens if any(token in entry_token or entry_token in token for entry_token in entry_tokens))
-    return matched == 1 if len(tokens) == 1 else matched >= min(2, len(tokens))
+def search_memory(query: str, category: str | None = None, limit: int = 10) -> list[dict]:
+    """Yaddaşı SQL-dən axtarır və uyğun nəticələri sıralayır."""
+    database.initialize_database()
+    return search_memories(query, category=category, limit=limit)
 
 
 def delete_memory(category: str = "", key: str = "", match_text: str = "") -> str:
@@ -135,34 +104,19 @@ def delete_memory(category: str = "", key: str = "", match_text: str = "") -> st
             return "Bu yaddaş qeydini tapa bilmədim."
         return "Bu yaddaş qeydini tapa bilmədim."
 
-    needle = _normalize_text(match_text or key)
+    needle = match_text or key
     if not needle:
         return "Silmək üçün category/key və ya match_text lazımdır."
 
-    memory = load_memory()
-    if not memory:
-        return "Yaddaşda silinəcək qeyd yoxdur."
-
-    matches = []
-    for cat, bucket in list(memory.items()):
-        if not isinstance(bucket, dict):
-            if _entry_matches(needle, cat, cat, bucket):
-                matches.append((cat, None))
-            continue
-        for item_key, item_value in list(bucket.items()):
-            if _entry_matches(needle, cat, item_key, item_value):
-                matches.append((cat, item_key))
-
+    matches = search_memories(needle, limit=2)
     if not matches:
         return "Uyğun yaddaş qeydi tapa bilmədim."
     if len(matches) > 1:
         return "Bir neçə yaddaş qeydi uyğun gəldi; silmə əməliyyatı yerinə yetirilmədi."
 
-    cat, item_key = matches[0]
-    if item_key is None:
-        return "Uyğun yaddaş qeydi tapa bilmədim."
-    if delete_sql_memory(cat, item_key):
-        return f"{cat}/{item_key} yaddaşdan silindi."
+    item = matches[0]
+    if delete_sql_memory(item["category"], item["key"]):
+        return f"{item['category']}/{item['key']} yaddaşdan silindi."
     return "Bu yaddaş qeydini tapa bilmədim."
 
 
