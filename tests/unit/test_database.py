@@ -48,16 +48,16 @@ def test_transaction_commits_changes(tmp_path, monkeypatch):
             INSERT INTO users(external_key, display_name, created_at, updated_at)
             VALUES (?, ?, ?, ?)
             """,
-            ("default", "VICTOR istifadəçisi", db.utc_now(), db.utc_now()),
+            ("transaction-test", "VICTOR istifadəçisi", db.utc_now(), db.utc_now()),
         )
 
     with db.get_connection() as connection:
         row = connection.execute(
             "SELECT external_key, display_name FROM users WHERE external_key = ?",
-            ("default",),
+            ("transaction-test",),
         ).fetchone()
 
-    assert row["external_key"] == "default"
+    assert row["external_key"] == "transaction-test"
     assert row["display_name"] == "VICTOR istifadəçisi"
 
 
