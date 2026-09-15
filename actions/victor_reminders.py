@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from memory.memory_manager import load_memory, update_memory, _write_memory
+from memory.memory_manager import load_memory, update_memory, delete_memory
 
 
 def _bucket(memory: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +24,8 @@ def get_victor_reminders(query: str = "upcoming", limit: int = 20) -> dict:
     elif normalized in {"completed", "done", "tamamlanan"}: items = [x for x in items if x["completed"]]
     elif normalized not in {"", "all", "bütün"}: items = [x for x in items if normalized in x["title"].casefold() or normalized in x["notes"].casefold()]
     items.sort(key=lambda x: x["due"] or "9999")
-    return {"type": "reminder", "status": "success" if items else "empty", "query": {"query": query, "limit": limit}, "data": items[:max(1, min(int(limit or 20), 100))], "count": min(len(items), max(1, min(int(limit or 20), 100))), "selected": None, "meta": {"storage": "victor_memory"}}
+    result_limit = max(1, min(int(limit or 20), 100))
+    return {"type": "reminder", "status": "success" if items else "empty", "query": {"query": query, "limit": limit}, "data": items[:result_limit], "count": min(len(items), result_limit), "selected": None, "meta": {"storage": "victor_memory"}}
 
 
 def add_victor_reminder(title: str, due_iso: str = "", notes: str = "") -> dict:
@@ -42,21 +43,22 @@ def update_victor_reminder(reminder_id: str, title: str = "", due_iso: str = "",
     if str(title or "").strip(): value["title"] = str(title).strip()
     if due_iso: value["due"] = str(due_iso).strip()
     if notes: value["notes"] = str(notes).strip()
-    bucket[key] = value; memory["victor_reminders"] = bucket; _write_memory(memory)
+    update_memory({"victor_reminders": {key: value}})
     return {"type": "reminder", "status": "success", "query": {"reminder_id": reminder_id}, "data": [_item(key, value)], "count": 1, "selected": f"reminder:{key}", "meta": {"storage": "victor_memory"}}
 
 
 def complete_victor_reminder(reminder_id: str) -> dict:
     key = str(reminder_id or "").removeprefix("reminder:").strip(); memory = load_memory(); bucket = _bucket(memory)
     if key not in bucket: raise ValueError("VICTOR reminder tapılmadı.")
-    value = dict(bucket[key]); value["completed"] = True; bucket[key] = value; memory["victor_reminders"] = bucket; _write_memory(memory)
+    value = dict(bucket[key]); value["completed"] = True
+    update_memory({"victor_reminders": {key: value}})
     return {"type": "reminder", "status": "success", "query": {"reminder_id": reminder_id}, "data": [_item(key, value)], "count": 1, "selected": f"reminder:{key}", "meta": {"storage": "victor_memory"}}
 
 
 def delete_victor_reminder(reminder_id: str) -> dict:
     key = str(reminder_id or "").removeprefix("reminder:").strip(); memory = load_memory(); bucket = _bucket(memory)
     if key not in bucket: raise ValueError("VICTOR reminder tapılmadı.")
-    bucket.pop(key, None); memory["victor_reminders"] = bucket
-    if not bucket: memory.pop("victor_reminders", None)
-    _write_memory(memory)
+    message = delete_memory("victor_reminders", key)
+    if "silindi" not in message:
+        raise ValueError("VICTOR reminder tapılmadı.")
     return {"type": "reminder", "status": "success", "query": {"reminder_id": reminder_id}, "data": [], "count": 0, "selected": None, "meta": {"storage": "victor_memory", "deleted_id": f"reminder:{key}"}}
