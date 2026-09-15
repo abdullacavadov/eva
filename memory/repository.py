@@ -37,7 +37,7 @@ def upsert_memory(
         row = connection.execute(
             """
             SELECT id FROM memories
-            WHERE user_id = ? AND category = ? AND memory_key = ? AND status = 'active'
+            WHERE user_id = ? AND category = ? AND key = ? AND status = 'active'
             LIMIT 1
             """,
             (user_id, category, key),
@@ -57,7 +57,7 @@ def upsert_memory(
         cursor = connection.execute(
             """
             INSERT INTO memories
-                (user_id, type, category, memory_key, value, source, confidence,
+                (user_id, type, category, key, value, source, confidence,
                  importance, status, created_at, updated_at)
             VALUES (?, 'memory', ?, ?, ?, ?, ?, ?, 'active', ?, ?)
             """,
@@ -80,13 +80,13 @@ def get_memory(
         conditions.append("category = ?")
         params.append(category)
     if key:
-        conditions.append("memory_key = ?")
+        conditions.append("key = ?")
         params.append(key)
 
     with transaction() as connection:
         rows = connection.execute(
             f"""
-            SELECT id, user_id, type, category, memory_key, value, source,
+            SELECT id, user_id, type, category, key, value, source,
                    confidence, importance, status, created_at, updated_at,
                    last_accessed_at, expires_at
             FROM memories
@@ -99,7 +99,6 @@ def get_memory(
         return [
             {
                 **dict(row),
-                "key": row["memory_key"],
                 "value": _deserialize_value(row["value"]),
             }
             for row in rows
@@ -113,7 +112,7 @@ def delete_memory(category: str, key: str, *, user_id: int = 1) -> bool:
             """
             UPDATE memories
             SET status = 'deleted', updated_at = ?
-            WHERE user_id = ? AND category = ? AND memory_key = ? AND status = 'active'
+            WHERE user_id = ? AND category = ? AND key = ? AND status = 'active'
             """,
             (utc_now(), user_id, category, key),
         )
