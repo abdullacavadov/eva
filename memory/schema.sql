@@ -94,3 +94,7 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created
     ON messages(conversation_id, created_at);
+
+-- Hazırkı tək-istifadəçili quruluş üçün ilkin istifadəçi.
+INSERT OR IGNORE INTO users(id, external_key, display_name, created_at, updated_at)
+VALUES (1, 'default', 'Abdulla', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
