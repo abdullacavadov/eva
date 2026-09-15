@@ -31,15 +31,15 @@ def test_confirmation_executes_exact_pending_calendar_action_once():
 
 
 def test_eva_reminder_is_separate_from_google_tasks(monkeypatch):
-    import actions.eva_reminders as reminders
+    import actions.victor_reminders as reminders
     memory = {}
     monkeypatch.setattr(reminders, "load_memory", lambda: memory)
     monkeypatch.setattr(reminders, "update_memory", lambda value: memory.update(value))
     monkeypatch.setattr(reminders, "_write_memory", lambda value: memory.clear() or memory.update(value))
-    created = reminders.add_eva_reminder("Vergi ödə", "2026-09-03T09:00:00+04:00")
-    assert created["data"][0]["source"] == "eva_memory"
-    assert "eva_reminders" in memory
-    assert reminders.get_eva_reminders("upcoming")["count"] == 1
+    created = reminders.add_victor_reminder("Vergi ödə", "2026-09-03T09:00:00+04:00")
+    assert created["data"][0]["source"] == "victor_memory"
+    assert "victor_reminders" in memory
+    assert reminders.get_victor_reminders("upcoming")["count"] == 1
 
 
 def test_meta_whatsapp_action_is_confirmation_gated():

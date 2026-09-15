@@ -25,7 +25,7 @@ import {
   type Message,
 } from './components/ConversationPanel';
 import { ControlPanel, type ControlCommand } from './components/ControlPanel';
-import { EvaOrb } from './components/EvaOrb';
+import { VictorOrb } from './components/VictorOrb';
 import { fetchDashboard } from './services/dashboard';
 import { useEvaConnection } from './services/useEvaConnection';
 import type { DashboardData } from './types/dashboard';
@@ -408,7 +408,7 @@ export default function App() {
               <span>HOLOQRAFİK İNTERFEYS</span>
               <span>v2.5</span>
             </div>
-            <EvaOrb state={state} />
+            <VictorOrb state={state} />
 
             <div style={{ display: 'flex', justifyContent: 'space-between', height: '210px'}}>
               <section className="panel system-panel">

@@ -36,8 +36,8 @@ JarvisUI.__init__ = _init_with_startup_sfx
 
 
 def main() -> None:
-    import main as eva_main
-    eva_main.main()
+    import main as victor_main
+    victor_main.main()
 
 
 if __name__ == "__main__":

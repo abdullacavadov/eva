@@ -12,7 +12,7 @@ from actions.open_app import open_app
 from actions.sys_info import sys_info
 from actions.calendar import get_calendar_events, add_calendar_event, delete_calendar_event
 from actions.reminders import get_reminders, add_reminder, update_reminder, complete_reminder, delete_reminder
-from actions.eva_reminders import get_eva_reminders, add_eva_reminder, update_eva_reminder, complete_eva_reminder, delete_eva_reminder
+from actions.victor_reminders import get_victor_reminders, add_victor_reminder, update_victor_reminder, complete_victor_reminder, delete_victor_reminder
 from actions.agenda import get_daily_agenda, add_agenda_item, delete_agenda_item
 from actions.email import delete_email, prepare_email_deletion, prepare_email_reply, prepare_new_email, prepare_trash_emails, read_email_thread, search_emails, read_email, send_email, trash_emails
 from actions.browser import browser_control
@@ -150,7 +150,7 @@ class ToolExecutor:
 
     @staticmethod
     def should_play_success_sfx(tool_name: str, args: dict, result) -> bool:
-        action_tools = {"open_app", "add_calendar_event", "add_reminder", "update_reminder", "complete_reminder", "delete_reminder", "get_eva_reminders", "add_eva_reminder", "update_eva_reminder", "complete_eva_reminder", "delete_eva_reminder", "add_agenda_item", "delete_agenda_item", "create_contact", "update_contact", "delete_contact", "trash_emails", "delete_email", "delete_calendar_event", "remove_calendar_event"}
+        action_tools = {"open_app", "add_calendar_event", "add_reminder", "update_reminder", "complete_reminder", "delete_reminder", "get_victor_reminders", "add_victor_reminder", "update_victor_reminder", "complete_victor_reminder", "delete_victor_reminder", "add_agenda_item", "delete_agenda_item", "create_contact", "update_contact", "delete_contact", "trash_emails", "delete_email", "delete_calendar_event", "remove_calendar_event"}
         if tool_name in action_tools: return True
         if tool_name in {"send_whatsapp_message", "send_whatsapp_business_message"}:
             text = str(result or "").lower(); return bool(args.get("send_now", True)) and ("göndərildi" in text or "gonderildi" in text or (isinstance(result, dict) and result.get("status") == "success"))
@@ -161,7 +161,7 @@ class ToolExecutor:
         return {key: value for key, value in args.items() if key != "confirmation_id"}
 
     def _gate_risky_action(self, name: str, args: dict):
-        risky = {"delete_calendar_event", "delete_reminder", "delete_contact", "delete_eva_reminder", "delete_memory", "send_email", "send_whatsapp_business_message", "delete_email", "trash_emails"}
+        risky = {"delete_calendar_event", "delete_reminder", "delete_contact", "delete_victor_reminder", "delete_memory", "send_email", "send_whatsapp_business_message", "delete_email", "trash_emails"}
         if name == "send_whatsapp_message" and bool(args.get("send_now", False)): risky.add(name)
         if name not in risky: return None
         confirmation_id = str(args.get("confirmation_id", "")).strip(); payload = self._confirmation_payload(name, args)
@@ -177,7 +177,7 @@ class ToolExecutor:
         if name == "trash_emails": return trash_emails(args.get("confirmation_id", ""))
         if name == "delete_calendar_event": return delete_calendar_event(args.get("title", ""), args.get("start_iso", ""), args.get("calendar_name", ""), bool(args.get("delete_all_matches", False)))
         if name == "delete_reminder": return delete_reminder(args.get("task_id", ""), args.get("list_name", ""))
-        if name == "delete_eva_reminder": return delete_eva_reminder(args.get("reminder_id", ""))
+        if name == "delete_victor_reminder": return delete_victor_reminder(args.get("reminder_id", ""))
         if name == "delete_contact": return delete_contact(args.get("resource_name", ""))
         if name == "send_whatsapp_message": return send_whatsapp_message(args.get("message", ""), args.get("phone_number", ""), args.get("recipient_name", ""), True, args.get("app_target", "auto"))
         if name == "send_whatsapp_business_message": return send_whatsapp_business_message(args.get("message", ""), args.get("phone_number", ""))
@@ -212,11 +212,11 @@ class ToolExecutor:
                 elif name == "update_reminder": result = await loop.run_in_executor(None, lambda: update_reminder(args.get("task_id", ""), args.get("title", ""), args.get("due_iso", ""), args.get("notes", ""), args.get("list_name", ""), bool(args.get("all_day", False)))) or "Task yeniləndi."
                 elif name == "complete_reminder": result = await loop.run_in_executor(None, lambda: complete_reminder(args.get("task_id", ""), args.get("list_name", ""))) or "Task tamamlandı."
                 elif name == "delete_reminder": result = await loop.run_in_executor(None, lambda: delete_reminder(args.get("task_id", ""), args.get("list_name", ""))) or "Task silindi."
-                elif name == "get_eva_reminders": result = await loop.run_in_executor(None, lambda: get_eva_reminders(args.get("query", "upcoming"), int(args.get("limit", 20) or 20)))
-                elif name == "add_eva_reminder": result = await loop.run_in_executor(None, lambda: add_eva_reminder(args.get("title", ""), args.get("due_iso", ""), args.get("notes", "")))
-                elif name == "update_eva_reminder": result = await loop.run_in_executor(None, lambda: update_eva_reminder(args.get("reminder_id", ""), args.get("title", ""), args.get("due_iso", ""), args.get("notes", "")))
-                elif name == "complete_eva_reminder": result = await loop.run_in_executor(None, lambda: complete_eva_reminder(args.get("reminder_id", "")))
-                elif name == "delete_eva_reminder": result = await loop.run_in_executor(None, lambda: delete_eva_reminder(args.get("reminder_id", "")))
+                elif name == "get_victor_reminders": result = await loop.run_in_executor(None, lambda: get_victor_reminders(args.get("query", "upcoming"), int(args.get("limit", 20) or 20)))
+                elif name == "add_victor_reminder": result = await loop.run_in_executor(None, lambda: add_victor_reminder(args.get("title", ""), args.get("due_iso", ""), args.get("notes", "")))
+                elif name == "update_victor_reminder": result = await loop.run_in_executor(None, lambda: update_victor_reminder(args.get("reminder_id", ""), args.get("title", ""), args.get("due_iso", ""), args.get("notes", "")))
+                elif name == "complete_victor_reminder": result = await loop.run_in_executor(None, lambda: complete_victor_reminder(args.get("reminder_id", "")))
+                elif name == "delete_victor_reminder": result = await loop.run_in_executor(None, lambda: delete_victor_reminder(args.get("reminder_id", "")))
                 elif name == "get_daily_agenda": result = await loop.run_in_executor(None, lambda: get_daily_agenda(int(args.get("limit", 20) or 20))) or "Bu gün üçün agenda alındı."
                 elif name == "add_agenda_item": result = await loop.run_in_executor(None, lambda: add_agenda_item(args.get("title", ""), args.get("item_type", "task"), args.get("storage", ""), args.get("due_iso", ""), args.get("notes", ""))) or "Agenda elementi əlavə edildi."
                 elif name == "delete_agenda_item": result = await loop.run_in_executor(None, lambda: delete_agenda_item(args.get("match_text", ""), args.get("storage", ""), bool(args.get("confirm", False)))) or "Agenda elementi silindi."
