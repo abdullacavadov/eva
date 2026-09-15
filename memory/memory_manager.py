@@ -2,29 +2,11 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import memory.database as database
 from memory.repository import delete_memory as delete_sql_memory
-from memory.repository import get_deleted_memory_keys
 from memory.repository import get_memory as get_sql_memory
 from memory.repository import search_memories
 from memory.repository import upsert_memory
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-MEMORY_FILE = BASE_DIR / "memory" / "memory.json"
-
-
-def _load_json_memory() -> dict:
-    """Miqrasiya dövründə köhnə JSON yaddaşını yalnız oxumaq üçün yükləyir."""
-    try:
-        if MEMORY_FILE.exists():
-            with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-    except Exception:
-        pass
-    return {}
 
 
 def _memory_from_sql() -> dict:
@@ -40,35 +22,10 @@ def _memory_from_sql() -> dict:
     return memory
 
 
-def _mask_deleted_json_memory(json_memory: dict) -> dict:
-    """SQL-də silinmiş qeydləri JSON fallback-dan da gizlədir."""
-    masked = json.loads(json.dumps(json_memory, ensure_ascii=False))
-    for category, key in get_deleted_memory_keys():
-        bucket = masked.get(category)
-        if isinstance(bucket, dict):
-            bucket.pop(key, None)
-            if not bucket:
-                masked.pop(category, None)
-    return masked
-
-
-def _merge_memory_sources(sql_memory: dict, json_memory: dict) -> dict:
-    """SQL qeydlərini üstün tutaraq JSON fallback məlumatını birləşdirir."""
-    merged = json.loads(json.dumps(json_memory, ensure_ascii=False))
-    for category, items in sql_memory.items():
-        if isinstance(items, dict) and isinstance(merged.get(category), dict):
-            merged[category].update(items)
-        else:
-            merged[category] = items
-    return merged
-
-
 def load_memory() -> dict:
-    """Yaddaşı SQL-dən oxuyur, miqrasiya dövründə JSON-u fallback saxlayır."""
+    """Yaddaşı yalnız SQL-dən oxuyur."""
     database.initialize_database()
-    sql_memory = _memory_from_sql()
-    json_memory = _mask_deleted_json_memory(_load_json_memory())
-    return _merge_memory_sources(sql_memory, json_memory)
+    return _memory_from_sql()
 
 
 def update_memory(data: dict):
@@ -89,7 +46,7 @@ def search_memory(query: str, category: str | None = None, limit: int = 10) -> l
 
 
 def delete_memory(category: str = "", key: str = "", match_text: str = "") -> str:
-    """Yaddaş qeydini SQL-də soft-delete edir; JSON yalnız fallback kimi istifadə olunur."""
+    """Yaddaş qeydini SQL-də soft-delete edir."""
     database.initialize_database()
     category = (category or "").strip()
     key = (key or "").strip()
@@ -98,10 +55,6 @@ def delete_memory(category: str = "", key: str = "", match_text: str = "") -> st
     if category and key:
         if delete_sql_memory(category, key):
             return f"{category}/{key} yaddaşdan silindi."
-        json_memory = _load_json_memory()
-        bucket = json_memory.get(category)
-        if isinstance(bucket, dict) and key in bucket:
-            return "Bu yaddaş qeydini tapa bilmədim."
         return "Bu yaddaş qeydini tapa bilmədim."
 
     needle = match_text or key
