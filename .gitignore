@@ -12,6 +12,12 @@ memory/memory.json
 memory/phone_book.json
 memory/reminders.json
 
+# SQLite database
+# Baza faylı lokal yaradılır və Git-ə daxil edilmir.
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
 # Google credentials
 config/google_credentials.json
 
