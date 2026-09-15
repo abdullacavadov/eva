@@ -105,6 +105,20 @@ def get_memory(
         ]
 
 
+def get_deleted_memory_keys(*, user_id: int = 1) -> set[tuple[str, str]]:
+    """JSON fallback-dan gizlədilməli SQL soft-delete qeydlərinin açarlarını qaytarır."""
+    with transaction() as connection:
+        rows = connection.execute(
+            """
+            SELECT category, key
+            FROM memories
+            WHERE user_id = ? AND status = 'deleted'
+            """,
+            (user_id,),
+        ).fetchall()
+    return {(str(row["category"]), str(row["key"])) for row in rows}
+
+
 def delete_memory(category: str, key: str, *, user_id: int = 1) -> bool:
     """Aktiv yaddaş qeydini fiziki silmədən deleted statusuna keçirir."""
     with transaction() as connection:
