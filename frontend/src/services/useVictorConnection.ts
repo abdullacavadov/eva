@@ -1,1 +1,106 @@
-export { useVictorConnection } from './useEvaConnection'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { VictorEvent } from '../types/victor'
+
+const DEFAULT_WS_URL = `ws://${window.location.hostname || '127.0.0.1'}:8765`
+const WS_URL = import.meta.env.VITE_EVA_WS_URL || DEFAULT_WS_URL
+const RECONNECT_DELAY_MS = 1500
+
+type ControlCommand = 'shutdown' | 'restart' | 'pause' | 'camera' | 'microphone'
+
+export function useVictorConnection(onEvent: (event: VictorEvent) => void) {
+  const socketRef = useRef<WebSocket | null>(null)
+  const onEventRef = useRef(onEvent)
+  const reconnectRef = useRef<number | null>(null)
+  const [connected, setConnected] = useState(false)
+
+  useEffect(() => {
+    onEventRef.current = onEvent
+  }, [onEvent])
+
+  useEffect(() => {
+    let disposed = false
+
+    const scheduleReconnect = () => {
+      if (disposed || reconnectRef.current !== null) return
+      reconnectRef.current = window.setTimeout(() => {
+        reconnectRef.current = null
+        connect()
+      }, RECONNECT_DELAY_MS)
+    }
+
+    const connect = () => {
+      if (disposed) return
+      const socket = new WebSocket(WS_URL)
+      socketRef.current = socket
+
+      socket.onopen = () => {
+        if (disposed || socketRef.current !== socket) return
+        setConnected(true)
+      }
+
+      socket.onmessage = (message) => {
+        if (disposed || socketRef.current !== socket) return
+        try {
+          const event = JSON.parse(message.data) as VictorEvent
+          if (event.type === 'webcam.frame') {
+            window.dispatchEvent(new CustomEvent('eva:webcam-frame', { detail: event.data }))
+          }
+          if (event.type === 'control.state') {
+            window.dispatchEvent(new CustomEvent('eva:control-state', { detail: event.control }))
+          }
+          if (event.type === 'runtime.snapshot' && event.control) {
+            window.dispatchEvent(new CustomEvent('eva:control-state', { detail: event.control }))
+          }
+          if (event.type === 'audio.level') {
+            window.dispatchEvent(new CustomEvent('eva:audio-level', { detail: event.level }))
+          }
+          if (event.type === 'media.production') {
+            window.dispatchEvent(new CustomEvent('eva:media-production', { detail: event.data }))
+          }
+          onEventRef.current(event)
+        } catch {
+          // Gözlənilməz WebSocket mesajı UI state-i pozmamalıdır.
+        }
+      }
+
+      socket.onclose = () => {
+        if (socketRef.current !== socket) return
+        socketRef.current = null
+        if (disposed) return
+        setConnected(false)
+        scheduleReconnect()
+      }
+
+      socket.onerror = () => {
+        if (socketRef.current === socket) socket.close()
+      }
+    }
+
+    connect()
+    return () => {
+      disposed = true
+      if (reconnectRef.current !== null) window.clearTimeout(reconnectRef.current)
+      reconnectRef.current = null
+      socketRef.current?.close()
+      socketRef.current = null
+    }
+  }, [])
+
+  const sendMessage = useCallback((message: Record<string, unknown>) => {
+    const socket = socketRef.current
+    if (!socket || socket.readyState !== WebSocket.OPEN) return false
+    socket.send(JSON.stringify(message))
+    return true
+  }, [])
+
+  const sendText = useCallback((text: string) => {
+    return sendMessage({ type: 'conversation.send', text })
+  }, [sendMessage])
+
+  const sendControl = useCallback((command: ControlCommand) => {
+    return sendMessage({ type: 'control.command', command })
+  }, [sendMessage])
+
+  return { connected, sendText, sendControl }
+}
+

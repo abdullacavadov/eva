@@ -15,7 +15,7 @@ FAL_MODEL = "fal-ai/ltx-2.3/image-to-video/fast"
 
 def is_fal_video_enabled() -> bool:
     """FAL video provider yalnız açıq şəkildə açılıb və açar verilibsə aktivdir."""
-    provider = str(os.getenv("EVA_VIDEO_PROVIDER", "ffmpeg")).strip().lower()
+    provider = str(os.getenv("VICTOR_VIDEO_PROVIDER", "ffmpeg")).strip().lower()
     return provider in {"fal", "fal_ltx", "ltx", "ltx-2.3"} and bool(os.getenv("FAL_KEY", "").strip())
 
 
@@ -86,7 +86,7 @@ def render_video_scenes(
         raise ValueError("Video üçün səhnə planı boşdur.")
 
     portrait = height > width
-    with tempfile.TemporaryDirectory(prefix="eva_ltx_") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="victor_ltx_") as temp_dir:
         work = Path(temp_dir)
         clips: list[Path] = []
         for index, scene in enumerate(scenes):

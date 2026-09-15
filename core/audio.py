@@ -31,7 +31,7 @@ class _RealtimeEchoCanceller:
         self._far_segments = deque()
         self._delay_ms = max(
             0,
-            int(os.getenv("EVA_AEC_DELAY_MS", str(_AEC_DEFAULT_DELAY_MS))),
+            int(os.getenv("VICTOR_AEC_DELAY_MS", str(_AEC_DEFAULT_DELAY_MS))),
         )
         self._max_reference_seconds = 2.0
         self._playback_cursor = None

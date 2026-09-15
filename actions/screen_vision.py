@@ -67,7 +67,7 @@ def _capture_active_window() -> tuple[bool, str, str]:
             return False, f"Ekran görüntüsü alınamadı: {detail}", ""
 
     try:
-        handle = tempfile.NamedTemporaryFile(prefix="eva-screen-", suffix=".png", delete=False)
+        handle = tempfile.NamedTemporaryFile(prefix="victor-screen-", suffix=".png", delete=False)
         tmp_path = Path(handle.name)
         handle.close()
         img.save(str(tmp_path), format="PNG")

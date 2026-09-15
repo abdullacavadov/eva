@@ -27,7 +27,7 @@ import {
 import { ControlPanel, type ControlCommand } from './components/ControlPanel';
 import { VictorOrb } from './components/VictorOrb';
 import { fetchDashboard } from './services/dashboard';
-import { useEvaConnection } from './services/useEvaConnection';
+import { useVictorConnection } from './services/useVictorConnection';
 import type { DashboardData } from './types/dashboard';
 import type { ActivityItem, EvaContext, EvaEvent, EvaState } from './types/eva';
 import './styles/globals.css';

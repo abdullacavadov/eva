@@ -50,7 +50,7 @@ def _estimate_tokens(text: str) -> int:
 
 def _log_live_context_metrics(kwargs: dict):
     """Live config payload ölçülərini debug üçün ölçür; davranışı dəyişmir."""
-    enabled = str(os.getenv("EVA_CONTEXT_METRICS", "true")).strip().lower()
+    enabled = str(os.getenv("VICTOR_CONTEXT_METRICS", "true")).strip().lower()
     if enabled in {"0", "false", "no", "off"}:
         return
 
@@ -123,7 +123,7 @@ def _log_live_context_metrics(kwargs: dict):
         print(f"[CONTEXT-TOOLS] top10: {top_tools}")
 
 
-class _EVALiveConnectConfig(_LiveConnectConfig):
+class _VICTORLiveConnectConfig(_LiveConnectConfig):
     """VICTOR üçün realtime input transcription parametrlərini mərkəzləşdirir."""
 
     def __init__(self, *args, **kwargs):
@@ -144,7 +144,7 @@ class _EVALiveConnectConfig(_LiveConnectConfig):
         super().__init__(*args, **kwargs)
 
 
-genai_types.LiveConnectConfig = _EVALiveConnectConfig
+genai_types.LiveConnectConfig = _VICTORLiveConnectConfig
 
 
 def get_api_key() -> str:

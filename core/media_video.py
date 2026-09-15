@@ -104,7 +104,7 @@ def create_slideshow(
         if not music.is_file():
             raise FileNotFoundError(f"Musiqi faylı tapılmadı: {music}")
 
-    with tempfile.TemporaryDirectory(prefix="eva_media_") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="victor_media_") as temp_dir:
         work = Path(temp_dir)
         frame_paths: list[Path] = []
         for index, source in enumerate(source_images):

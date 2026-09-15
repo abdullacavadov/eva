@@ -70,7 +70,7 @@ def test_read_whatsapp_conversations_uses_structured_contract(monkeypatch):
 
 def test_read_whatsapp_messages_uses_existing_message_contract(monkeypatch, tmp_path):
     monkeypatch.setattr("actions.whatsapp_read_action.WhatsAppWebBridge", FakeBridge)
-    monkeypatch.setenv("EVA_WHATSAPP_SEEN_FILE", str(tmp_path / "seen.json"))
+    monkeypatch.setenv("VICTOR_WHATSAPP_SEEN_FILE", str(tmp_path / "seen.json"))
 
     result = read_whatsapp_messages()
 
@@ -111,7 +111,7 @@ def test_read_whatsapp_messages_rejects_ambiguous_partial_match(monkeypatch, tmp
             ]
 
     monkeypatch.setattr("actions.whatsapp_read_action.WhatsAppWebBridge", AmbiguousBridge)
-    monkeypatch.setenv("EVA_WHATSAPP_SEEN_FILE", str(tmp_path / "seen.json"))
+    monkeypatch.setenv("VICTOR_WHATSAPP_SEEN_FILE", str(tmp_path / "seen.json"))
 
     result = read_whatsapp_messages("Ali")
 
@@ -147,7 +147,7 @@ def test_read_whatsapp_messages_keeps_exact_match_precedence(monkeypatch, tmp_pa
             ]
 
     monkeypatch.setattr("actions.whatsapp_read_action.WhatsAppWebBridge", ExactBridge)
-    monkeypatch.setenv("EVA_WHATSAPP_SEEN_FILE", str(tmp_path / "seen.json"))
+    monkeypatch.setenv("VICTOR_WHATSAPP_SEEN_FILE", str(tmp_path / "seen.json"))
 
     result = read_whatsapp_messages("Ali")
 

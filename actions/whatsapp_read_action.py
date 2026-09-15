@@ -17,7 +17,7 @@ DEFAULT_SEEN_FILE = BASE_DIR / ".eva" / "whatsapp-seen.json"
 
 
 def _bridge() -> WhatsAppWebBridge:
-    profile = os.getenv("EVA_WHATSAPP_PROFILE") or str(DEFAULT_PROFILE)
+    profile = os.getenv("VICTOR_WHATSAPP_PROFILE") or str(DEFAULT_PROFILE)
     return WhatsAppWebBridge(user_data_dir=profile)
 
 
@@ -32,7 +32,7 @@ def read_whatsapp_conversations() -> dict:
 
 def read_whatsapp_messages(conversation: str = "", deduplicate: bool = True) -> dict:
     bridge = _bridge()
-    seen_file = os.getenv("EVA_WHATSAPP_SEEN_FILE") or str(DEFAULT_SEEN_FILE)
+    seen_file = os.getenv("VICTOR_WHATSAPP_SEEN_FILE") or str(DEFAULT_SEEN_FILE)
     try:
         bridge.connect()
         if conversation.strip():

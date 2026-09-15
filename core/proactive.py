@@ -178,12 +178,12 @@ class NotificationPolicy:
 
 class ProactiveEngine:
     def __init__(self, state_file: str | Path | None = None, policy: NotificationPolicy | None = None) -> None:
-        self.state_file = Path(state_file or os.getenv("EVA_PROACTIVE_STATE_FILE") or DEFAULT_STATE_FILE)
+        self.state_file = Path(state_file or os.getenv("VICTOR_PROACTIVE_STATE_FILE") or DEFAULT_STATE_FILE)
         self.policy = policy or NotificationPolicy(
-            rate_limit=int(os.getenv("EVA_PROACTIVE_RATE_LIMIT", DEFAULT_RATE_LIMIT)),
-            cooldown_minutes=int(os.getenv("EVA_PROACTIVE_COOLDOWN_MINUTES", DEFAULT_COOLDOWN_MINUTES)),
-            quiet_start=os.getenv("EVA_PROACTIVE_QUIET_START", DEFAULT_QUIET_START),
-            quiet_end=os.getenv("EVA_PROACTIVE_QUIET_END", DEFAULT_QUIET_END),
+            rate_limit=int(os.getenv("VICTOR_PROACTIVE_RATE_LIMIT", DEFAULT_RATE_LIMIT)),
+            cooldown_minutes=int(os.getenv("VICTOR_PROACTIVE_COOLDOWN_MINUTES", DEFAULT_COOLDOWN_MINUTES)),
+            quiet_start=os.getenv("VICTOR_PROACTIVE_QUIET_START", DEFAULT_QUIET_START),
+            quiet_end=os.getenv("VICTOR_PROACTIVE_QUIET_END", DEFAULT_QUIET_END),
         )
         self._lock = threading.Lock()
         self._collection_failures: set[str] = set()
@@ -409,7 +409,7 @@ class ProactiveScheduler:
         if self._thread and self._thread.is_alive():
             return
         self._stop.clear()
-        self._thread = threading.Thread(target=self._run, daemon=True, name="EVA-Proactive")
+        self._thread = threading.Thread(target=self._run, daemon=True, name="VICTOR-Proactive")
         self._thread.start()
 
     def stop(self) -> None:

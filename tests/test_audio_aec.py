@@ -13,7 +13,7 @@ def test_aec_default_delay_matches_playback_buffer(monkeypatch):
         def __init__(self, **kwargs):
             captured.update(kwargs)
 
-    monkeypatch.delenv("EVA_AEC_DELAY_MS", raising=False)
+    monkeypatch.delenv("VICTOR_AEC_DELAY_MS", raising=False)
     monkeypatch.setattr(audio, "AudioProcessor", FakeAudioProcessor)
 
     processor = audio._RealtimeEchoCanceller()
@@ -29,7 +29,7 @@ def test_aec_delay_can_be_overridden(monkeypatch):
         def __init__(self, **kwargs):
             captured.update(kwargs)
 
-    monkeypatch.setenv("EVA_AEC_DELAY_MS", "35")
+    monkeypatch.setenv("VICTOR_AEC_DELAY_MS", "35")
     monkeypatch.setattr(audio, "AudioProcessor", FakeAudioProcessor)
 
     processor = audio._RealtimeEchoCanceller()

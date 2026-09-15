@@ -101,10 +101,10 @@ def _create_hidden_ui() -> JarvisUI:
 
 
 def _start_dashboard_api() -> ThreadingHTTPServer:
-    host = os.getenv("EVA_UI_HTTP_HOST", "127.0.0.1")
-    port = int(os.getenv("EVA_UI_HTTP_PORT", "8766"))
+    host = os.getenv("VICTOR_UI_HTTP_HOST", "127.0.0.1")
+    port = int(os.getenv("VICTOR_UI_HTTP_PORT", "8766"))
     server = ThreadingHTTPServer((host, port), DashboardRequestHandler)
-    threading.Thread(target=server.serve_forever, name="eva-dashboard-http", daemon=True).start()
+    threading.Thread(target=server.serve_forever, name="victor-dashboard-http", daemon=True).start()
     print(f"[VICTOR] 📊 Dashboard API: http://{host}:{port}/api/dashboard", flush=True)
     return server
 
@@ -137,7 +137,7 @@ def _start_react_frontend() -> subprocess.Popen | None:
         except Exception as exc:
             print(f"[VICTOR] ⚠️ Browser avtomatik açıla bilmədi: {exc}", flush=True)
 
-    threading.Thread(target=open_browser, name="eva-open-browser", daemon=True).start()
+    threading.Thread(target=open_browser, name="victor-open-browser", daemon=True).start()
     return process
 
 
@@ -221,8 +221,8 @@ def main():
         install_media_observability(bridge)
         install_settings_bridge(bridge, ui)
         proactive_scheduler = None
-        if str(os.getenv("EVA_PROACTIVE_ENABLED", "true")).strip().lower() not in {"0", "false", "no", "off"}:
-            proactive_scheduler = ProactiveScheduler(ProactiveEngine(), jarvis._on_proactive_notification, interval=int(os.getenv("EVA_PROACTIVE_INTERVAL", "120")))
+        if str(os.getenv("VICTOR_PROACTIVE_ENABLED", "true")).strip().lower() not in {"0", "false", "no", "off"}:
+            proactive_scheduler = ProactiveScheduler(ProactiveEngine(), jarvis._on_proactive_notification, interval=int(os.getenv("VICTOR_PROACTIVE_INTERVAL", "120")))
             proactive_scheduler.start()
             ui.root.after(0, ui.write_log, "SYS: Proaktiv monitor aktivdir.")
         try:

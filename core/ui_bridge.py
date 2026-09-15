@@ -26,8 +26,8 @@ class UiBridge:
 
     def __init__(self, ui, tool_executor=None):
         self.ui = ui
-        self.host = os.getenv("EVA_UI_WS_HOST", "127.0.0.1")
-        self.port = int(os.getenv("EVA_UI_WS_PORT", "8765"))
+        self.host = os.getenv("VICTOR_UI_WS_HOST", "127.0.0.1")
+        self.port = int(os.getenv("VICTOR_UI_WS_PORT", "8765"))
         self._clients: set[ServerConnection] = set()
         self._client_queues: dict[ServerConnection, Queue] = {}
         self._clients_lock = threading.Lock()
@@ -100,7 +100,7 @@ class UiBridge:
         self.ui.write_log = write_log
 
     def _install_tool_hook(self, tool_executor) -> None:
-        if getattr(tool_executor, "_eva_ui_bridge_wrapped", False):
+        if getattr(tool_executor, "_victor_ui_bridge_wrapped", False):
             return
         original_execute = tool_executor.execute
 
@@ -123,7 +123,7 @@ class UiBridge:
                 raise
 
         tool_executor.execute = execute
-        tool_executor._eva_ui_bridge_wrapped = True
+        tool_executor._victor_ui_bridge_wrapped = True
 
     @staticmethod
     def _normalize_state(state: str) -> str:
@@ -233,7 +233,7 @@ class UiBridge:
             finally:
                 self._server = None
 
-        self._thread = threading.Thread(target=run, name="eva-ui-ws", daemon=True)
+        self._thread = threading.Thread(target=run, name="victor-ui-ws", daemon=True)
         self._thread.start()
 
     def _handle_client(self, websocket: ServerConnection) -> None:
@@ -241,7 +241,7 @@ class UiBridge:
         sender = threading.Thread(
             target=self._client_sender,
             args=(websocket, queue),
-            name="eva-ui-ws-sender",
+            name="victor-ui-ws-sender",
             daemon=True,
         )
         with self._clients_lock:
@@ -302,11 +302,11 @@ class UiBridge:
         if callback is None:
             if command == "restart":
                 websocket.send(json.dumps({"type": "control.state", "control": {"restart_pending": True}}, ensure_ascii=False))
-                threading.Thread(target=self._restart_process, name="eva-restart", daemon=True).start()
+                threading.Thread(target=self._restart_process, name="victor-restart", daemon=True).start()
                 return
             if command == "shutdown":
                 websocket.send(json.dumps({"type": "control.state", "control": {"shutdown_pending": True}}, ensure_ascii=False))
-                threading.Thread(target=self._shutdown_process, name="eva-shutdown", daemon=True).start()
+                threading.Thread(target=self._shutdown_process, name="victor-shutdown", daemon=True).start()
                 return
             websocket.send(json.dumps({"type": "bridge.error", "message": "VICTOR control callback-i hazır deyil."}, ensure_ascii=False))
             return

@@ -64,8 +64,8 @@ class JarvisLive:
         self._output_gain = 1.0
         self._output_gain_lock = threading.Lock()
         self._barge_in = BargeInDetector(
-            threshold=float(os.getenv("EVA_BARGE_IN_THRESHOLD", "0.045")),
-            confirm_ms=float(os.getenv("EVA_BARGE_IN_CONFIRM_MS", "400")),
+            threshold=float(os.getenv("VICTOR_BARGE_IN_THRESHOLD", "0.045")),
+            confirm_ms=float(os.getenv("VICTOR_BARGE_IN_CONFIRM_MS", "400")),
             sample_rate=SEND_SAMPLE_RATE,
         )
         self._barge_in_buffer = deque(maxlen=6)
@@ -525,11 +525,11 @@ def main():
         ui.wait_for_api_key()
         jarvis = JarvisLive(ui)
         proactive_scheduler = None
-        if str(os.getenv("EVA_PROACTIVE_ENABLED", "true")).strip().lower() not in {"0", "false", "no", "off"}:
+        if str(os.getenv("VICTOR_PROACTIVE_ENABLED", "true")).strip().lower() not in {"0", "false", "no", "off"}:
             proactive_scheduler = ProactiveScheduler(
                 ProactiveEngine(),
                 jarvis._on_proactive_notification,
-                interval=int(os.getenv("EVA_PROACTIVE_INTERVAL", "120")),
+                interval=int(os.getenv("VICTOR_PROACTIVE_INTERVAL", "120")),
             )
             proactive_scheduler.start()
             ui.root.after(0, ui.write_log, "SYS: Proaktiv monitor aktivdir.")
@@ -541,7 +541,7 @@ def main():
             if proactive_scheduler:
                 proactive_scheduler.stop()
     threading.Thread(target=runner, daemon=True).start()
-    ENABLE_CLAP_WAKE = str(os.getenv("EVA_CLAP_WAKE_ENABLED", "true")).strip().lower() not in {"0", "false", "no", "off"}
+    ENABLE_CLAP_WAKE = str(os.getenv("VICTOR_CLAP_WAKE_ENABLED", "true")).strip().lower() not in {"0", "false", "no", "off"}
     if ENABLE_CLAP_WAKE and WakeGestureListener is not None:
         try:
             wake_listener = WakeGestureListener(on_wake=ui.wake_up)

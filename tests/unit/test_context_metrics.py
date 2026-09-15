@@ -2,7 +2,7 @@ from core.config import _log_live_context_metrics
 
 
 def test_live_context_metrics_reports_system_memory_and_tools(capsys, monkeypatch):
-    monkeypatch.delenv("EVA_CONTEXT_METRICS", raising=False)
+    monkeypatch.delenv("VICTOR_CONTEXT_METRICS", raising=False)
 
     _log_live_context_metrics(
         {
@@ -35,7 +35,7 @@ def test_live_context_metrics_reports_system_memory_and_tools(capsys, monkeypatc
 
 
 def test_live_context_metrics_orders_largest_tools_first(capsys, monkeypatch):
-    monkeypatch.delenv("EVA_CONTEXT_METRICS", raising=False)
+    monkeypatch.delenv("VICTOR_CONTEXT_METRICS", raising=False)
 
     _log_live_context_metrics(
         {
@@ -58,7 +58,7 @@ def test_live_context_metrics_orders_largest_tools_first(capsys, monkeypatch):
 
 
 def test_live_context_metrics_can_be_disabled(capsys, monkeypatch):
-    monkeypatch.setenv("EVA_CONTEXT_METRICS", "false")
+    monkeypatch.setenv("VICTOR_CONTEXT_METRICS", "false")
 
     _log_live_context_metrics({"system_instruction": "test", "tools": []})
 

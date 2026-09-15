@@ -55,7 +55,7 @@ def _notify(event: dict) -> None:
             pass
 
 
-def _safe_name(value: str, fallback: str = "eva_video") -> str:
+def _safe_name(value: str, fallback: str = "victor_video") -> str:
     clean = re.sub(r"[^\w\-. ]+", "", str(value or "")).strip()
     clean = re.sub(r"\s+", "_", clean)
     return clean[:80] or fallback
@@ -310,7 +310,7 @@ def _render_scenes(scenes: list[dict], output: Path, *, width: int, height: int,
     if not scenes:
         raise ValueError("Video üçün səhnə planı boşdur.")
 
-    with tempfile.TemporaryDirectory(prefix="eva_production_") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="victor_production_") as temp_dir:
         work = Path(temp_dir)
         clips: list[Path] = []
         durations: list[float] = []
@@ -398,7 +398,7 @@ def _run_job(job_id: str, brief: str) -> None:
         MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
         images = _media_images()
         audio = _media_audio()
-        with tempfile.TemporaryDirectory(prefix="eva_catalog_") as catalog_dir:
+        with tempfile.TemporaryDirectory(prefix="victor_catalog_") as catalog_dir:
             contact = Path(catalog_dir) / "contact.jpg"
             labels = _contact_sheet(images, contact)
             plan = _plan(brief, contact if labels else None, labels, [p.relative_to(MEDIA_ROOT).as_posix() for p in audio])
@@ -418,7 +418,7 @@ def _run_job(job_id: str, brief: str) -> None:
             music = _generate_music(str(plan.get("music_prompt", "")), MEDIA_ROOT / f"{_safe_name(plan.get('title'), 'video')}_music.mp3")
         orientation = str(plan.get("orientation", "landscape")).lower()
         width, height = (SHORT_WIDTH, SHORT_HEIGHT) if orientation == "portrait" else (VIDEO_WIDTH, VIDEO_HEIGHT)
-        output = MEDIA_ROOT / f"{_safe_name(plan.get('title'), 'eva_video')}.mp4"
+        output = MEDIA_ROOT / f"{_safe_name(plan.get('title'), 'victor_video')}.mp4"
         _render_scenes(scenes, output, width=width, height=height, narration=narration if narration.exists() else None, music=music)
         with _JOB_LOCK:
             _JOBS[job_id] = "completed"
@@ -437,7 +437,7 @@ def start_media_production(brief: str) -> str:
     with _JOB_LOCK:
         _JOBS[job_id] = "running"
     _notify({"job_id": job_id, "status": "started", "brief": clean})
-    threading.Thread(target=_run_job, args=(job_id, clean), daemon=True, name=f"eva-media-{job_id[-6:]}").start()
+    threading.Thread(target=_run_job, args=(job_id, clean), daemon=True, name=f"victor-media-{job_id[-6:]}").start()
     return job_id
 
 
