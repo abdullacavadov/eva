@@ -20,7 +20,7 @@ from core.proactive_correlation import correlate_events
 from core.proactive_priority import rank_events
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_STATE_FILE = BASE_DIR / ".eva" / "proactive-state.json"
+DEFAULT_STATE_FILE = BASE_DIR / ".victor" / "proactive-state.json"
 DEFAULT_INTERVAL = 120
 DEFAULT_RATE_LIMIT = 3
 DEFAULT_COOLDOWN_MINUTES = 360

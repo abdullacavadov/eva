@@ -112,7 +112,7 @@
     order: -1;
   }
 
-  .eva-core {
+  .victor-core {
     min-height: 390px;
   }
 }
@@ -218,7 +218,7 @@
     overflow: hidden;
   }
 
-  .eva-core {
+  .victor-core {
     min-height: 0;
     height: auto;
   }

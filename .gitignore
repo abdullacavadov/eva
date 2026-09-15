@@ -20,7 +20,7 @@ config/api_keys.json
 config/google_token.json
 
 #Whatsapp
-.eva/
+.victor/
 
 # React frontend
 frontend/node_modules/

@@ -449,7 +449,7 @@ a.settings {
   font-size: 7px;
   letter-spacing: 0.18em;
 }
-.eva-core {
+.victor-core {
   position: relative;
   display: flex;
   align-items: center;
@@ -459,7 +459,7 @@ a.settings {
   overflow: hidden;
   perspective: 800px;
 }
-.eva-core::after {
+.victor-core::after {
   content: '';
   position: absolute;
   left: 8%;
@@ -1143,7 +1143,7 @@ a.settings {
   .right-stack {
     display: flex;
   }
-  .eva-core {
+  .victor-core {
     min-height: 330px;
   }
   .orb-sphere {

@@ -12,8 +12,8 @@ from actions.whatsapp_read import (
 from integrations.whatsapp.web import WhatsAppWebBridge
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_PROFILE = BASE_DIR / ".eva" / "whatsapp-profile"
-DEFAULT_SEEN_FILE = BASE_DIR / ".eva" / "whatsapp-seen.json"
+DEFAULT_PROFILE = BASE_DIR / ".victor" / "whatsapp-profile"
+DEFAULT_SEEN_FILE = BASE_DIR / ".victor" / "whatsapp-seen.json"
 
 
 def _bridge() -> WhatsAppWebBridge:

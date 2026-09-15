@@ -136,7 +136,7 @@ def print_message_dom_diagnostics(page, conversations) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Read-only WhatsApp Web DOM smoke test")
-    parser.add_argument("--profile", default=".eva/whatsapp-profile", help="Persistent Chromium profile directory")
+    parser.add_argument("--profile", default=".victor/whatsapp-profile", help="Persistent Chromium profile directory")
     parser.add_argument("--headless", action="store_true", help="Run Chromium without a visible window")
     args = parser.parse_args()
 

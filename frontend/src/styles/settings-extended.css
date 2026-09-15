@@ -41,14 +41,14 @@
 .orb-no-audio-reactive .orb-waveform {
   opacity: 0.35;
 }
-.eva-core .orb-particles {
+.victor-core .orb-particles {
   opacity: calc(0.35 + (var(--orb-density) * 0.65));
   animation-duration: calc(18s / var(--orb-speed));
 }
-.eva-core .orb-wire {
+.victor-core .orb-wire {
   animation-duration: calc(20s / var(--orb-speed));
 }
-.eva-core .orb-sphere {
+.victor-core .orb-sphere {
   box-shadow:
     inset 0 0 40px rgba(var(--orb-rgb), calc(0.35 * var(--orb-glow))),
     inset 8px -8px 30px rgba(0, 0, 0, 0.6),
@@ -57,7 +57,7 @@
 }
 
 /* Audio waveform: real PCM amplitude controls a spatially stable luminous ribbon. */
-.eva-core .orb-waveform {
+.victor-core .orb-waveform {
   position: absolute;
   z-index: 4;
   left: 50%;
@@ -72,32 +72,32 @@
   transition: opacity 0.2s ease;
 }
 
-.eva-core .orb-waveform .orb-wave-strand {
+.victor-core .orb-waveform .orb-wave-strand {
   fill: none;
-  stroke: url(#eva-wave-gradient);
+  stroke: url(#victor-wave-gradient);
   stroke-width: 1.35;
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
-  filter: url(#eva-wave-glow);
+  filter: url(#victor-wave-glow);
 }
 
-.eva-core .orb-waveform .orb-wave-particle {
-  fill: url(#eva-wave-gradient);
+.victor-core .orb-waveform .orb-wave-particle {
+  fill: url(#victor-wave-gradient);
   filter: drop-shadow(0 0 2.5px rgba(180, 130, 255, 0.95));
 }
 
-.eva-core .orb-waveform.is-flat {
+.victor-core .orb-waveform.is-flat {
   opacity: 0.82;
 }
 
-.eva-core .orb-waveform.is-speaking {
+.victor-core .orb-waveform.is-speaking {
   opacity: 1;
 }
 
-.eva-core .orb-waveform.is-flat .orb-wave-strand,
-.eva-core .orb-waveform.is-speaking .orb-wave-strand,
-.eva-core .orb-waveform .orb-wave-particle {
+.victor-core .orb-waveform.is-flat .orb-wave-strand,
+.victor-core .orb-waveform.is-speaking .orb-wave-strand,
+.victor-core .orb-waveform .orb-wave-particle {
   animation: none !important;
   transform: none !important;
 }

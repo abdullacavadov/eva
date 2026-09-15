@@ -1,10 +1,10 @@
-.eva-core {
+.victor-core {
   --orb-rgb: 0, 255, 136;
   color: rgb(var(--orb-rgb));
   isolation: isolate;
 }
 
-.eva-core .orb-sphere {
+.victor-core .orb-sphere {
   box-shadow:
     inset 0 0 40px rgb(var(--orb-rgb) / 0.35),
     inset 8px -8px 30px rgb(0 0 0 / 0.6),
@@ -12,12 +12,12 @@
     0 0 25px rgb(var(--orb-rgb) / 0.5);
 }
 
-.eva-core .orb-wire .meridian,
-.eva-core .orb-wire .latitude {
+.victor-core .orb-wire .meridian,
+.victor-core .orb-wire .latitude {
   border-color: rgb(var(--orb-rgb) / 0.3);
 }
 
-.eva-core .orb-particles {
+.victor-core .orb-particles {
   background-image: radial-gradient(
     circle,
     rgb(var(--orb-rgb) / 0.9) 0 1px,
@@ -25,22 +25,22 @@
   );
 }
 
-.eva-core .orb-wordmark {
+.victor-core .orb-wordmark {
   color: rgb(var(--orb-rgb) / 0.92);
   text-shadow:
     0 0 14px rgb(var(--orb-rgb) / 0.95),
     0 0 38px rgb(var(--orb-rgb) / 0.62);
 }
 
-.eva-core .orb-glow {
+.victor-core .orb-glow {
   background: rgb(var(--orb-rgb) / 0.12);
 }
 
-.eva-core .orb-orbit {
+.victor-core .orb-orbit {
   border-color: rgb(var(--orb-rgb) / 0.24);
 }
 
-.eva-core .orb-beam {
+.victor-core .orb-beam {
   background: linear-gradient(
     transparent,
     rgb(var(--orb-rgb) / 0.55),
@@ -49,139 +49,139 @@
   box-shadow: 0 0 30px 5px rgb(var(--orb-rgb) / 0.18);
 }
 
-.eva-core .orb-platform {
+.victor-core .orb-platform {
   border-color: rgb(var(--orb-rgb) / 0.3);
   box-shadow:
     0 0 22px rgb(var(--orb-rgb) / 0.1),
     inset 0 0 22px rgb(var(--orb-rgb) / 0.08);
 }
 
-.eva-core .orb-platform::before {
+.victor-core .orb-platform::before {
   border-color: rgb(var(--orb-rgb) / 0.25);
 }
 
-.eva-core .orb-platform i,
-.eva-core .status-dot,
-.eva-core .orb-waveform i {
+.victor-core .orb-platform i,
+.victor-core .status-dot,
+.victor-core .orb-waveform i {
   background: rgb(var(--orb-rgb));
 }
 
-.eva-core .orb-platform i,
-.eva-core .status-dot {
+.victor-core .orb-platform i,
+.victor-core .status-dot {
   box-shadow: 0 0 10px rgb(var(--orb-rgb));
 }
 
-.eva-core .orb-waveform i {
+.victor-core .orb-waveform i {
   box-shadow: 0 0 8px rgb(var(--orb-rgb) / 0.7);
 }
 
-.eva-core.state-listening,
-.eva-core.state-idle,
-.eva-core.state-success {
+.victor-core.state-listening,
+.victor-core.state-idle,
+.victor-core.state-success {
   --orb-rgb: 0, 255, 136;
 }
 
-.eva-core.state-speaking,
-.eva-core.state-executing {
+.victor-core.state-speaking,
+.victor-core.state-executing {
   --orb-rgb: 68, 136, 255;
 }
 
-.eva-core.state-thinking,
-.eva-core.state-waiting_confirmation {
+.victor-core.state-thinking,
+.victor-core.state-waiting_confirmation {
   --orb-rgb: 255, 204, 0;
 }
 
-.eva-core.state-muted {
+.victor-core.state-muted {
   --orb-rgb: 200, 30, 80;
 }
 
-.eva-core.state-paused {
+.victor-core.state-paused {
   --orb-rgb: 30, 60, 55;
 }
 
-.eva-core.state-error,
-.eva-core.state-initialising {
+.victor-core.state-error,
+.victor-core.state-initialising {
   --orb-rgb: 255, 51, 68;
 }
 
-.eva-core.state-paused .orb-glow {
+.victor-core.state-paused .orb-glow {
   opacity: 0.55;
 }
 
-.eva-core.state-paused .orb-sphere,
-.eva-core.state-paused .orb-wire,
-.eva-core.state-paused .orb-orbit,
-.eva-core.state-paused .orb-beam,
-.eva-core.state-paused .orb-platform {
+.victor-core.state-paused .orb-sphere,
+.victor-core.state-paused .orb-wire,
+.victor-core.state-paused .orb-orbit,
+.victor-core.state-paused .orb-beam,
+.victor-core.state-paused .orb-platform {
   animation-play-state: paused;
 }
 
-.eva-core.state-thinking .orb-sphere {
+.victor-core.state-thinking .orb-sphere {
   animation: think 1.5s ease-in-out infinite;
 }
 
-.eva-core.state-waiting_confirmation .orb-glow {
+.victor-core.state-waiting_confirmation .orb-glow {
   background: rgba(255, 200, 87, 0.15);
 }
 
-.eva-core.state-waiting_confirmation .status-dot {
+.victor-core.state-waiting_confirmation .status-dot {
   background: var(--amber);
   box-shadow: 0 0 10px var(--amber);
 }
 
-.eva-core.state-success .orb-glow {
+.victor-core.state-success .orb-glow {
   background: rgba(67, 230, 170, 0.16);
 }
 
-.eva-core.state-success .status-dot {
+.victor-core.state-success .status-dot {
   background: var(--green);
   box-shadow: 0 0 10px var(--green);
 }
 
-.eva-core.state-error .orb-glow {
+.victor-core.state-error .orb-glow {
   background: rgba(255, 89, 106, 0.16);
 }
 
-.eva-core.state-error .status-dot {
+.victor-core.state-error .status-dot {
   background: var(--red);
   box-shadow: 0 0 10px var(--red);
 }
 
-/* Waveform yalnız real EVA audio səviyyəsi gəldikdə dəyişir. */
-.eva-core .orb-waveform.is-flat {
+/* Waveform yalnız real VICTOR audio səviyyəsi gəldikdə dəyişir. */
+.victor-core .orb-waveform.is-flat {
   opacity: 0.8;
   animation: none !important;
 }
 
-.eva-core .orb-waveform.is-flat i {
+.victor-core .orb-waveform.is-flat i {
   height: 2px !important;
   min-height: 2px !important;
   animation: none !important;
   transform: none !important;
 }
 
-.eva-core .orb-waveform.is-speaking {
+.victor-core .orb-waveform.is-speaking {
   opacity: 0.8;
   animation: none !important;
 }
 
-.eva-core .orb-waveform.is-speaking i {
+.victor-core .orb-waveform.is-speaking i {
   animation: none !important;
   transform: none !important;
 }
 
-.eva-core.state-muted .orb-waveform,
-.eva-core.state-paused .orb-waveform {
+.victor-core.state-muted .orb-waveform,
+.victor-core.state-paused .orb-waveform {
   opacity: 0;
   animation: none !important;
 }
 
-.eva-core.state-muted .orb-waveform i,
-.eva-core.state-paused .orb-waveform i {
+.victor-core.state-muted .orb-waveform i,
+.victor-core.state-paused .orb-waveform i {
   animation: none !important;
 }
 
-.eva-core .orb-city-backdrop {
+.victor-core .orb-city-backdrop {
   position: absolute;
   inset: -40px;
   z-index: -1;
