@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from core.results import empty, error, success
-from memory.memory_manager import load_memory, update_memory, _write_memory
+from memory.memory_manager import load_memory, update_memory, delete_memory
 from actions.calendar import get_calendar_events
 from actions.reminders import get_reminders, add_reminder, delete_reminder
 
@@ -156,12 +156,8 @@ def delete_agenda_item(match_text: str = "", storage: str = "", confirm: bool = 
     item = candidates[0]
     if item.get("source") == "memory":
         key = str(item["id"])[len("memory:"):]
-        memory = load_memory()
-        bucket = memory.get("agenda", {})
-        if isinstance(bucket, dict):
-            bucket.pop(key, None)
-            if not bucket:
-                memory.pop("agenda", None)
-            _write_memory(memory)
+        message = delete_memory("agenda", key)
+        if "silindi" not in message:
+            return error("agenda_item", message)
         return success("agenda_item", [], {"deleted_id": item["id"], "storage": "memory"})
     return delete_reminder(item.get("google_task_id", ""), "")
