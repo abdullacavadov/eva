@@ -1,5 +1,3 @@
-import json
-
 import pytest
 
 import memory.database as db
@@ -9,31 +7,21 @@ from memory.repository import search_memories
 
 @pytest.fixture
 def memory_file(tmp_path, monkeypatch):
-    path = tmp_path / "memory.json"
     database_file = tmp_path / "victor.db"
-    monkeypatch.setattr(mm, "MEMORY_FILE", path)
     monkeypatch.setattr(db, "DATABASE_FILE", database_file)
     monkeypatch.setattr(db, "DATA_DIR", tmp_path)
     db.initialize_database()
-    return path
+    return tmp_path / "memory.json"
 
 
-def write_memory(path, data):
-    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+def test_load_memory_uses_sql_only(memory_file):
+    memory_file.write_text('{"profile": {"name": {"value": "JSON"}}}', encoding="utf-8")
+    mm.update_memory({"profile": {"name": {"value": "SQL"}}})
+    assert mm.load_memory() == {"profile": {"name": {"value": "SQL"}}}
 
 
-def test_load_memory_missing_file_returns_empty_dict(memory_file):
-    assert mm.load_memory() == {}
-
-
-def test_load_memory_reads_valid_json_as_migration_fallback(memory_file):
-    data = {"profile": {"name": {"value": "Abdulla"}}}
-    write_memory(memory_file, data)
-    assert mm.load_memory() == data
-
-
-def test_load_memory_invalid_json_fails_closed_to_empty_dict(memory_file):
-    memory_file.write_text('{"profile":', encoding="utf-8")
+def test_load_memory_does_not_read_json_when_sql_is_empty(memory_file):
+    memory_file.write_text('{"profile": {"name": {"value": "JSON"}}}', encoding="utf-8")
     assert mm.load_memory() == {}
 
 
@@ -46,12 +34,6 @@ def test_update_memory_writes_to_sql_and_preserves_nested_shape(memory_file):
 
 def test_update_memory_overwrites_existing_leaf_in_sql(memory_file):
     mm.update_memory({"profile": {"city": {"value": "Baku"}}})
-    mm.update_memory({"profile": {"city": {"value": "Ganja"}}})
-    assert mm.load_memory()["profile"]["city"]["value"] == "Ganja"
-
-
-def test_sql_memory_overrides_legacy_json_value(memory_file):
-    write_memory(memory_file, {"profile": {"city": {"value": "Baku"}}})
     mm.update_memory({"profile": {"city": {"value": "Ganja"}}})
     assert mm.load_memory()["profile"]["city"]["value"] == "Ganja"
 
