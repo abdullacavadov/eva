@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from typing import Any
 
 from .database import transaction, utc_now
@@ -17,6 +19,57 @@ def _deserialize_value(value: str) -> Any:
         return json.loads(value)
     except (TypeError, json.JSONDecodeError):
         return value
+
+
+def _normalize_text(text: str) -> str:
+    text = (text or "").strip().casefold()
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    replacements = str.maketrans({"ı": "i", "ə": "e", "ş": "s", "ç": "c", "ğ": "g", "ö": "o", "ü": "u"})
+    text = text.translate(replacements)
+    return " ".join(text.split())
+
+
+def _tokenize(text: str) -> list[str]:
+    return [token for token in re.split(r"[^a-z0-9]+", _normalize_text(text)) if token]
+
+
+def _value_text(value: Any) -> str:
+    if isinstance(value, dict):
+        base = value.get("value")
+        if base is not None:
+            return str(base)
+        return json.dumps(value, ensure_ascii=False)
+    return str(value)
+
+
+def _search_score(query: str, category: str, key: str, value: Any, importance: int) -> int:
+    normalized_query = _normalize_text(query)
+    normalized_category = _normalize_text(category)
+    normalized_key = _normalize_text(key)
+    normalized_value = _normalize_text(_value_text(value))
+    score = max(0, min(int(importance), 100))
+
+    if normalized_query == normalized_key:
+        score += 100
+    elif normalized_query in normalized_key:
+        score += 60
+
+    if normalized_query == normalized_category:
+        score += 80
+    elif normalized_query in normalized_category:
+        score += 40
+
+    if normalized_query == normalized_value:
+        score += 70
+    elif normalized_query in normalized_value:
+        score += 35
+
+    query_tokens = [token for token in _tokenize(query) if len(token) >= 3]
+    entry_tokens = set(_tokenize(f"{category} {key} {_value_text(value)}"))
+    matched = sum(1 for token in query_tokens if any(token in entry or entry in token for entry in entry_tokens))
+    score += matched * 15
+    return score
 
 
 def upsert_memory(
@@ -103,6 +156,75 @@ def get_memory(
             }
             for row in rows
         ]
+
+
+def search_memories(
+    query: str,
+    *,
+    category: str | None = None,
+    user_id: int = 1,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """SQL yaddaş qeydlərini uyğunluq, əhəmiyyət və aktuallığa görə sıralayır."""
+    query = (query or "").strip()
+    if not query or limit <= 0:
+        return []
+
+    now = utc_now()
+    conditions = [
+        "user_id = ?",
+        "status = 'active'",
+        "(expires_at IS NULL OR expires_at > ?)",
+    ]
+    params: list[Any] = [user_id, now]
+
+    if category:
+        conditions.append("category = ?")
+        params.append(category)
+
+    with transaction() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT id, user_id, type, category, key, value, source,
+                   confidence, importance, status, created_at, updated_at,
+                   last_accessed_at, expires_at
+            FROM memories
+            WHERE {' AND '.join(conditions)}
+            """,
+            params,
+        ).fetchall()
+
+        results = []
+        for row in rows:
+            value = _deserialize_value(row["value"])
+            score = _search_score(query, row["category"], row["key"], value, row["importance"])
+            normalized_query = _normalize_text(query)
+            searchable = _normalize_text(
+                f"{row['category']} {row['key']} {_value_text(value)}"
+            )
+            if normalized_query not in searchable and not any(
+                token in searchable for token in _tokenize(query) if len(token) >= 3
+            ):
+                continue
+
+            item = {**dict(row), "value": value, "score": score}
+            results.append(item)
+
+        results.sort(key=lambda item: (item["score"], item["importance"], item["updated_at"]), reverse=True)
+        results = results[:limit]
+
+        if results:
+            accessed_at = utc_now()
+            ids = [item["id"] for item in results]
+            placeholders = ",".join("?" for _ in ids)
+            connection.execute(
+                f"UPDATE memories SET last_accessed_at = ? WHERE id IN ({placeholders})",
+                [accessed_at, *ids],
+            )
+            for item in results:
+                item["last_accessed_at"] = accessed_at
+
+        return results
 
 
 def get_deleted_memory_keys(*, user_id: int = 1) -> set[tuple[str, str]]:
