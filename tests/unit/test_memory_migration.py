@@ -4,7 +4,7 @@ import pytest
 
 import memory.database as db
 from memory.migrate_json import migrate_json_memory
-from memory.repository import get_memory
+from memory.repository import delete_memory, get_memory, upsert_memory
 
 
 @pytest.fixture
@@ -41,6 +41,7 @@ def test_migration_moves_only_approved_memory_sections(migration_environment):
     report = migrate_json_memory(source)
 
     assert report["migratable_count"] == 6
+    assert report["migrated_count"] == 6
     assert report["validated"] is True
     assert get_memory("identity", "display_name")[0]["value"] == {"value": "Abdulla"}
     assert get_memory("preferences", "chart_provider")[0]["value"] == {"value": "tradingview"}
@@ -56,11 +57,49 @@ def test_migration_is_idempotent(migration_environment):
     data = {"identity": {"display_name": {"value": "Abdulla"}}}
     write_json(source, data)
 
-    migrate_json_memory(source)
-    migrate_json_memory(source)
+    first = migrate_json_memory(source)
+    second = migrate_json_memory(source)
 
+    assert first["migrated_count"] == 1
+    assert second["migrated_count"] == 0
+    assert second["preserved_count"] == 1
     assert len(get_memory("identity", "display_name")) == 1
     assert get_memory("identity", "display_name")[0]["value"] == {"value": "Abdulla"}
+
+
+def test_migration_preserves_existing_matching_sql_memory(migration_environment):
+    source = migration_environment
+    write_json(source, {"identity": {"display_name": {"value": "Abdulla"}}})
+    upsert_memory("identity", "display_name", {"value": "Abdulla"}, source="user_explicit")
+
+    report = migrate_json_memory(source)
+
+    assert report["migrated_count"] == 0
+    assert report["preserved_count"] == 1
+    assert get_memory("identity", "display_name")[0]["source"] == "user_explicit"
+
+
+def test_migration_refuses_to_overwrite_conflicting_sql_memory(migration_environment):
+    source = migration_environment
+    write_json(source, {"identity": {"display_name": {"value": "Abdulla"}}})
+    upsert_memory("identity", "display_name", {"value": "Abu"}, source="user_explicit")
+
+    with pytest.raises(ValueError, match="SQL-də artıq mövcud"):
+        migrate_json_memory(source)
+
+    assert get_memory("identity", "display_name")[0]["value"] == {"value": "Abu"}
+
+
+def test_migration_does_not_resurrect_deleted_sql_memory(migration_environment):
+    source = migration_environment
+    write_json(source, {"identity": {"display_name": {"value": "Abdulla"}}})
+    upsert_memory("identity", "display_name", {"value": "Abdulla"})
+    assert delete_memory("identity", "display_name") is True
+
+    report = migrate_json_memory(source)
+
+    assert report["skipped_deleted_count"] == 1
+    assert get_memory("identity", "display_name") == []
 
 
 def test_migration_preserves_source_json(migration_environment):
