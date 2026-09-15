@@ -9,6 +9,7 @@ from pathlib import Path
 
 import memory.database as database
 from memory.repository import delete_memory as delete_sql_memory
+from memory.repository import get_deleted_memory_keys
 from memory.repository import get_memory as get_sql_memory
 from memory.repository import upsert_memory
 
@@ -40,6 +41,18 @@ def _memory_from_sql() -> dict:
     return memory
 
 
+def _mask_deleted_json_memory(json_memory: dict) -> dict:
+    """SQL-də silinmiş qeydləri JSON fallback-dan da gizlədir."""
+    masked = json.loads(json.dumps(json_memory, ensure_ascii=False))
+    for category, key in get_deleted_memory_keys():
+        bucket = masked.get(category)
+        if isinstance(bucket, dict):
+            bucket.pop(key, None)
+            if not bucket:
+                masked.pop(category, None)
+    return masked
+
+
 def _merge_memory_sources(sql_memory: dict, json_memory: dict) -> dict:
     """SQL qeydlərini üstün tutaraq JSON fallback məlumatını birləşdirir."""
     merged = json.loads(json.dumps(json_memory, ensure_ascii=False))
@@ -55,7 +68,7 @@ def load_memory() -> dict:
     """Yaddaşı SQL-dən oxuyur, miqrasiya dövründə JSON-u fallback saxlayır."""
     database.initialize_database()
     sql_memory = _memory_from_sql()
-    json_memory = _load_json_memory()
+    json_memory = _mask_deleted_json_memory(_load_json_memory())
     return _merge_memory_sources(sql_memory, json_memory)
 
 
@@ -119,7 +132,7 @@ def delete_memory(category: str = "", key: str = "", match_text: str = "") -> st
         json_memory = _load_json_memory()
         bucket = json_memory.get(category)
         if isinstance(bucket, dict) and key in bucket:
-            return f"Bu yaddaş qeydini tapa bilmədim."
+            return "Bu yaddaş qeydini tapa bilmədim."
         return "Bu yaddaş qeydini tapa bilmədim."
 
     needle = _normalize_text(match_text or key)
