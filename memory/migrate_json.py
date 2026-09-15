@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .database import get_connection, initialize_database
-from .repository import get_memory, upsert_memory
+from .repository import get_deleted_memory_keys, get_memory, upsert_memory
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_MEMORY_FILE = BASE_DIR / "memory" / "memory.json"
@@ -48,9 +48,20 @@ def _expected_map(data: dict[str, Any]) -> dict[tuple[str, str], Any]:
     }
 
 
-def _validate(expected: dict[tuple[str, str], Any], user_id: int) -> None:
-    """Miqrasiya olunmuş SQL məlumatını mənbə JSON ilə müqayisə edir."""
+def validate_json_migration(
+    data: dict[str, Any],
+    *,
+    user_id: int = 1,
+    skipped_deleted: set[tuple[str, str]] | None = None,
+) -> None:
+    """JSON mənbəyi ilə SQL yaddaşının uyğunluğunu və dublikatları yoxlayır."""
+    expected = _expected_map(data)
+    skipped_deleted = skipped_deleted or set()
+
     for (category, key), expected_value in expected.items():
+        if (category, key) in skipped_deleted:
+            continue
+
         rows = get_memory(category=category, key=key, user_id=user_id)
         if len(rows) != 1:
             raise ValueError(
@@ -88,15 +99,33 @@ def migrate_json_memory(
     user_id: int = 1,
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    """JSON yaddaşını SQL-ə idempotent şəkildə köçürür və nəticəni yoxlayır."""
+    """JSON yaddaşını SQL-ə təhlükəsiz və idempotent şəkildə köçürür."""
     source = Path(source_path)
     data = _load_source(source)
     expected = _expected_map(data)
 
     initialize_database()
+    deleted_keys = get_deleted_memory_keys(user_id=user_id)
+    migrated_count = 0
+    preserved_count = 0
+    skipped_deleted_count = 0
 
     if not dry_run:
         for (category, key), value in expected.items():
+            if (category, key) in deleted_keys:
+                skipped_deleted_count += 1
+                continue
+
+            existing = get_memory(category=category, key=key, user_id=user_id)
+            if existing:
+                if existing[0]["value"] != value:
+                    raise ValueError(
+                        f"SQL-də artıq mövcud olan {category}/{key} yaddaşı JSON-dan fərqlidir; "
+                        "mövcud SQL məlumatı dəyişdirilmədi."
+                    )
+                preserved_count += 1
+                continue
+
             upsert_memory(
                 category,
                 key,
@@ -104,11 +133,20 @@ def migrate_json_memory(
                 user_id=user_id,
                 source=MIGRATION_SOURCE,
             )
-        _validate(expected, user_id)
+            migrated_count += 1
+
+        validate_json_migration(
+            data,
+            user_id=user_id,
+            skipped_deleted=deleted_keys & set(expected),
+        )
 
     return {
         "source": str(source),
         "migratable_count": len(expected),
+        "migrated_count": migrated_count,
+        "preserved_count": preserved_count,
+        "skipped_deleted_count": skipped_deleted_count,
         "skipped_categories": sorted(EXCLUDED_CATEGORIES),
         "dry_run": dry_run,
         "validated": not dry_run,
@@ -124,6 +162,9 @@ def main() -> int:
 
     report = migrate_json_memory(args.source, user_id=args.user_id, dry_run=args.dry_run)
     print(f"Miqrasiya ediləcək yaddaş qeydləri: {report['migratable_count']}")
+    print(f"Yeni köçürülən: {report['migrated_count']}")
+    print(f"SQL-də əvvəlcədən mövcud və qorunan: {report['preserved_count']}")
+    print(f"Silinmiş SQL qeydləri səbəbilə keçilən: {report['skipped_deleted_count']}")
     print(f"Keçilməyən bölmələr: {', '.join(report['skipped_categories'])}")
     if report["dry_run"]:
         print("Dry-run tamamlandı; SQL məlumatına dəyişiklik edilmədi.")
