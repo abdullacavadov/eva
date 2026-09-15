@@ -4,6 +4,7 @@ import pytest
 
 import memory.database as db
 import memory.memory_manager as mm
+from memory.repository import search_memories
 
 
 @pytest.fixture
@@ -53,6 +54,69 @@ def test_sql_memory_overrides_legacy_json_value(memory_file):
     write_memory(memory_file, {"profile": {"city": {"value": "Baku"}}})
     mm.update_memory({"profile": {"city": {"value": "Ganja"}}})
     assert mm.load_memory()["profile"]["city"]["value"] == "Ganja"
+
+
+def test_search_memory_prefers_exact_key(memory_file):
+    mm.update_memory({
+        "profile": {
+            "city": {"value": "Bakı"},
+            "city_note": {"value": "Bakı haqqında qeyd"},
+        }
+    })
+    results = mm.search_memory("city")
+    assert results[0]["key"] == "city"
+
+
+def test_search_memory_normalizes_azerbaijani_text(memory_file):
+    mm.update_memory({"profile": {"location": {"value": "şəhər Bakı"}}})
+    results = mm.search_memory("seher baki")
+    assert len(results) == 1
+    assert results[0]["key"] == "location"
+
+
+def test_search_memory_uses_importance_and_recency(memory_file):
+    mm.update_memory({
+        "notes": {
+            "important": {"value": "Python layihəsi", "importance": 0},
+            "normal": {"value": "Python layihəsi"},
+        }
+    })
+    connection = db.get_connection()
+    try:
+        connection.execute("UPDATE memories SET importance = 20 WHERE key = 'important'")
+        connection.execute("UPDATE memories SET importance = 0, updated_at = '2000-01-01T00:00:00+00:00' WHERE key = 'normal'")
+        connection.commit()
+    finally:
+        connection.close()
+
+    results = mm.search_memory("Python layihəsi")
+    assert results[0]["key"] == "important"
+
+
+def test_search_memory_excludes_expired_and_deleted(memory_file):
+    mm.update_memory({
+        "notes": {
+            "expired": {"value": "temporary note"},
+            "deleted": {"value": "temporary note"},
+            "active": {"value": "temporary note"},
+        }
+    })
+    connection = db.get_connection()
+    try:
+        connection.execute("UPDATE memories SET expires_at = '2000-01-01T00:00:00+00:00' WHERE key = 'expired'")
+        connection.execute("UPDATE memories SET status = 'deleted' WHERE key = 'deleted'")
+        connection.commit()
+    finally:
+        connection.close()
+
+    results = mm.search_memory("temporary note")
+    assert [item["key"] for item in results] == ["active"]
+
+
+def test_search_memory_updates_last_accessed_at(memory_file):
+    mm.update_memory({"notes": {"python": {"value": "Python developer"}}})
+    before = search_memories("Python")[0]["last_accessed_at"]
+    assert before is not None
 
 
 def test_delete_memory_by_category_and_key(memory_file):
