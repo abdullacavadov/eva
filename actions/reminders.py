@@ -6,7 +6,7 @@ from datetime import datetime, time
 
 from core.results import empty, error, success
 from integrations.google.tasks import complete_task, create_task, delete_task, list_tasks, resolve_task_list_id, update_task
-from memory.memory_manager import load_memory, update_memory, _write_memory
+from memory.memory_manager import load_memory, update_memory
 
 
 def _parse_due(value: str, all_day: bool = False) -> str:
