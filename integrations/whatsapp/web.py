@@ -42,7 +42,7 @@ class WhatsAppWebBridge:
     def __init__(self, user_data_dir: str, headless: bool = False, cdp_url: str | None = None) -> None:
         self.user_data_dir = user_data_dir
         self.headless = headless
-        self.cdp_url = cdp_url or os.getenv("EVA_WHATSAPP_CDP_URL")
+        self.cdp_url = cdp_url or os.getenv("VICTOR_WHATSAPP_CDP_URL")
         self._playwright = None
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
@@ -64,7 +64,7 @@ class WhatsAppWebBridge:
         cdp_url = self.cdp_url or "http://127.0.0.1:9223"
 
         if self.cdp_url is None and not self._cdp_available(cdp_url):
-            self._start_eva_chrome(cdp_url)
+            self._start_victor_chrome(cdp_url)
 
         self._browser = self._connect_cdp_with_retry(cdp_url)
         contexts = self._browser.contexts
@@ -131,9 +131,9 @@ class WhatsAppWebBridge:
         except Exception as exc:
             print(f"[WhatsApp] body diagnostic error: {exc}")
 
-    def _start_eva_chrome(self, cdp_url: str) -> None:
+    def _start_victor_chrome(self, cdp_url: str) -> None:
         port = cdp_url.rsplit(":", 1)[-1]
-        chrome = os.getenv("EVA_WHATSAPP_CHROME") or self._find_chrome()
+        chrome = os.getenv("VICTOR_WHATSAPP_CHROME") or self._find_chrome()
         profile_dir = Path(self.user_data_dir).expanduser().resolve()
         profile_dir.mkdir(parents=True, exist_ok=True)
 
@@ -187,7 +187,7 @@ class WhatsAppWebBridge:
         for candidate in candidates:
             if os.path.exists(candidate):
                 return candidate
-        raise RuntimeError("Google Chrome tapılmadı. EVA_WHATSAPP_CHROME təyin edin.")
+        raise RuntimeError("Google Chrome tapılmadı. VICTOR_WHATSAPP_CHROME təyin edin.")
 
     def get_visible_conversations(self) -> list[WhatsAppVisibleConversation]:
         page = self._require_page()

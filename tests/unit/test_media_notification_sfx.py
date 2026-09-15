@@ -1,7 +1,7 @@
 from actions import media
 
 
-def test_media_notification_sfx_uses_eva_callback():
+def test_media_notification_sfx_uses_victor_callback():
     calls = []
     media.set_media_notification_sfx(lambda: calls.append("done"))
 

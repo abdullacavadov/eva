@@ -1,6 +1,6 @@
-import type { EvaContext } from '../types/eva'
+import type { VictorContext } from '../types/victor.ts'
 
-export function ContextPanel({ context }: { context: EvaContext }) {
+export function ContextPanel({ context }: { context: VictorContext }) {
   return (
     <section className="panel context-panel">
       <div className="panel-heading"><span>AKTİV KONTEKST</span><small>{context.source ?? 'VICTOR'}</small></div>

@@ -41,8 +41,8 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
       const frame = (event as CustomEvent<string>).detail
       if (typeof frame === 'string' && frame) setPreview(frame)
     }
-    window.addEventListener('eva:webcam-frame', handleWebcamFrame)
-    return () => window.removeEventListener('eva:webcam-frame', handleWebcamFrame)
+    window.addEventListener('victor:webcam-frame', handleWebcamFrame)
+    return () => window.removeEventListener('victor:webcam-frame', handleWebcamFrame)
   }, [])
 
   const finishClose = () => {
@@ -122,7 +122,7 @@ export function ControlPanel({ onCommand, paused, cameraActive, microphoneMuted,
   return (
     <>
       <section className="panel control-panel">
-        <div className="panel-heading"><span>EVA NƏZARƏT PANELİ</span></div>
+        <div className="panel-heading"><span>VICTOR NƏZARƏT PANELİ</span></div>
         <div className="control-grid">
           {controls.map(({ command, icon, tone }) => {
             const active = (command === 'pause' && paused) || (command === 'camera' && cameraActive) || (command === 'microphone' && !microphoneMuted)

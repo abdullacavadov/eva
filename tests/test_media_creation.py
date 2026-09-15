@@ -38,7 +38,7 @@ def test_prepare_frame_writes_standardized_png(tmp_path):
     target = tmp_path / "frame.png"
     Image.new("RGB", (640, 480), (20, 30, 40)).save(source)
 
-    _prepare_frame(source, target, width=1280, height=720, text="EVA")
+    _prepare_frame(source, target, width=1280, height=720, text="VICTOR")
 
     with Image.open(target) as rendered:
         assert rendered.size == (1280, 720)

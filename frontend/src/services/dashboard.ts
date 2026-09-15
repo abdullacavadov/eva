@@ -1,6 +1,6 @@
 import type { DashboardData } from '../types/dashboard'
 
-const CACHE_KEY = 'eva.dashboard.snapshot.v1'
+const CACHE_KEY = 'victor.dashboard.snapshot.v1'
 
 function readCachedDashboard(): DashboardData | null {
   try {

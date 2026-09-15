@@ -1,15 +1,15 @@
-import type { EvaEvent } from '../types/eva'
+import type { VictorEvent } from '../types/victor.ts'
 
-export interface EvaTransport {
+export interface VictorTransport {
   connect(): void
   disconnect(): void
-  send(event: EvaEvent): void
-  subscribe(listener: (event: EvaEvent) => void): () => void
+  send(event: VictorEvent): void
+  subscribe(listener: (event: VictorEvent) => void): () => void
 }
 
-export class EvaWebSocketTransport implements EvaTransport {
+export class VictorWebSocketTransport implements VictorTransport {
   private socket: WebSocket | null = null
-  private listeners = new Set<(event: EvaEvent) => void>()
+  private listeners = new Set<(event: VictorEvent) => void>()
 
   constructor(private readonly url = 'ws://localhost:8765') {}
 
@@ -18,7 +18,7 @@ export class EvaWebSocketTransport implements EvaTransport {
     this.socket = new WebSocket(this.url)
     this.socket.onmessage = (message) => {
       try {
-        const event = JSON.parse(message.data) as EvaEvent
+        const event = JSON.parse(message.data) as VictorEvent
         this.listeners.forEach((listener) => listener(event))
       } catch {
         // Malformed gateway events are ignored until the backend contract is active.
@@ -34,13 +34,13 @@ export class EvaWebSocketTransport implements EvaTransport {
     this.socket = null
   }
 
-  send(event: EvaEvent) {
+  send(event: VictorEvent) {
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify(event))
     }
   }
 
-  subscribe(listener: (event: EvaEvent) => void) {
+  subscribe(listener: (event: VictorEvent) => void) {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }

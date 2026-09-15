@@ -6,7 +6,7 @@ def test_audio_disabled_never_speaks():
     assert policy.should_speak(speaking=False, muted=False, paused=False) is False
 
 
-def test_audio_does_not_interrupt_eva_speaking():
+def test_audio_does_not_interrupt_victor_speaking():
     policy = ProactiveAudioPolicy()
     assert policy.should_speak(speaking=True, muted=False, paused=False) is False
 

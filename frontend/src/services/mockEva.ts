@@ -1,4 +1,4 @@
-import type { ActivityItem, VictorContext, VictorEvent, VictorState } from '../types/victor'
+import type { ActivityItem, VictorContext, VictorEvent, VictorState } from '../types/victor.ts'
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 

@@ -18,7 +18,7 @@ import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import '../styles/settings.css';
 
 const WS_URL =
-  import.meta.env.VITE_EVA_WS_URL ||
+  import.meta.env.VITE_VICTOR_WS_URL ||
   `ws://${window.location.hostname || '127.0.0.1'}:8765`;
 const VOICES = [
   'Charon',

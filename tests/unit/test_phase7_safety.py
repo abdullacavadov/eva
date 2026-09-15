@@ -30,7 +30,7 @@ def test_confirmation_executes_exact_pending_calendar_action_once():
     delete.assert_called_once_with("Test", "2026-09-02T10:00:00", "", False)
 
 
-def test_eva_reminder_is_separate_from_google_tasks(monkeypatch):
+def test_victor_reminder_is_separate_from_google_tasks(monkeypatch):
     import actions.victor_reminders as reminders
     memory = {}
     monkeypatch.setattr(reminders, "load_memory", lambda: memory)

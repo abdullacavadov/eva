@@ -30,4 +30,4 @@ def test_slideshow_provider_rejects_invalid_payload():
 def test_existing_youtube_playback_path_is_preserved(monkeypatch):
     monkeypatch.setattr(media, "_play_youtube", lambda query: f"youtube:{query}")
 
-    assert media.play_media("EVA music", provider="youtube") == "youtube:EVA music"
+    assert media.play_media("VICTOR music", provider="youtube") == "youtube:VICTOR music"

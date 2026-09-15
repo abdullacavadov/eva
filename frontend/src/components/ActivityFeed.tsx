@@ -1,4 +1,4 @@
-import type { ActivityItem } from '../types/eva'
+import type { ActivityItem } from '../types/victor.ts'
 
 export function ActivityFeed({ items }: { items: ActivityItem[] }) {
   return (

@@ -1,4 +1,4 @@
-import type { EvaContext } from './eva'
+import type { VictorContext } from './victor'
 
 export interface DashboardOverview {
   calendar_events: number | null
@@ -34,5 +34,5 @@ export interface DashboardData {
   overview: DashboardOverview
   weather: DashboardWeather
   system: DashboardSystem
-  context: EvaContext
+  context: VictorContext
 }

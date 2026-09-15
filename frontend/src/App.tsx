@@ -29,7 +29,7 @@ import { VictorOrb } from './components/VictorOrb';
 import { fetchDashboard } from './services/dashboard';
 import { useVictorConnection } from './services/useVictorConnection';
 import type { DashboardData } from './types/dashboard';
-import type { ActivityItem, EvaContext, EvaEvent, EvaState } from './types/eva';
+import type { ActivityItem, VictorContext, VictorEvent, VictorState } from './types/victor.ts';
 import './styles/globals.css';
 import './styles/responsive.css';
 import AzCalendar from './components/Calendar';
@@ -37,7 +37,7 @@ import { ActivityFeed } from './components/ActivityFeed';
 
 
 
-const initialContext: EvaContext = { items: [] };
+const initialContext: VictorContext = { items: [] };
 const emptyDashboard: DashboardData = {
   ok: false,
   overview: {
@@ -57,7 +57,7 @@ const emptyDashboard: DashboardData = {
   },
   context: initialContext,
 };
-const stateStatusLabel: Record<EvaState, string> = {
+const stateStatusLabel: Record<VictorState, string> = {
   IDLE: 'SİSTEM HAZIRDIR',
   LISTENING: 'VICTOR DİNLƏYİR',
   SPEAKING: 'VICTOR DANIŞIR',
@@ -130,10 +130,10 @@ function getWeatherIcon(weatherCode: number | undefined) {
 }
 
 export default function App() {
-  const [state, setState] = useState<EvaState>('IDLE');
+  const [state, setState] = useState<VictorState>('IDLE');
   const [messages, setMessages] = useState<Message[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
-  const [context, setContext] = useState<EvaContext>(initialContext);
+  const [context, setContext] = useState<VictorContext>(initialContext);
   const [online, setOnline] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardData>(emptyDashboard);
   const [now, setNow] = useState(() => new Date());
@@ -141,7 +141,7 @@ export default function App() {
   const [cameraActive, setCameraActive] = useState(false);
   const [microphoneMuted, setMicrophoneMuted] = useState(false);
 
-  const applyEvent = (event: EvaEvent) => {
+  const applyEvent = (event: VictorEvent) => {
     if (event.type === 'connection.ready') setOnline(true);
 
     if (event.type === 'runtime.snapshot') {
@@ -228,7 +228,7 @@ export default function App() {
       ]);
   };
 
-  const { connected, sendText, sendControl } = useEvaConnection(applyEvent);
+  const { connected, sendText, sendControl } = useVictorConnection(applyEvent);
   useEffect(() => setOnline(connected), [connected]);
 
   useEffect(() => {

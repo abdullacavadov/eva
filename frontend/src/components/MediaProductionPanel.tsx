@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faFilm, faXmark, faCheck, faSpinner, faTriangleExclamation, faImage, faMicrophone, faMusic, faLayerGroup, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons'
-import type { MediaProductionEvent } from '../types/eva'
+import type { MediaProductionEvent } from '../types/victor.ts'
 import '../styles/media-production.css'
 
 const STAGES = [
@@ -55,8 +55,8 @@ export function MediaProductionPanel() {
       setEvent((current) => ({ ...current, ...detail }))
       if (detail.status === 'running') setOpen(true)
     }
-    window.addEventListener('eva:media-production', handler)
-    return () => window.removeEventListener('eva:media-production', handler)
+    window.addEventListener('victor:media-production', handler)
+    return () => window.removeEventListener('victor:media-production', handler)
   }, [])
 
   const visibleStages = useMemo(() => {

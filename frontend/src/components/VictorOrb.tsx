@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import * as d3 from 'd3';
 import type { FeatureCollection, Geometry } from 'geojson';
-import type { EvaState } from '../types/eva';
+import type { VictorState } from '../types/victor.ts';
 
 interface OrbProps {
-  state: EvaState;
+  state: VictorState;
 }
 
 interface LandProperties {
@@ -101,7 +101,7 @@ const SATELLITE_ORBITS: SatelliteOrbit[] = [
   },
 ];
 
-const STATE_COLORS: Record<EvaState, [number, number, number]> = {
+const STATE_COLORS: Record<VictorState, [number, number, number]> = {
   IDLE: [0, 255, 136],
   LISTENING: [0, 255, 136],
   SPEAKING: [68, 136, 255],
@@ -147,7 +147,7 @@ export function VictorOrb({ state }: OrbProps) {
   const audioLevelRef = useRef(0);
   const satelliteTimeRef = useRef(0);
   const pulseStartRef = useRef<number | null>(null);
-  const prevStateRef = useRef<EvaState>(state);
+  const prevStateRef = useRef<VictorState>(state);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(
     'loading'
   );
@@ -181,9 +181,9 @@ export function VictorOrb({ state }: OrbProps) {
       audioLevelRef.current = Math.max(0, Math.min(1, Number(level) || 0));
     };
 
-    window.addEventListener('eva:audio-level', handleAudioLevel);
+    window.addEventListener('victor:audio-level', handleAudioLevel);
     return () =>
-      window.removeEventListener('eva:audio-level', handleAudioLevel);
+      window.removeEventListener('victor:audio-level', handleAudioLevel);
   }, []);
 
   // Trigger a pulse whenever state changes

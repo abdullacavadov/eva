@@ -9,7 +9,7 @@ def test_live_context_metrics_reports_system_memory_and_tools(capsys, monkeypatc
             "system_instruction": (
                 "[İSTİFADƏÇİ HAQQINDA MƏLUMATLAR]\n"
                 "  preferences/name: Abdulla\n\n"
-                "Sən EVA-san — test prompt."
+                "Sən VICTOR-san — test prompt."
             ),
             "tools": [
                 {

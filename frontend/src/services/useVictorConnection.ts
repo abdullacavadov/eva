@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { VictorEvent } from '../types/victor'
+import type { VictorEvent } from '../types/victor.ts'
 
 const DEFAULT_WS_URL = `ws://${window.location.hostname || '127.0.0.1'}:8765`
-const WS_URL = import.meta.env.VITE_EVA_WS_URL || DEFAULT_WS_URL
+const WS_URL = import.meta.env.VITE_VICTOR_WS_URL || DEFAULT_WS_URL
 const RECONNECT_DELAY_MS = 1500
 
 type ControlCommand = 'shutdown' | 'restart' | 'pause' | 'camera' | 'microphone'
@@ -43,19 +43,19 @@ export function useVictorConnection(onEvent: (event: VictorEvent) => void) {
         try {
           const event = JSON.parse(message.data) as VictorEvent
           if (event.type === 'webcam.frame') {
-            window.dispatchEvent(new CustomEvent('eva:webcam-frame', { detail: event.data }))
+            window.dispatchEvent(new CustomEvent('victor:webcam-frame', { detail: event.data }))
           }
           if (event.type === 'control.state') {
-            window.dispatchEvent(new CustomEvent('eva:control-state', { detail: event.control }))
+            window.dispatchEvent(new CustomEvent('victor:control-state', { detail: event.control }))
           }
           if (event.type === 'runtime.snapshot' && event.control) {
-            window.dispatchEvent(new CustomEvent('eva:control-state', { detail: event.control }))
+            window.dispatchEvent(new CustomEvent('victor:control-state', { detail: event.control }))
           }
           if (event.type === 'audio.level') {
-            window.dispatchEvent(new CustomEvent('eva:audio-level', { detail: event.level }))
+            window.dispatchEvent(new CustomEvent('victor:audio-level', { detail: event.level }))
           }
           if (event.type === 'media.production') {
-            window.dispatchEvent(new CustomEvent('eva:media-production', { detail: event.data }))
+            window.dispatchEvent(new CustomEvent('victor:media-production', { detail: event.data }))
           }
           onEventRef.current(event)
         } catch {
